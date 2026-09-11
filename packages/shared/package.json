@@ -1,0 +1,1 @@
+{ "name": "@kartishki/shared", "version": "0.1.0", "private": true, "type": "module", "exports": { ".": "./src/index.ts", "./photo": "./src/photo.ts" }, "dependencies": { "@colyseus/schema": "^5.0.27" } }

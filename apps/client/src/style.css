@@ -1,0 +1,120 @@
+﻿@import '@fontsource/neucha/latin.css';
+@import '@fontsource/neucha/cyrillic.css';
+@import '@fontsource/pt-mono/latin.css';
+@import '@fontsource/pt-mono/cyrillic.css';
+@import '@fontsource/russo-one/latin.css';
+@import '@fontsource/russo-one/cyrillic.css';
+@import 'tailwindcss';
+
+/* Noir comic base plus the five rarity tiers used by frames, gems and glows. */
+@theme {
+  --color-paper: #efece4;
+  --color-ink: #1a1a1a;
+  --color-blood: #d92525;
+  --color-toxic: #2e8b57;
+  --color-pencil: #808080;
+  --color-common: #6b7280;
+  --color-common-deep: #4b5563;
+  --color-rare: #3b82f6;
+  --color-rare-deep: #2563eb;
+  --color-epic: #a855f7;
+  --color-epic-deep: #9333ea;
+  --color-legendary: #f59e0b;
+  --color-legendary-deep: #eab308;
+  --color-ultimate: #06b6d4;
+  --color-ultimate-deep: #e0f2fe;
+  --font-hand: 'Neucha', cursive;
+  --font-mono: 'PT Mono', monospace;
+  --font-stencil: 'Russo One', sans-serif;
+}
+
+@keyframes foil-sweep { from { background-position: -160% 0; } to { background-position: 260% 0; } }
+@keyframes gem-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.7); } }
+@keyframes gold-spark { 0%, 100% { opacity: .15; transform: translateY(0) scale(.7); } 50% { opacity: 1; transform: translateY(-7px) scale(1.2); } }
+.foil-sheen::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen;
+  background: linear-gradient(110deg, transparent 32%, #06b6d4aa 44%, #e0f2fecc 50%, #a855f7aa 56%, transparent 68%);
+  background-size: 260% 100%; animation: foil-sweep 2.6s linear infinite;
+}
+.gem-pulse { animation: gem-pulse 1.8s ease-in-out infinite; }
+.legendary-spark { animation: gold-spark 1.7s ease-in-out infinite; }
+.ink-edge { clip-path: polygon(1% 2%, 99% 0, 100% 98%, 2% 100%); }
+.ultimate-fracture { clip-path: polygon(3% 0, 18% 3%, 41% 0, 62% 4%, 84% 1%, 100% 6%, 97% 28%, 100% 52%, 95% 78%, 100% 100%, 76% 97%, 52% 100%, 28% 96%, 0 100%, 3% 74%, 0 48%, 4% 22%); }
+
+:root {
+  font-family: 'PT Mono', monospace; color: #1a1a1a; background: #0d0d0d; color-scheme: light;
+  --paper: #efece4; --ink: #1a1a1a; --blood: #d92525; --pencil: #808080; --acid: #7ed321; --gold: #f5a623;
+}
+* { box-sizing: border-box; }
+html { overflow-x: hidden; }
+body { margin: 0; }
+p { line-height: 1.55; }
+a { color: inherit; }
+[role=alert] { color: var(--blood); }
+
+/* Battlefield canvas: the Pixi scene always fills the slot its screen gives it. */
+.board-wrap { position: relative; width: 100%; height: 100%; }
+.board { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--paper); }
+.board canvas { display: block; width: 100%; height: 100%; }
+.connection { display: inline-flex; align-items: center; gap: 8px; }
+.connection:before { content: ''; width: 8px; height: 8px; background: var(--pencil); border: 1px solid var(--ink); transform: rotate(12deg); }
+.connection.active:before { background: var(--acid); }
+.connection.waiting:before, .connection.connecting:before { background: var(--gold); }
+
+/* Inspect overlay: enlarged card plus one window per keyword. */
+.inspect { position: absolute; top: 34%; z-index: 5; display: flex; gap: 12px; align-items: flex-start; pointer-events: none; }
+.inspect.left { left: 18px; }
+.inspect.right { right: 18px; }
+.inspect-card { width: 260px; background: var(--paper); border: 3px solid var(--ink); box-shadow: 8px 10px 0 #1a1a1a44; padding: 10px 10px 14px; position: relative; flex: none; }
+.inspect-cost { position: absolute; top: 8px; left: 8px; z-index: 1; background: var(--ink); color: var(--paper); min-width: 32px; height: 32px; display: grid; place-items: center; font-family: 'Russo One', sans-serif; font-size: 18px; }
+.inspect-art { min-height: 200px; }
+.inspect-art canvas { width: 100%; display: block; border: 1px solid var(--ink); }
+.inspect-card h2 { overflow-wrap: anywhere; font-family: 'Neucha', cursive; font-size: 28px; margin: 10px 4px 2px; line-height: 1.1; }
+.inspect-meta { margin: 0 4px; font-size: 11px; color: #5e5b54; }
+.inspect-text { font-size: 13px; min-height: 44px; margin: 8px 4px 0; line-height: 1.35; white-space: pre-wrap; }
+.inspect-stats { display: flex; justify-content: space-between; margin: 12px 4px 0; font-family: 'Russo One', sans-serif; font-size: 18px; }
+.inspect-hints { display: grid; gap: 8px; }
+.inspect-hint { width: 200px; border: 2px solid var(--ink); background: var(--paper); padding: 8px 10px; box-shadow: 4px 4px 0 #1a1a1a33; font-size: 12px; }
+.inspect-hint strong { font-family: 'Neucha', cursive; font-size: 18px; display: block; }
+.inspect-hint p { margin: 4px 0 0; line-height: 1.35; }
+
+/* ---- Card editor chrome (apps/editor) ---- */
+main.editor { max-width: 1680px; margin: 16px auto; padding: 22px 28px; background: var(--paper); box-shadow: 7px 9px 0 #1a1a1a26; border: 1px solid #1a1a1a55; position: relative; }
+main.editor > header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--ink); padding-bottom: 20px; }
+h1 { font-family: 'Neucha', cursive; font-size: 64px; letter-spacing: 4px; margin: 6px 0 0; line-height: 1.1; }
+main.editor button, main.editor select, main.editor input, main.editor textarea {
+  font: inherit; padding: 10px 13px; border: 2px solid var(--ink); border-radius: 0; background: var(--paper); color: var(--ink);
+}
+main.editor button { cursor: pointer; box-shadow: 3px 3px 0 var(--ink); font-size: 12px; }
+main.editor button:hover:enabled { background: repeating-linear-gradient(-35deg, #1a1a1a0e 0 1px, transparent 1px 4px), var(--paper); }
+main.editor button:disabled { color: #808080; border-color: #808080; box-shadow: none; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid var(--blood); outline-offset: 4px; }
+main.editor label { display: grid; gap: 8px; margin: 18px 0; max-width: 450px; font-size: 13px; }
+.editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.toolbar, .publish { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.stats-fields { display: flex; gap: 12px; }
+.stats-fields input { width: 100%; min-width: 0; }
+fieldset { border: 1px solid var(--ink); padding: 18px; margin: 20px 0; }
+legend { font-family: 'Neucha', cursive; font-size: 22px; }
+.check { display: flex; align-items: center; accent-color: var(--blood); }
+.ability { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+.ability input, .ability select { min-width: 0; width: 100%; }
+.editor-inspect { position: static; max-height: none; margin: 0 0 18px; }
+.audio-row { margin-bottom: 12px; }
+textarea { min-height: 80px; width: 100%; }
+input[type=file] { max-width: 100%; font-size: 11px; }
+input[type=range], input[type=checkbox] { accent-color: var(--blood); }
+audio { max-width: 100%; }
+
+@media (max-width: 750px) {
+  main.editor { margin: 12px; padding: 18px; }
+  .editor-grid { grid-template-columns: 1fr; }
+  .ability { grid-template-columns: 1fr; }
+  h1 { font-size: 34px; letter-spacing: 2px; }
+  .inspect { left: 6px !important; right: auto !important; flex-wrap: wrap; max-width: calc(100% - 12px); }
+  .inspect-card { width: 190px; }
+  .inspect-hint { width: min(180px, calc(100vw - 48px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foil-sheen::after, .gem-pulse, .legendary-spark { animation: none; }
+}

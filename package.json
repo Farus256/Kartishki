@@ -1,0 +1,32 @@
+{
+  "name": "kartishki",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,client,editor \"npm run dev -w @kartishki/server\" \"npm run dev -w @kartishki/client\" \"npm run dev -w @kartishki/editor\"",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run build -w @kartishki/client && npm run build -w @kartishki/editor && npm run build -w @kartishki/server",
+    "test": "tsx --test apps/server/test/*.test.ts",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "concurrently": "^9.0.0",
+    "tailwindcss": "^4.3.3",
+    "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "~5.9.3",
+    "vite": "^6.4.0"
+  }
+}

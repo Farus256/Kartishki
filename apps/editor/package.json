@@ -1,0 +1,1 @@
+{ "name": "@kartishki/editor", "version": "0.1.0", "private": true, "type": "module", "scripts": { "dev": "vite --host 127.0.0.1 --port 5174 --strictPort", "build": "vite build" }, "dependencies": { "@kartishki/shared": "*", "@kartishki/i18n": "*", "react": "^19.0.0", "react-dom": "^19.0.0", "react-i18next": "^16.0.0" } }
