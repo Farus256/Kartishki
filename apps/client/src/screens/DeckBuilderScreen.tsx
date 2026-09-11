@@ -5,16 +5,19 @@ import i18n from '@kartishki/i18n';
 import { DECK_SIZE, type CardDefinition } from '@kartishki/shared';
 import { playerSession } from '../playerSession';
 import { Backdrop } from '../ui/Backdrop';
-import { GameCard } from '../ui/GameCard';
+import { GameCard, LockedSlot } from '../ui/GameCard';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
 import { rarityOrder } from '../ui/rarity';
+import { useCardArt } from '../ui/cardArt';
 import { useCatalog } from '../ui/useCatalog';
 
-const PER_PAGE = 10;
+const PER_PAGE = 8;
+const CARD_SCALE = 1.04;
 const CURVE = [0, 1, 2, 3, 4, 5, 6, 7];
+const EMPTY_ART = { url: '', crop: { x: 0.5, y: 0.22, size: 1 }, threshold: 0.5, contrast: 1.5 } as const;
 
-export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
+export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onShop?: () => void }) {
   const { t } = useTranslation();
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const catalog = useCatalog();
@@ -39,7 +42,6 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
   const safePage = Math.min(page, pages - 1);
   const slice = visible.slice(safePage * PER_PAGE, safePage * PER_PAGE + PER_PAGE);
   const used = (id: string) => draft.filter(card => card === id).length;
-  const label = (id: string) => { const c = catalog.find(item => item.id === id); return c?.name[i18n.language] || c?.name.ru || id; };
   const curve = CURVE.map(cost => draft.filter(id => {
     const card = catalog.find(item => item.id === id);
     return card && (cost === 7 ? card.cost >= 7 : card.cost === cost);
@@ -58,18 +60,17 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
   return (
     <div className="absolute inset-0">
       <Backdrop />
-      <TopBar right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
+      <TopBar onPlus={onShop} right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
 
-      {/* Card binder */}
-      <section className="absolute top-[86px] bottom-0 left-0 w-[1070px] border-r-[4px] border-ink px-[38px] pt-[16px]">
+      <section className="absolute top-[100px] bottom-0 left-0 w-[1070px] overflow-visible border-r-[4px] border-ink px-[28px] pt-[8px]">
         <div className="flex items-center gap-3">
-          <h2 className="font-hand text-[34px] text-ink">{t('binder')}</h2>
+          <h2 className="font-hand text-[28px] text-ink">{t('binder')}</h2>
           <input value={search} placeholder={t('searchCard')} aria-label={t('searchCard')}
             onChange={e => { setSearch(e.target.value); setPage(0); }}
             className="ml-auto w-[250px] border-[3px] border-ink bg-paper px-3 py-[6px] font-mono text-[13px] outline-none focus:border-blood" />
         </div>
 
-        <div className="mt-3 flex h-[32px] items-center gap-2">
+        <div className="mt-2 flex h-[32px] items-center gap-2">
           {(['all', ...rarityOrder] as const).map(key => (
             <button key={key} onClick={() => { setRarity(key); setPage(0); }}
               className={`border-[2px] border-ink px-3 py-[5px] font-mono text-[11px] ${rarity === key ? 'bg-ink text-paper' : 'bg-paper text-ink'}`}>
@@ -78,7 +79,6 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
           ))}
         </div>
 
-        {/* Rotated diamonds need a square cell of their own, otherwise they cut into the grid. */}
         <div className="mt-1 flex h-[42px] items-center gap-[3px]">
           <span className="mr-2 font-mono text-[11px] text-ink/50">{t('cost')}</span>
           {(['all', 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map(value => (
@@ -93,19 +93,20 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
 
         <AnimatePresence mode="wait">
           <motion.div key={`${safePage}-${rarity}-${mana}-${search}`}
-            className="mt-3 grid grid-cols-5 gap-x-[22px] gap-y-[16px]"
+            className="mt-2 mb-[52px] grid grid-cols-4 justify-items-center gap-x-6 gap-y-10 overflow-visible px-1 pt-2"
             initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.18 }}>
-            {slice.map(card => {
+            {Array.from({ length: PER_PAGE }, (_, index) => {
+              const card = slice[index];
+              if (!card) return <LockedSlot key={`empty-${index}`} scale={CARD_SCALE} />;
               const copies = owned.get(card.id) ?? 0;
-              return <GameCard key={card.id} card={card} scale={0.92} owned={copies > 0}
-                copies={copies > 0 ? `${used(card.id)}/${copies}` : undefined}
+              return <GameCard key={card.id} card={card} scale={CARD_SCALE} owned={copies > 0}
                 dim={copies > 0 && used(card.id) >= copies}
                 onClick={copies > 0 ? () => add(card) : undefined} />;
             })}
           </motion.div>
         </AnimatePresence>
 
-        <div className="absolute bottom-[18px] left-[38px] flex items-center gap-4">
+        <div className="absolute bottom-[14px] left-[28px] flex items-center gap-4">
           <InkButton size="sm" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>←</InkButton>
           <span className="font-mono text-[12px]">{t('page')} {safePage + 1} / {pages}</span>
           <InkButton size="sm" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}>→</InkButton>
@@ -113,14 +114,15 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
         </div>
       </section>
 
-      {/* Active deck tray */}
-      <aside className="absolute top-[86px] right-0 bottom-0 flex w-[530px] flex-col bg-paper px-[30px] pt-[18px]">
-        <select aria-label={t('decks')} value={player.selectedDeck} onChange={e => playerSession.selectDeck(e.target.value)}
-          className="border-[3px] border-ink bg-paper px-3 py-2 font-mono text-[13px]">
-          {player.library?.decks.map(deck => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
-        </select>
+      <aside className="absolute top-[100px] right-0 bottom-0 flex w-[530px] flex-col bg-paper px-[24px] pt-[14px]">
         <input value={name} maxLength={60} aria-label={t('deckName')} onChange={e => setName(e.target.value)}
-          className="mt-3 border-[3px] border-ink bg-paper px-3 py-2 font-hand text-[26px] outline-none focus:border-blood" />
+          className="border-[3px] border-ink bg-paper px-3 py-2 font-hand text-[26px] outline-none focus:border-blood" />
+        {(player.library?.decks.length ?? 0) > 1 && (
+          <select aria-label={t('decks')} value={player.selectedDeck} onChange={e => playerSession.selectDeck(e.target.value)}
+            className="mt-2 w-full border-[2px] border-ink bg-paper px-2 py-1 font-mono text-[11px] tracking-[1px] text-ink/70">
+            {player.library?.decks.map(deck => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
+          </select>
+        )}
 
         <div className="mt-3 flex items-baseline gap-3">
           <span className="font-stencil text-[30px]" style={{ color: draft.length === DECK_SIZE ? '#2E8B57' : '#D92525' }}>{draft.length}</span>
@@ -128,42 +130,53 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
           <span className="ml-auto font-mono text-[11px] text-ink/50">{t('manaCurve')}</span>
         </div>
 
-        <div className="mt-2 flex h-[86px] items-end gap-[6px] border-b-[3px] border-ink">
+        <div className="mt-2 flex h-[52px] items-end gap-[6px] border-b-[3px] border-ink">
           {curve.map((count, cost) => (
-            <div key={cost} className="flex flex-1 flex-col items-center justify-end">
-              <span className="font-mono text-[10px] text-ink/60">{count || ''}</span>
-              <motion.div className="w-full bg-toxic" animate={{ height: Math.round((count / peak) * 62) }} transition={spring} />
-              <span className="mt-[2px] font-mono text-[10px] text-ink/60">{cost === 7 ? '7+' : cost}</span>
+            <div key={cost} className="flex min-w-0 flex-1 flex-col items-center justify-end">
+              <span className="font-mono text-[10px] leading-none text-ink/60">{count || '\u00a0'}</span>
+              <motion.div className="w-3/4 bg-toxic" animate={{ height: Math.round((count / peak) * 36) }} transition={spring} />
             </div>
+          ))}
+        </div>
+        <div className="mt-[2px] flex gap-[6px]">
+          {CURVE.map(cost => (
+            <span key={cost} className="min-w-0 flex-1 text-center font-mono text-[10px] leading-none text-ink/60">{cost === 7 ? '7+' : cost}</span>
           ))}
         </div>
 
         <ul className="mt-3 flex-1 overflow-y-auto pr-1">
           {[...new Set(draft)].map(id => {
             const card = catalog.find(item => item.id === id);
-            return (
-              <li key={id} className="mb-[6px] flex items-center gap-2 border-[2px] border-ink bg-paper px-2 py-[5px]">
-                <span className="grid h-[22px] w-[22px] rotate-45 place-items-center bg-toxic font-mono text-[10px] text-paper">
-                  <span className="-rotate-45">{card?.cost ?? '?'}</span>
-                </span>
-                <span className="truncate font-mono text-[12px]">{label(id)}</span>
-                <span className="ml-auto font-stencil text-[13px]">×{used(id)}</span>
-                <button onClick={() => drop(id)} className="border-[2px] border-ink px-2 font-mono text-[11px] hover:bg-ink hover:text-paper">−</button>
-              </li>
-            );
+            return <DeckTile key={id} card={card} count={used(id)} onDrop={() => drop(id)} />;
           })}
         </ul>
 
         {player.error && <p role="alert" className="font-mono text-[12px] text-blood">{t(player.error)}</p>}
-        <div className="flex gap-3 py-4">
-          <InkButton size="sm" tone="blood" disabled={player.loading || draft.length !== DECK_SIZE || !name.trim()}
+        <div className="flex shrink-0 gap-3 py-4">
+          <InkButton size="sm" tone="toxic" disabled={player.loading || draft.length !== DECK_SIZE || !name.trim()}
             onClick={() => void playerSession.saveDeck({ ...(selected ? { id: selected.id, version: selected.version } : {}), name, cards: draft })}>
             {t('saveDeck')}
           </InkButton>
           <InkButton size="sm" onClick={() => { setName(t('newDeck')); setDraft([]); }}>{t('newDeck')}</InkButton>
-          {selected && <InkButton size="sm" disabled={player.loading} onClick={() => void playerSession.deleteDeck(selected)}>{t('deleteDeck')}</InkButton>}
+          {selected && <InkButton size="sm" tone="rose" disabled={player.loading} onClick={() => void playerSession.deleteDeck(selected)}>{t('deleteDeck')}</InkButton>}
         </div>
       </aside>
     </div>
+  );
+}
+
+function DeckTile({ card, count, onDrop }: { card?: CardDefinition; count: number; onDrop: () => void }) {
+  const art = useCardArt(card?.art ?? EMPTY_ART, 96);
+  const name = card ? (card.name[i18n.language] || card.name.ru) : '?';
+  return (
+    <li className="relative mb-[6px] flex h-[44px] items-center overflow-hidden border-[2px] border-ink bg-paper">
+      {art && <img src={art} alt="" className="absolute top-[-20%] right-0 h-[150%] w-[44%] object-cover object-[70%_12%]" draggable={false} />}
+      <div className="absolute inset-y-0 left-0 w-[72%] bg-gradient-to-r from-ink from-[62%] to-transparent" />
+      <span className="relative z-10 grid h-full w-[32px] shrink-0 place-items-center bg-toxic font-stencil text-[13px] text-paper">{card?.cost ?? '?'}</span>
+      <span className="relative z-10 min-w-0 flex-1 truncate px-2 font-hand text-[17px] leading-none text-paper"
+        style={{ textShadow: '0 1px 3px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.8)' }}>{name}</span>
+      <span className="relative z-10 pr-2 font-stencil text-[13px] text-paper">×{count}</span>
+      <button onClick={onDrop} className="relative z-10 mr-[2px] border-[2px] border-paper/70 px-2 font-mono text-[11px] text-paper hover:bg-paper hover:text-ink">−</button>
+    </li>
   );
 }

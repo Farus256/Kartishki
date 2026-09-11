@@ -3,7 +3,10 @@ export const WIN_REWARD = 50;
 export const PACK_COST = 100;
 export const CASE_COST = 200;
 export const PACK_SIZE = 5;
-export type PlayerProfile = { id: string; username: string; elo: number; currency: number };
+export type PlayerProfile = {
+  id: string; username: string; elo: number; currency: number;
+  lastDaily: string | null; dailyAvailable: boolean;
+};
 export type SavedDeck = { id: string; name: string; cards: string[]; version: number };
 export type PlayerLibrary = { profile: PlayerProfile; collection: { cardId: string; copies: number }[]; decks: SavedDeck[] };
 export type PlayerLogin = { token: string; library: PlayerLibrary };

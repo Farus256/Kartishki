@@ -32,13 +32,18 @@
 @keyframes gem-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.7); } }
 @keyframes gold-spark { 0%, 100% { opacity: .15; transform: translateY(0) scale(.7); } 50% { opacity: 1; transform: translateY(-7px) scale(1.2); } }
 .foil-sheen::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen;
+  content: ''; position: absolute; top: 9px; right: 10px; left: 10px; height: 108px; pointer-events: none; mix-blend-mode: screen;
   background: linear-gradient(110deg, transparent 32%, #06b6d4aa 44%, #e0f2fecc 50%, #a855f7aa 56%, transparent 68%);
-  background-size: 260% 100%; animation: foil-sweep 2.6s linear infinite;
+  background-size: 260% 100%; animation: foil-sweep 5.8s linear infinite;
 }
 .gem-pulse { animation: gem-pulse 1.8s ease-in-out infinite; }
 .legendary-spark { animation: gold-spark 1.7s ease-in-out infinite; }
+@keyframes seal-glow { 0%, 100% { filter: drop-shadow(0 0 8px #f59e0b88) brightness(1); } 50% { filter: drop-shadow(0 0 22px #f59e0bcc) brightness(1.35); } }
+.seal-glow { animation: seal-glow 1.8s ease-in-out infinite; }
 .ink-edge { clip-path: polygon(1% 2%, 99% 0, 100% 98%, 2% 100%); }
+.pack-crumple { clip-path: polygon(2% 4%, 8% 0, 22% 3%, 41% 0, 58% 4%, 77% 1%, 94% 5%, 100% 12%, 97% 28%, 100% 48%, 96% 68%, 100% 88%, 92% 100%, 70% 97%, 48% 100%, 22% 96%, 0 100%, 3% 78%, 0 52%, 4% 28%); }
+.ink-rule { position: absolute; left: 0; right: 0; bottom: -3px; height: 11px; background: #1a1a1a; clip-path: polygon(0 42%, 5% 12%, 11% 58%, 17% 18%, 24% 70%, 33% 10%, 41% 62%, 49% 8%, 58% 66%, 67% 16%, 75% 58%, 83% 12%, 91% 64%, 96% 20%, 100% 46%, 100% 100%, 0 100%); }
+.tape-cut { clip-path: polygon(0 14%, 4% 0, 100% 8%, 100% 86%, 96% 100%, 0 90%); }
 .ultimate-fracture { clip-path: polygon(3% 0, 18% 3%, 41% 0, 62% 4%, 84% 1%, 100% 6%, 97% 28%, 100% 52%, 95% 78%, 100% 100%, 76% 97%, 52% 100%, 28% 96%, 0 100%, 3% 74%, 0 48%, 4% 22%); }
 
 :root {
@@ -116,5 +121,5 @@ audio { max-width: 100%; }
   .inspect-hint { width: min(180px, calc(100vw - 48px)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .foil-sheen::after, .gem-pulse, .legendary-spark { animation: none; }
+  .foil-sheen::after, .gem-pulse, .legendary-spark, .seal-glow { animation: none; }
 }

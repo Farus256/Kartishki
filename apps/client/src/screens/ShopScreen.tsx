@@ -5,7 +5,7 @@ import i18n from '@kartishki/i18n';
 import { CASE_COST, PACK_COST, type CardDefinition, type CaseResult, type LootCard, type PackResult } from '@kartishki/shared';
 import { playerSession } from '../playerSession';
 import { Backdrop } from '../ui/Backdrop';
-import { CardBack, GameCard } from '../ui/GameCard';
+import { CARD_W, CARD_H, CardBack, GameCard } from '../ui/GameCard';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
 import { rarityOrder, rarityStyle } from '../ui/rarity';
@@ -56,39 +56,42 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
       <Backdrop />
       <TopBar right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
 
-      <div className="absolute top-[104px] left-[60px] flex gap-3">
-        {(['packs', 'cases'] as const).map(key => (
-          <InkButton key={key} size="sm" tone={tab === key ? 'ink' : 'paper'} onClick={() => setTab(key)}>{t(key === 'packs' ? 'tabPacks' : 'tabCases')}</InkButton>
-        ))}
-        {player.error && <span role="alert" className="ml-4 self-center font-mono text-[12px] text-blood">{t(player.error)}</span>}
+      <div className="absolute top-[86px] left-[48px] z-30 flex items-end gap-1">
+        {(['packs', 'cases'] as const).map(key => {
+          const active = tab === key;
+          return (
+            <button key={key} type="button" onClick={() => setTab(key)}
+              className={`relative px-10 pt-4 pb-5 font-hand text-[28px] tracking-wide border-[3px] border-ink shadow-[4px_6px_0_rgba(26,26,26,.35)] ${active ? 'bg-ink text-paper z-10' : 'bg-paper text-ink/70'}`}
+              style={{ clipPath: 'polygon(0 0, 100% 0, 92% 100%, 8% 100%)', transform: active ? 'translateY(6px)' : 'translateY(0)' }}>
+              {t(key === 'packs' ? 'tabPacks' : 'tabCases')}
+            </button>
+          );
+        })}
+        {player.error && <span role="alert" className="mb-3 ml-4 self-center font-mono text-[12px] text-blood">{t(player.error)}</span>}
       </div>
 
       {tab === 'packs' ? (
-        <section className="absolute top-[160px] right-0 bottom-0 left-0 px-[60px]">
+        <section className="absolute top-[138px] right-0 bottom-0 left-0 px-[60px]">
           {!pack || !ripped ? (
-            <div className="flex h-[600px] flex-col items-center justify-center">
+            <div className="flex h-full flex-col items-center justify-center pb-4">
               <motion.div
                 drag={!!pack} dragSnapToOrigin dragConstraints={{ left: 80, right: 80, top: 90, bottom: 40 }}
-                whileHover={pack ? { scale: 1.06, rotate: -2 } : undefined}
-                animate={pack ? { y: 0, rotate: [0, -3, 2, 0] } : { y: [0, -12, 0] }}
+                whileHover={pack ? { scale: 1.03, rotate: -1 } : undefined}
+                animate={pack ? { y: 0, rotate: [0, -2, 1.5, 0] } : { y: [0, -8, 0] }}
                 transition={pack ? { ...spring, rotate: { duration: 1.8, repeat: Infinity } } : { duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                 onDragEnd={(_, info) => { if (Math.hypot(info.offset.x, info.offset.y) > 48) ripPack(); }}
                 onClick={() => { if (pack) ripPack(); }}
-                role={pack ? 'button' : undefined} aria-label={pack ? t('ripPack') : undefined} className={pack ? 'cursor-grab active:cursor-grabbing' : undefined}
+                className={pack ? 'cursor-grab active:cursor-grabbing' : undefined}
               >
-                <CardBack scale={1.5} glow={pack ? 'rgba(217,37,37,.55)' : 'rgba(245,158,11,.55)'} />
+                <AltarPack bought={!!pack} glow={pack ? 'rgba(217,37,37,.55)' : 'rgba(245,158,11,.55)'} />
               </motion.div>
-              {/* Ritual pedestal */}
-              <div className="mt-[-10px] h-[26px] w-[420px] border-[4px] border-ink bg-ink/85" />
-              <div className="h-[16px] w-[520px] border-[4px] border-ink bg-paper" />
-              <p className="mt-6 font-hand text-[30px] text-ink">{pack ? t('packDragHint') : t('packPedestal')}</p>
-              {!pack && (
-                <div className="mt-5">
-                  <InkButton tone="gold" size="lg" disabled={player.loading || balance < PACK_COST} onClick={() => void openPack()}>
-                    {t('buyPack', { cost: PACK_COST })}
-                  </InkButton>
-                </div>
-              )}
+              <div className="mt-[-8px] h-[42px] w-[640px] border-[4px] border-ink bg-ink/90" />
+              <div className="h-[26px] w-[780px] border-[4px] border-ink bg-paper" />
+              <div className="mt-5">
+                {pack
+                  ? <InkButton tone="gold" size="lg" pulse onClick={ripPack}>{t('ripPack')}</InkButton>
+                  : <BuyPackButton loading={player.loading} poor={balance < PACK_COST} onBuy={() => void openPack()} />}
+              </div>
             </div>
           ) : (
             <div className="relative flex h-[600px] flex-col items-center justify-center">
@@ -132,14 +135,14 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
                 {flipped.size < pack.cards.length ? t('flipHint') : t('packOpened')}
               </p>
               <div className="mt-4 flex gap-4">
-                <InkButton tone="gold" disabled={player.loading || balance < PACK_COST} onClick={() => void openPack()}>{t('buyPack', { cost: PACK_COST })}</InkButton>
+                <BuyPackButton loading={player.loading} poor={balance < PACK_COST} onBuy={() => void openPack()} />
                 <InkButton onClick={() => { setPack(undefined); setRipped(false); }}>{t('done')}</InkButton>
               </div>
             </div>
           )}
         </section>
       ) : (
-        <section className="absolute top-[170px] right-0 bottom-0 left-0 flex flex-col items-center">
+        <section className="absolute top-[210px] right-0 bottom-0 left-0 flex flex-col items-center">
           <div className="relative overflow-hidden border-y-[4px] border-ink bg-ink/10" style={{ width: WINDOW, height: 250 }}>
             <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 z-20 w-[4px] -translate-x-1/2 bg-blood" />
             <div className="pointer-events-none absolute inset-0 z-10"
@@ -178,6 +181,36 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+const PACK_SCALE = 2.05;
+
+function BuyPackButton({ loading, poor, onBuy }: { loading: boolean; poor: boolean; onBuy: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <InkButton tone="gold" size="lg" disabled={loading || poor} onClick={onBuy}>
+      {t('buyPackLead')} <span className={poor ? 'text-blood' : undefined}>{PACK_COST} {t('buyPackUnit')}</span>
+    </InkButton>
+  );
+}
+
+function AltarPack({ bought, glow }: { bought: boolean; glow: string }) {
+  const w = CARD_W * PACK_SCALE, h = CARD_H * PACK_SCALE;
+  return (
+    <div className="relative" style={{ width: w, height: h, filter: `drop-shadow(0 0 28px ${glow})` }}>
+      <div className="pack-crumple absolute inset-0 bg-[#12100e]"
+        style={{ boxShadow: 'inset 0 0 0 5px #000, 10px 12px 0 rgba(26,26,26,.4)' }}>
+        <div className="absolute inset-0 opacity-50"
+          style={{ backgroundImage: 'repeating-linear-gradient(-22deg,transparent 0 8px,#000 8px 9px), repeating-linear-gradient(48deg,transparent 0 13px,#efece418 13px 14px)' }} />
+        <div className="absolute inset-[16px] border-[3px] border-paper/35"
+          style={{ clipPath: 'polygon(3% 4%, 97% 0, 100% 96%, 0 100%)' }} />
+      </div>
+      <div className={`seal-glow absolute top-1/2 left-1/2 z-10 grid h-[168px] w-[168px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[7px] ${bought ? 'border-blood' : 'border-legendary'} bg-[#0d0d0d]`}>
+        <span className={`font-hand text-[92px] leading-none ${bought ? 'text-blood' : 'text-legendary'}`}
+          style={{ textShadow: bought ? '0 0 22px #d92525' : '0 0 22px #f59e0b' }}>✳</span>
+      </div>
     </div>
   );
 }

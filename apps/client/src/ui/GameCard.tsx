@@ -8,6 +8,7 @@ import { spring } from './InkButton';
 
 export const CARD_W = 190;
 export const CARD_H = 260;
+const BLEED = 10;
 
 type Props = {
   card: CardDefinition;
@@ -15,25 +16,35 @@ type Props = {
   attack?: number;
   health?: number;
   owned?: boolean;
-  copies?: string;
   selected?: boolean;
   dim?: boolean;
   hoverable?: boolean;
   onClick?: () => void;
 };
 
+function Gem({ value, className, fill }: { value: number | string; className: string; fill: string }) {
+  return (
+    <div className={`absolute z-30 grid h-[40px] w-[40px] rotate-45 place-items-center border-[3px] border-ink ${className}`}
+      style={{ background: fill, filter: 'drop-shadow(2px 2px 1px rgba(26,26,26,.45))' }}>
+      <span className="-rotate-45 font-stencil text-[19px] text-paper">{value}</span>
+    </div>
+  );
+}
+
 /** Full-size collectible card: rarity frame, centre gem, portrait, rules and stats. */
-export function GameCard({ card, scale = 1, attack, health, owned = true, copies, selected, dim, hoverable = true, onClick }: Props) {
+export function GameCard({ card, scale = 1, attack, health, owned = true, selected, dim, hoverable = true, onClick }: Props) {
   const { t, i18n } = useTranslation();
   const art = useCardArt(card.art, 256);
   const look = rarityStyle[card.rarity];
   const rules = cardRules(card, t, i18n.language);
   const name = card.name[i18n.language] || card.name.ru;
+  const titleSize = name.length > 22 ? 'text-[13px]' : name.length > 14 ? 'text-[16px]' : 'text-[20px]';
+  const rarityColor = card.rarity === 'ultimate' ? '#0E7490' : '#1A1A1A';
   return (
-    <div className="relative shrink-0" style={{ width: CARD_W * scale, height: CARD_H * scale }}>
+    <div className="relative shrink-0 overflow-visible" style={{ width: CARD_W * scale + BLEED, height: CARD_H * scale + BLEED }}>
       <motion.div
-        className={`group absolute top-0 left-0 origin-top-left ${onClick ? 'cursor-pointer' : ''}`}
-        style={{ width: CARD_W, height: CARD_H, scale }}
+        className={`group absolute origin-top-left overflow-visible ${onClick ? 'cursor-pointer' : ''}`}
+        style={{ top: BLEED / 2, left: BLEED / 2, width: CARD_W, height: CARD_H, scale }}
         whileHover={hoverable ? { scale: scale * 1.15, y: -16, zIndex: 40 } : undefined}
         whileTap={onClick ? { scale: scale * 1.05 } : undefined}
         transition={spring}
@@ -41,13 +52,12 @@ export function GameCard({ card, scale = 1, attack, health, owned = true, copies
         role={onClick ? 'button' : undefined}
         aria-label={owned ? name : `${name} — ${t('locked')}`}
       >
-        {/* Ambient rarity aura, revealed on hover. */}
-        <div className="pointer-events-none absolute -inset-4 opacity-0 blur-xl transition-opacity duration-200 group-hover:opacity-100"
+        <div className="pointer-events-none absolute -inset-4 z-0 opacity-0 blur-xl transition-opacity duration-200 group-hover:opacity-100"
           style={{ background: `radial-gradient(closest-side, ${look.glow}, transparent 78%)` }} />
 
-        <div className={`relative h-full w-full overflow-hidden border-[4px] bg-paper shadow-[7px_8px_0_rgba(26,26,26,.45)] ${look.foil ? 'ultimate-fracture foil-sheen' : 'ink-edge'} ${dim ? 'opacity-55' : ''}`}
+        <div className={`relative flex h-full w-full flex-col border-[4px] bg-paper shadow-[7px_8px_0_rgba(26,26,26,.45)] ${look.foil ? 'ultimate-fracture foil-sheen' : 'ink-edge'} ${dim ? 'opacity-55' : ''}`}
           style={{ borderColor: selected ? '#D92525' : look.frame, boxShadow: selected ? `0 0 0 3px #D92525, 7px 8px 0 rgba(26,26,26,.45)` : undefined }}>
-          <div className="absolute inset-0" style={{ background: `linear-gradient(150deg, ${look.frame}22, transparent 55%)` }} />
+          <div className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(150deg, ${look.frame}22, transparent 55%)` }} />
           {card.rarity === 'legendary' && (
             <div className="pointer-events-none absolute inset-[4px] border-[2px] border-legendary/70"
               style={{ clipPath: 'polygon(0 10%, 10% 0, 90% 0, 100% 10%, 100% 90%, 90% 100%, 10% 100%, 0 90%)' }} />
@@ -57,45 +67,48 @@ export function GameCard({ card, scale = 1, attack, health, owned = true, copies
               style={{ left: `${12 + (i * 9) % 76}%`, top: `${14 + (i * 17) % 62}%`, animationDelay: `${i * 0.14}s` }} />
           ))}
 
-          <div className="absolute top-[9px] left-[10px] h-[118px] w-[162px] overflow-hidden border-[2px] border-ink bg-[#e0e0e0]">
+          <div className="relative mx-[10px] mt-[9px] h-[108px] shrink-0 overflow-hidden border-[2px] border-ink bg-[#e0e0e0]">
             {art && <img src={art} alt="" className={`h-full w-full object-cover ${owned ? '' : 'brightness-[.18] contrast-200'}`} draggable={false} />}
             {!owned && <span className="absolute inset-0 grid place-items-center font-hand text-[64px] text-paper/85">?</span>}
           </div>
 
-          {/* Mana crystal */}
-          <div className="absolute -top-[6px] -left-[6px] grid h-[40px] w-[40px] rotate-45 place-items-center border-[3px] border-ink bg-toxic">
-            <span className="-rotate-45 font-stencil text-[19px] text-paper">{card.cost}</span>
-          </div>
-
-          {/* Rarity gem */}
-          <div className={`absolute top-[118px] left-1/2 h-[20px] w-[20px] -translate-x-1/2 rotate-45 border-[2px] border-ink ${look.pulse ? 'gem-pulse' : ''}`}
+          <div className={`relative z-20 mx-auto -mt-[10px] mb-1 h-[20px] w-[20px] shrink-0 rotate-45 border-[2px] border-ink ${look.pulse ? 'gem-pulse' : ''}`}
             style={{ background: `radial-gradient(circle at 32% 30%, #ffffffcc, ${look.gem} 62%, ${look.deep})` }} />
 
-          <h3 className="absolute top-[133px] w-full truncate px-[10px] text-center font-hand text-[21px] leading-none text-ink">{name}</h3>
-          <p className="absolute top-[158px] w-full px-[11px] text-center font-mono text-[9.5px] leading-[1.25] whitespace-pre-line text-ink/85"
-            style={{ maxHeight: 52, overflow: 'hidden' }}>{rules}</p>
-
-          <span className="absolute bottom-[36px] left-1/2 -translate-x-1/2 font-mono text-[8px] tracking-[2px] uppercase"
-            style={{ color: look.frame }}>{t(card.rarity)}</span>
-
-          {owned ? <>
-            <div className="absolute -bottom-[4px] -left-[4px] grid h-[38px] w-[38px] rotate-45 place-items-center border-[3px] border-ink bg-ink">
-              <span className="-rotate-45 font-stencil text-[18px] text-paper">{attack ?? card.attack}</span>
-            </div>
-            <div className="absolute -right-[4px] -bottom-[4px] grid h-[38px] w-[38px] rotate-45 place-items-center border-[3px] border-ink bg-blood">
-              <span className="-rotate-45 font-stencil text-[18px] text-paper">{health ?? card.health}</span>
-            </div>
-          </> : (
-            <div className="absolute right-0 bottom-0 left-0 border-t-[3px] border-ink bg-ink py-[5px] text-center font-mono text-[11px] text-legendary">
-              {craftCost[card.rarity]} ✦
-            </div>
-          )}
-
-          {copies && (
-            <span className="absolute top-[6px] right-[6px] border-[2px] border-ink bg-paper px-[6px] font-mono text-[11px] text-ink">{copies}</span>
-          )}
+          <div className="relative z-10 mx-[10px] mb-[10px] flex min-h-0 flex-1 flex-col items-center gap-1 pt-1">
+            <h3 className={`w-full text-center font-hand leading-[1.1] break-words ${titleSize}`} style={{ color: '#1A1A1A' }}>{name}</h3>
+            <p className="min-h-0 w-full flex-1 overflow-hidden text-center font-mono text-[10px] leading-[1.25] whitespace-pre-line" style={{ color: '#1A1A1A' }}>{rules}</p>
+            <span className="mt-auto font-mono text-[8px] tracking-[2px] uppercase" style={{ color: rarityColor }}>{t(card.rarity)}</span>
+          </div>
         </div>
+
+        <Gem value={card.cost} className="-top-1.5 -left-1.5" fill="#2E8B57" />
+        {owned ? <>
+          <Gem value={attack ?? card.attack} className="-bottom-1.5 -left-1.5" fill="#1A1A1A" />
+          <Gem value={health ?? card.health} className="-right-1.5 -bottom-1.5" fill="#D92525" />
+        </> : (
+          <span className="absolute -bottom-1.5 left-1/2 z-30 -translate-x-1/2 border-[2px] border-ink bg-ink px-2 py-[2px] font-mono text-[11px] text-legendary"
+            style={{ filter: 'drop-shadow(2px 2px 0 rgba(26,26,26,.45))' }}>{craftCost[card.rarity]} ✦</span>
+        )}
       </motion.div>
+    </div>
+  );
+}
+
+/** Polaroid-style locked slot for empty album cells. */
+export function LockedSlot({ scale = 1 }: { scale?: number }) {
+  return (
+    <div className="relative shrink-0 overflow-visible" style={{ width: CARD_W * scale + BLEED, height: CARD_H * scale + BLEED }} aria-hidden="true">
+      <div className="ink-edge absolute origin-top-left border-[3px] border-ink bg-[#3f3b34] shadow-[6px_7px_0_rgba(26,26,26,.4)]"
+        style={{ top: BLEED / 2, left: BLEED / 2, width: CARD_W, height: CARD_H, scale }}>
+        <div className="absolute inset-0 opacity-50"
+          style={{ backgroundImage: 'repeating-linear-gradient(-22deg, transparent 0 4px, #1a1a1a 4px 5px), repeating-linear-gradient(68deg, transparent 0 6px, #1a1a1a 6px 7px)' }} />
+        <div className="absolute inset-[12px] bottom-[32px] grid place-items-center border-[2px] border-ink bg-[#1c1a16]"
+          style={{ boxShadow: 'inset 2px 2px 0 #0006, 1px 1px 0 #efece422' }}>
+          <span className="font-hand text-[82px] leading-none text-paper" style={{ transform: 'rotate(-8deg)', textShadow: '2px 2px 0 #000' }}>?</span>
+        </div>
+        <div className="absolute right-[10px] bottom-[8px] left-[10px] h-[16px] border-t-[2px] border-dashed border-ink/70 bg-[#cfc6b4]/40" />
+      </div>
     </div>
   );
 }

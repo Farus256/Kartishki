@@ -19,6 +19,8 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     const again = await store.login('Алиса', 'password1');
     assert.equal(again.library.profile.elo, 1000);
     assert.equal(again.library.profile.currency, 0);
+    assert.equal(again.library.profile.dailyAvailable, true);
+    assert.equal(again.library.profile.lastDaily, null);
     assert.equal(again.library.decks[0]!.cards.length, 30);
     const playerId = await store.authenticate(again.token);
     await assert.rejects(() => store.saveDeck(playerId, { name: 'Мало', cards: again.library.decks[0]!.cards.slice(0, 29) }, starterCards), error => error instanceof PlayerError && error.code === 'invalidDeck');
@@ -30,6 +32,8 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     await assert.rejects(() => store.openPack(playerId, starterCards), error => error instanceof PlayerError && error.code === 'insufficientFunds');
     const daily = await store.claimDaily(playerId);
     assert.equal(daily.profile.currency, DAILY_REWARD);
+    assert.equal(daily.profile.dailyAvailable, false);
+    assert.equal(daily.profile.lastDaily?.length, 10);
     await assert.rejects(() => store.claimDaily(playerId), error => error instanceof PlayerError && error.code === 'alreadyClaimed');
     const pack = await store.openPack(playerId, starterCards);
     assert.equal(pack.cards.length, 5);

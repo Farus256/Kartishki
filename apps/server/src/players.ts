@@ -68,9 +68,14 @@ export class PlayerStore {
   }
   async logout(token: string) { await this.db.query('DELETE FROM player_sessions WHERE token_hash = $1', [digest(token)]); }
   async library(playerId: string, tx: Sql = this.db): Promise<PlayerLibrary> {
-    const profile = (await tx.query<PlayerProfile>('SELECT id, username, elo, currency FROM players WHERE id = $1', [playerId])).rows[0];
-    if (!profile) throw new PlayerError('loginRequired', 401);
-    profile.elo = Number(profile.elo); profile.currency = Number(profile.currency);
+    const row = (await tx.query<{ id: string; username: string; elo: string | number; currency: string | number; lastDaily: string | null; today: string }>(
+      'SELECT id, username, elo, currency, last_daily::text AS "lastDaily", CURRENT_DATE::text AS today FROM players WHERE id = $1', [playerId])).rows[0];
+    if (!row) throw new PlayerError('loginRequired', 401);
+    const lastDaily = row.lastDaily ? String(row.lastDaily).slice(0, 10) : null;
+    const profile: PlayerProfile = {
+      id: row.id, username: row.username, elo: Number(row.elo), currency: Number(row.currency),
+      lastDaily, dailyAvailable: !lastDaily || lastDaily < String(row.today).slice(0, 10),
+    };
     const collection = (await tx.query<{ cardId: string; copies: number }>('SELECT card_id AS "cardId", copies FROM player_collection WHERE player_id = $1 ORDER BY card_id', [playerId])).rows
       .map(row => ({ cardId: row.cardId, copies: Number(row.copies) }));
     const decks = (await tx.query<SavedDeck>('SELECT id, name, cards, version FROM player_decks WHERE player_id = $1 ORDER BY name, id', [playerId])).rows

@@ -129,8 +129,8 @@ test('account can register, claim daily ink and open a pack', async ({ page }) =
   await page.getByRole('button', { name: /Ежедневная награда/ }).click();
   await expect(page.getByText('100')).toBeVisible();
   await page.getByRole('button', { name: 'МАГАЗИН' }).click();
-  await page.getByRole('button', { name: /Пачка 5 карт/ }).click();
-  await page.getByRole('button', { name: 'Порвать пак' }).click();
+  await page.getByRole('button', { name: /Купить пак/ }).click();
+  await page.getByRole('button', { name: 'Вскрыть пак!' }).click();
   await expect(page.locator('.pack-card')).toHaveCount(5);
   await page.locator('.pack-card').first().click();
   await expect(page.locator('.pack-card').first()).not.toHaveClass(/closed/);

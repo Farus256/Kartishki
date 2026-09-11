@@ -49,7 +49,7 @@ export function App() {
             <MainMenuScreen onPlay={() => setQueue(true)} onDeck={() => setScreen('deck')} onShop={() => setScreen('shop')}
               onSettings={() => setSettings(true)} onExit={exit} />
           )}
-          {screen === 'deck' && <DeckBuilderScreen onBack={toMenu} />}
+          {screen === 'deck' && <DeckBuilderScreen onBack={toMenu} onShop={() => setScreen('shop')} />}
           {screen === 'shop' && <ShopScreen onBack={toMenu} />}
           {screen === 'match' && <MatchScreen onLeave={toMenu} />}
         </motion.div>
