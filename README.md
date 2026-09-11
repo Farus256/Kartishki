@@ -182,3 +182,21 @@ ELO, косметика в кейсах, desktop-обёртка Tauri/Electron �
 [Pixi Application](https://pixijs.com/8.x/guides/components/application),
 [Canvas API](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D),
 [PostgreSQL JSONB](https://www.postgresql.org/docs/18/datatype-json.html).
+
+## Metagame UI demo (September 2026)
+
+The guest menu now opens the deck builder and all three shop modes. `EconomyProvider` owns a local mock balance (starting at $1,500), card copies, saved/selected decks, bonus-pack inventory and pending shop reveals. Progress persists under `kartishki-demo-economy-v1` in localStorage. Purchases debit and grant rewards atomically before their animations; leaving or reloading resumes the reveal without charging or granting again. Clear that key to reset the demo.
+
+The binder has 8 cards per page, title/effect search, rarity and 0–10+ mana filters, creation of unowned cards at displayed dollar prices, a 30-card limit and a maximum of two owned copies per card. Saving validates the whole deck; clear/new/delete are separate actions. The shop offers $50 slots, three five-card pack tiers, and two direct-purchase cases with exact displayed rarity/card odds. Slot symbols are equally likely; three or more matching symbols anywhere pay the displayed reward. Bonus packs are redeemed before paid packs of the same tier.
+
+This is the requested **mock frontend economy**. Local demo cards/decks and shop rewards are not submitted to ranked matches or the existing account APIs. Those APIs remain server-authoritative and keep their compatible `currency` field; their user-facing currency labels now use dollars. Existing server daily rewards and match payouts still belong to the account economy. The demo requires no backend; published cards supplement its local catalog when available. New shop copy is Russian; existing translated components still follow the language setting.
+
+Run `npm run test:metagame` for payout/odds unit checks and isolated Chrome browser tests covering deck persistence, crafting, insufficient funds, pack reload/flip behavior, bonus redemption, roulette alignment and 16:9 viewport containment. The test starts only a client on port 5180 and mocks the catalog. `npm run test:browser` retains the existing full server/editor/match suite. Screenshots from the focused tests are written to `artifacts/metagame-*.png`.
+
+### Bottle rank in the main menu
+
+`BeerBottle` (`apps/client/src/ui/BeerBottle.tsx`) draws its plastic outline, distressed cat label, liquid, foam and bubbles procedurally in SVG. Pass `remainingMl` (0–2000) and `league` (`light` or `dark`). Liquid height is linear in remaining millilitres; a spring animates changes, damped waves react to entry/updates, and rising bubbles are clipped to the bottle. Empty bottles hide liquid/foam/bubbles and retain two small drops. Reduced-motion preferences disable sloshing and particle movement.
+
+New players calibrate at 1500 ml. The presentation rank uses **10 ml per change of one ELO point**: wins drain and losses refill up to 2000 ml. Empty light promotes immediately to dark at 1500 ml; dark stays unlocked after losses. Dark is the highest defined league and remains empty when completed, until a loss refills it. The server's ELO calculation is unchanged. Bottle progression is stored locally per account under `kartishki-beer-rank-v1:<playerId>` and tracks the last applied ELO to prevent replaying a snapshot. It is not cross-device server persistence. Guest mode displays the 1500 ml calibration bottle.
+
+The old player sheet is removed. Deck information remains beside the profile in the top bar; the existing account daily-reward action is below the main menu buttons. Menu browser tests exercise both leagues, empty/full levels, persistence, daily-reward placement and viewport containment. Run them with `npx playwright test --config playwright.metagame.config.ts menu.spec.ts`; rank rules are covered by `npx tsx --test tests/beerRank.test.ts`.

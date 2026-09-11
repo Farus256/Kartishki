@@ -1,3 +1,5 @@
+import { audioManager } from '../AudioManager';
+import { CatPortrait } from './CatPortrait';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import type { CardDefinition } from '@kartishki/shared';
@@ -34,7 +36,7 @@ function Gem({ value, className, fill }: { value: number | string; className: st
 /** Full-size collectible card: rarity frame, centre gem, portrait, rules and stats. */
 export function GameCard({ card, scale = 1, attack, health, owned = true, selected, dim, hoverable = true, onClick }: Props) {
   const { t, i18n } = useTranslation();
-  const art = useCardArt(card.art, 256);
+  const art = useCardArt(card.art, Math.ceil(512 * Math.max(1, scale)));
   const look = rarityStyle[card.rarity];
   const rules = cardRules(card, t, i18n.language);
   const name = card.name[i18n.language] || card.name.ru;
@@ -43,13 +45,16 @@ export function GameCard({ card, scale = 1, attack, health, owned = true, select
   return (
     <div className="relative shrink-0 overflow-visible" style={{ width: CARD_W * scale + BLEED, height: CARD_H * scale + BLEED }}>
       <motion.div
-        className={`group absolute origin-top-left overflow-visible ${onClick ? 'cursor-pointer' : ''}`}
-        style={{ top: BLEED / 2, left: BLEED / 2, width: CARD_W, height: CARD_H, scale }}
-        whileHover={hoverable ? { scale: scale * 1.15, y: -16, zIndex: 40 } : undefined}
-        whileTap={onClick ? { scale: scale * 1.05 } : undefined}
+        className={`game-card-face group absolute origin-top-left overflow-visible ${onClick ? 'cursor-pointer' : ''}`}
+        style={{ top: BLEED / 2, left: BLEED / 2, width: CARD_W, height: CARD_H, zoom: scale }}
+        whileHover={hoverable ? { scale: 1.15, y: -16, zIndex: 40 } : undefined}
+        whileTap={onClick ? { scale: 1.05 } : undefined}
         transition={spring}
+        onHoverStart={() => { if (hoverable) audioManager.play('card_hover'); }}
         onClick={onClick}
         role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={e => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}
         aria-label={owned ? name : `${name} — ${t('locked')}`}
       >
         <div className="pointer-events-none absolute -inset-4 z-0 opacity-0 blur-xl transition-opacity duration-200 group-hover:opacity-100"
@@ -69,6 +74,7 @@ export function GameCard({ card, scale = 1, attack, health, owned = true, select
 
           <div className="relative mx-[10px] mt-[9px] h-[108px] shrink-0 overflow-hidden border-[2px] border-ink bg-[#e0e0e0]">
             {art && <img src={art} alt="" className={`h-full w-full object-cover ${owned ? '' : 'brightness-[.18] contrast-200'}`} draggable={false} />}
+            {!art && <div className={owned ? 'h-full' : 'h-full brightness-[.18]'}><CatPortrait seed={card.id} /></div>}
             {!owned && <span className="absolute inset-0 grid place-items-center font-hand text-[64px] text-paper/85">?</span>}
           </div>
 
@@ -88,7 +94,7 @@ export function GameCard({ card, scale = 1, attack, health, owned = true, select
           <Gem value={health ?? card.health} className="-right-1.5 -bottom-1.5" fill="#D92525" />
         </> : (
           <span className="absolute -bottom-1.5 left-1/2 z-30 -translate-x-1/2 border-[2px] border-ink bg-ink px-2 py-[2px] font-mono text-[11px] text-legendary"
-            style={{ filter: 'drop-shadow(2px 2px 0 rgba(26,26,26,.45))' }}>{craftCost[card.rarity]} ✦</span>
+            style={{ filter: 'drop-shadow(2px 2px 0 rgba(26,26,26,.45))' }}>$ {craftCost[card.rarity]}</span>
         )}
       </motion.div>
     </div>

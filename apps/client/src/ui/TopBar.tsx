@@ -1,5 +1,7 @@
+import { motion } from 'framer-motion';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useEconomy } from '../EconomyContext';
 import { playerSession } from '../playerSession';
 
 function CatStamp() {
@@ -24,7 +26,8 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const profile = player.library?.profile;
   const name = profile?.username ?? t('guest');
-  const broke = (profile?.currency ?? 0) === 0;
+  const economy = useEconomy();
+  const deck = economy.decks.find(d => d.id === economy.activeDeck);
   return (
     <header className="absolute top-0 right-0 left-0 z-20 flex h-[100px] items-center gap-6 bg-paper px-10">
       <div className="flex items-center gap-3">
@@ -32,28 +35,18 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
         <p className="font-hand text-[30px] leading-none font-bold text-ink">{name}</p>
       </div>
 
-      <div className="tape-cut flex items-center gap-3 bg-ink px-5 py-[10px] shadow-[4px_5px_0_rgba(26,26,26,.35)]" aria-label={`${t('elo')} ${profile?.elo ?? '—'}`}>
-        <span className="text-[22px] leading-none text-paper" aria-hidden>☠</span>
-        <span className="font-mono text-[11px] tracking-[2px] text-paper/70">{t('elo')}</span>
-        <b className="font-stencil text-[28px] leading-none text-legendary">{profile?.elo ?? '—'}</b>
+      <div className="tape-cut max-w-[470px] truncate bg-ink px-5 py-3 font-hand text-[23px] text-paper">
+        {deck ? deck.name + ' • ' + deck.cards.length + '/30' : 'Колода не выбрана'}
       </div>
-
-      <div className="ink-edge flex items-center gap-3 border-[3px] border-ink bg-paper px-4 py-[8px] shadow-[4px_5px_0_rgba(26,26,26,.35)]">
-        <span className="grid h-[34px] w-[26px] place-items-center" aria-hidden>
-          <svg viewBox="0 0 20 28" className="h-[28px] w-[20px]">
-            <path d="M10 1 C10 1 2 12 2 18 A8 8 0 0 0 18 18 C18 12 10 1 10 1Z" fill="#1a1a1a" />
-            <circle cx="10" cy="19" r="3" fill="#efece4" />
-          </svg>
-        </span>
-        <b className={`font-hand text-[30px] leading-none ${broke ? 'text-ink/45' : 'text-ink'}`}>{profile?.currency ?? '—'}</b>
-        <span className="font-hand text-[16px] text-ink/70">{t('currency')}</span>
-        <button type="button" onClick={onPlus} disabled={!onPlus} title={t('menuShop')}
-          className="ml-1 grid h-[28px] w-[28px] place-items-center border-[2px] border-ink bg-ink font-hand text-[22px] leading-none text-paper disabled:opacity-40">
-          +
-        </button>
+      <div className="ml-auto flex items-center gap-3">
+        <div title="Доллары • локальная демо-экономика" className="relative ink-edge flex items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
+          {economy.currencyEvents.map((event, index) => <motion.span key={event.id} className={`currency-badge ${event.amount > 0 ? 'gain' : 'spend'}`} style={{ right: index * 18 }} initial={{ opacity: 1, y: 20, scale: .85 }} animate={{ opacity: [1, 1, 0], y: [20, -5, -45], scale: event.amount > 0 ? [1, 1.2, 1, 1.15, 1] : 1 }} transition={{ duration: 1.8 }} onAnimationComplete={() => economy.dismissCurrency(event.id)}>{event.amount > 0 ? '+' : '-'}${Math.abs(event.amount)}</motion.span>)}
+          <b data-testid="balance" className="font-hand text-[30px]">$ {economy.dollars.toLocaleString('en-US')}</b>
+          <button aria-label="Магазин" onClick={onPlus} disabled={!onPlus} className="border-2 border-ink px-2 text-[24px] disabled:opacity-30">+</button>
+        </div>
+        <button aria-label="Настройки" onClick={() => window.dispatchEvent(new Event('open-settings'))} className="border-[3px] border-ink px-3 py-2 text-[25px]">⚙</button>
+        {right}
       </div>
-
-      <div className="ml-auto flex items-center gap-3">{right}</div>
       <span className="ink-rule" aria-hidden />
     </header>
   );

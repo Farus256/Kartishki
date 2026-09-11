@@ -41,7 +41,7 @@ export function InkButton({ children, onClick, disabled, tone = 'paper', size = 
       initial={false}
       whileHover={disabled ? undefined : { scale: 1.05, rotate: -2, y: -3, boxShadow: lift }}
       whileTap={disabled ? undefined : { scale: 0.96, rotate: 1, y: 3, boxShadow: '0px 0px 0 #1a1a1a' }}
-      animate={pulse && !disabled ? { scale: [1, 1.035, 1] } : { scale: 1 }}
+      animate={pulse && !disabled ? { filter: ['brightness(1)', 'brightness(1.2)', 'brightness(1)'] } : { filter: 'brightness(1)' }}
       transition={pulse && !disabled ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : spring}
     >
       <span className="pointer-events-none absolute inset-0 opacity-[.18] transition-opacity duration-200 group-hover:opacity-40"

@@ -1,19 +1,43 @@
 import type { CardDefinition } from './index';
 const bayer = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
-export function inkPixels(data: Uint8ClampedArray, width: number, contrast: number, threshold: number) {
-  for (let i = 0; i < data.length; i += 4) {
-    const p = i / 4, alpha = data[i + 3] / 255;
-    const y = ((.2126 * data[i] + .7152 * data[i+1] + .0722 * data[i+2]) / 255) * alpha + 1 - alpha;
-    const luminance = Math.max(0, Math.min(1, (y - .5) * contrast + .5));
-    const grain = (((p * 16807) % 127) / 127 - .5) * .06;
-    const paper = luminance > threshold + (bayer[(Math.floor(p / width) % 4) * 4 + p % width % 4] / 16 - .5) * .28 + grain;
-    data[i] = data[i+1] = data[i+2] = paper ? 224 : 24; data[i+3] = 255;
+export function inkPixels(data: Uint8ClampedArray, width: number, contrast: number, threshold: number, preset: 'xerox' | 'comic' | 'stencil' = 'xerox', edgeWidth = 1, rasterIntensity = .55) {
+  const count = data.length / 4, height = count / width;
+  const gray = new Float32Array(count), edges = new Uint8Array(count);
+  for (let p = 0; p < count; p++) {
+    const i = p * 4, alpha = data[i+3] / 255;
+    const y = (.2126 * data[i] + .7152 * data[i+1] + .0722 * data[i+2]) / 255 * alpha + 1 - alpha;
+    gray[p] = Math.max(0, Math.min(1, (y - .5) * contrast + .5));
+  }
+  if (preset === 'comic' && edgeWidth > 0) {
+    const at = (x: number, y: number) => gray[Math.max(0, Math.min(height-1,y))*width + Math.max(0,Math.min(width-1,x))];
+    for (let y=0; y<height; y++) for (let x=0; x<width; x++) {
+      const gx = -at(x-1,y-1)+at(x+1,y-1)-2*at(x-1,y)+2*at(x+1,y)-at(x-1,y+1)+at(x+1,y+1);
+      const gy = -at(x-1,y-1)-2*at(x,y-1)-at(x+1,y-1)+at(x-1,y+1)+2*at(x,y+1)+at(x+1,y+1);
+      if (Math.hypot(gx,gy) > .65) edges[y*width+x] = 1;
+    }
+  }
+  const radius = Math.max(0, Math.round(edgeWidth * width / 512) - 1);
+  for (let p=0; p<count; p++) {
+    const x=p%width, y=Math.floor(p/width), lum=gray[p];
+    let tone: number;
+    if (preset === 'comic') {
+      let edge=false;
+      for(let dy=-radius; dy<=radius && !edge; dy++) for(let dx=-radius; dx<=radius; dx++) {
+        if(x+dx>=0 && x+dx<width && y+dy>=0 && y+dy<height && edges[(y+dy)*width+x+dx]) { edge=true; break; }
+      }
+      tone = edge || lum < threshold-.15 ? 0 : lum < threshold+.15 ? .5 : 1;
+    } else {
+      const pattern = preset === 'xerox' ? ((bayer[(y%4)*4+x%4]+.5)/16-.5)*rasterIntensity : 0;
+      tone = lum > threshold + pattern ? 1 : 0;
+    }
+    const i=p*4;
+    data[i]=Math.round(26+(239-26)*tone); data[i+1]=Math.round(26+(236-26)*tone); data[i+2]=Math.round(26+(228-26)*tone); data[i+3]=255;
   }
 }
 export async function renderPhoto(art: CardDefinition['art'], size = 256): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas'); canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-  ctx.fillStyle = '#e0e0e0'; ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#EFECE4'; ctx.fillRect(0, 0, size, size);
   if (!art.url) {
     ctx.scale(size/256,size/256);
     ctx.fillStyle = '#efece4'; ctx.fillRect(0,0,256,256);
@@ -40,6 +64,6 @@ export async function renderPhoto(art: CardDefinition['art'], size = 256): Promi
   const image = new Image(); image.src = art.url; await image.decode();
   const side = Math.min(image.width, image.height) * art.crop.size;
   ctx.drawImage(image, (image.width-side)*art.crop.x, (image.height-side)*art.crop.y, side, side, 0, 0, size, size);
-  const pixels = ctx.getImageData(0,0,size,size); inkPixels(pixels.data, size, art.contrast, art.threshold); ctx.putImageData(pixels,0,0);
+  const pixels = ctx.getImageData(0,0,size,size); inkPixels(pixels.data, size, art.contrast, art.threshold, art.preset, art.edgeWidth, art.rasterIntensity); ctx.putImageData(pixels,0,0);
   return canvas;
 }

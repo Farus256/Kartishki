@@ -1,195 +1,79 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { motion } from 'framer-motion';
+﻿import { useEffect, useState, useSyncExternalStore } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { DAILY_REWARD, starterCards, type CardDefinition } from '@kartishki/shared';
+import { DAILY_REWARD } from '@kartishki/shared';
 import { playerSession } from '../playerSession';
 import { Backdrop } from '../ui/Backdrop';
-import { useCardArt } from '../ui/cardArt';
+import { BeerBottle } from '../ui/BeerBottle';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
-import { useCatalog } from '../ui/useCatalog';
 
 type Props = { onPlay: () => void; onDeck: () => void; onShop: () => void; onSettings: () => void; onExit: () => void };
-
-const LEAGUES = [
-  { min: 1400, key: 'leagueInkLord', mark: '♛', next: null },
-  { min: 1200, key: 'leaguePress', mark: '♚', next: 1400 },
-  { min: 1000, key: 'leagueYard', mark: '♞', next: 1200 },
-  { min: 0, key: 'leaguePuddle', mark: '♟', next: 1000 },
-] as const;
-
-const hatch = { backgroundImage: 'repeating-linear-gradient(-35deg,rgba(26,26,26,.14) 0 1px,transparent 1px 5px)' } as const;
-
-function pad(n: number) { return String(n).padStart(2, '0'); }
 function untilMidnight() {
-  const next = new Date(); next.setHours(24, 0, 0, 0);
-  const ms = Math.max(0, next.getTime() - Date.now());
-  return `${pad(Math.floor(ms / 3600000))}:${pad(Math.floor((ms % 3600000) / 60000))}:${pad(Math.floor((ms % 60000) / 1000))}`;
+  // The account API uses PostgreSQL CURRENT_DATE (UTC), so the countdown uses UTC too.
+  const now = new Date();
+  const ms = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime();
+  return [Math.floor(ms / 3600000), Math.floor(ms / 60000) % 60, Math.floor(ms / 1000) % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
-
 export function MainMenuScreen({ onPlay, onDeck, onShop, onSettings, onExit }: Props) {
   const { t } = useTranslation();
+  const reduced = useReducedMotion();
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
-  const catalog = useCatalog();
-  const account = !!player.library;
   const profile = player.library?.profile;
-  const deck = player.library?.decks.find(item => item.id === player.selectedDeck);
+  const rank = player.beerRank;
+  const dark = rank.league === 'dark';
   const dailyReady = !!profile?.dailyAvailable;
   const [timer, setTimer] = useState(untilMidnight);
   useEffect(() => {
-    if (dailyReady || !account) return;
-    const tick = () => setTimer(untilMidnight());
-    tick();
-    const id = setInterval(tick, 1000);
+    if (dailyReady || !profile) return;
+    const id = setInterval(() => setTimer(untilMidnight()), 1000);
     return () => clearInterval(id);
-  }, [dailyReady, account]);
-
+  }, [dailyReady, profile?.id]);
   const items = [
-    { key: 'menuPlay', tone: 'blood' as const, run: onPlay, pulse: true, mark: '⚔', enabled: true, play: true },
-    { key: 'menuDeck', tone: 'paper' as const, run: onDeck, pulse: false, mark: '▤', enabled: account, play: false },
-    { key: 'menuShop', tone: 'gold' as const, run: onShop, pulse: false, mark: '✦', enabled: account, play: false },
-    { key: 'menuSettings', tone: 'paper' as const, run: onSettings, pulse: false, mark: '⚙', enabled: true, play: false },
-    { key: 'menuExit', tone: 'ink' as const, run: onExit, pulse: false, mark: '↩', enabled: true, play: false },
+    { key: 'menuPlay', tone: 'blood' as const, run: onPlay, mark: '⚔', play: true },
+    { key: 'menuDeck', tone: 'paper' as const, run: onDeck, mark: '▤' },
+    { key: 'menuShop', tone: 'gold' as const, run: onShop, mark: '$' },
+    { key: 'menuSettings', tone: 'paper' as const, run: onSettings, mark: '⚙' },
+    { key: 'menuExit', tone: 'ink' as const, run: onExit, mark: '↩' },
   ];
-
-  return (
-    <div className="absolute inset-0">
-      <Backdrop />
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, rgba(216,205,182,.9), rgba(196,182,154,.75))' }} />
-      <TopBar onPlus={account ? onShop : undefined} />
-
-      <div className="absolute top-[156px] bottom-[28px] left-[52px] w-[710px]">
-        {items.map((item, index) => (
-          <motion.div key={item.key} className={item.play ? 'relative mb-[28px]' : 'mb-[16px]'}
-            initial={{ opacity: 0, x: -60 }} animate={{ opacity: 1, x: 0 }} transition={{ ...spring, delay: 0.05 * index }}>
-            {item.play && (
-              <motion.div aria-hidden className="ink-edge pointer-events-none absolute -inset-[8px] border-[3px] border-legendary"
-                style={{ boxShadow: '0 0 18px rgba(217,37,37,.7)' }}
-                animate={{ opacity: [0.4, 1, 0.4], scale: [1, 1.02, 1] }}
-                transition={{ duration: 1.7, repeat: Infinity, ease: 'easeInOut' }} />
-            )}
-            <InkButton tone={item.tone} size={item.play ? 'xl' : 'lg'} pulse={item.pulse} glow={item.play}
-              disabled={!item.enabled} title={item.enabled ? undefined : t('loginRequired')}
-              onClick={item.run}
-              className={`flex w-full items-center gap-6 ${item.play ? '!bg-[#c20808] !py-7' : ''}`}>
-              <span className="relative z-10 font-hand text-[32px] opacity-85">{item.mark}</span>
-              <span className="relative z-10 font-hand tracking-[2px]">{t(item.key)}</span>
-            </InkButton>
-          </motion.div>
-        ))}
-      </div>
-
-      <motion.aside className="ink-edge absolute top-[124px] right-[44px] bottom-[28px] flex w-[690px] flex-col border-[4px] border-ink bg-paper px-8 pt-7 pb-9 shadow-[9px_11px_0_rgba(26,26,26,.35)]"
-        initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.2 }}>
-        <span className="pointer-events-none absolute inset-0 opacity-[.12]" style={hatch} />
-        <span className="absolute -top-[14px] left-[42%] h-[28px] w-[120px] rotate-[-4deg] bg-ink/85" />
-        <h2 className="relative font-hand text-[40px] text-ink">{t('dashboard')}</h2>
-
-        <div className="relative mt-5 flex items-center gap-6 border-t-[2px] border-ink/30 pt-5">
-          <DeckFan ids={deck?.cards ?? starterCards.map(card => card.id)} catalog={catalog} />
-          <div className="min-w-0 flex-1">
-            <p className="font-stencil text-[18px] tracking-[3px] text-ink/70">{t('activeDeck')}</p>
-            <p className="mt-1 truncate font-hand text-[34px] leading-none text-ink">{deck?.name ?? t('serverDeck')}</p>
-            <p className="mt-3 font-stencil text-[30px] leading-none text-ink">{t('deckCount', { count: deck?.cards.length ?? 30 })}</p>
-          </div>
+  return <div className="absolute inset-0 overflow-clip">
+    <Backdrop />
+    <div className="menu-wash" />
+    <TopBar onPlus={onShop} />
+    <section className="main-menu-actions" aria-label="Главное меню">
+      <p className="menu-kicker">КАРТИШКИ / ПОДВАЛЬНЫЙ КЛУБ</p>
+      <div className="menu-buttons">{items.map((item, index) => <motion.div key={item.key}
+        initial={reduced ? false : { opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ ...spring, delay: index * .04 }}>
+        <InkButton tone={item.tone} size={item.play ? 'xl' : 'lg'} pulse={item.play && !reduced} glow={item.play} onClick={item.run} className={`menu-action ${item.play ? 'menu-play' : ''}`}>
+          <span className="menu-action-icon" aria-hidden>{item.mark}</span><span>{t(item.key)}</span><span className="menu-action-arrow" aria-hidden>↗</span>
+        </InkButton>
+      </motion.div>)}</div>
+      <div className="menu-daily" data-testid="daily-reward">
+        <span className="daily-stamp" aria-hidden>+{DAILY_REWARD}<small>USD / ДЕНЬ</small></span>
+        <div className="daily-action">
+          <InkButton tone="gold" disabled={!dailyReady || player.loading} onClick={() => void playerSession.claimDaily()} className="daily-button">
+            {t('dailyLabel')}
+          </InkButton>
+          <p>{!profile ? 'Войди в аккаунт, чтобы забрать награду' : dailyReady ? `$ ${DAILY_REWARD} — награда аккаунта` : `${t('dailyNextLabel')}: ${timer}`}</p>
         </div>
-
-        <div className="relative mt-6 flex items-center gap-5 border-t-[2px] border-ink/30 pt-5">
-          <LeagueStamp elo={profile?.elo} />
-          <LeagueProgress elo={profile?.elo} />
+      </div>
+      {player.error && <p role="alert" className="menu-error">{t(player.error)}</p>}
+    </section>
+    <section className={`menu-bottle-panel ${dark ? 'is-dark' : ''}`} aria-label="Ранг игрока">
+      <div className="bottle-heading"><span>ТВОЙ РАНГ</span><h1>ОПУСТОШИ БАКЛАЖКУ</h1><p>Меньше пива — выше в лиге.</p></div>
+      <div className="bottle-halo" aria-hidden />
+      <BeerBottle remainingMl={rank.remainingMl} league={rank.league} />
+      <div className="bottle-rank-copy">
+        <span className="beer-league-badge" data-testid="beer-league">{dark ? 'II / ЛИГА «ТЁМНОЕ»' : 'I / ЛИГА «СВЕТЛОЕ»'}</span>
+        <div role="status" className="beer-volume" aria-live="polite">
+          <p>Осталось осушить:</p><strong data-testid="beer-volume">{rank.remainingMl.toLocaleString('ru-RU')}<small>мл</small></strong><span>/ 2000 мл</span>
         </div>
-
-        {account && (
-          <div className="relative mt-auto border-t-[2px] border-ink/30 pt-5">
-            <InkButton tone="gold" pulse={dailyReady} disabled={!dailyReady || player.loading}
-              onClick={() => void playerSession.claimDaily()} className="w-full !px-6 !py-4">
-              {dailyReady
-                ? (
-                  <span className="relative z-10 flex flex-col items-center leading-tight">
-                    <span className="font-stencil text-[18px] tracking-[1px]">{t('dailyLabel')}</span>
-                    <span className="font-stencil text-[26px]">{DAILY_REWARD} ✦</span>
-                  </span>
-                )
-                : (
-                  <span className="relative z-10 flex flex-col items-center leading-tight">
-                    <span className="font-stencil text-[16px] tracking-[1px]">{t('dailyNextLabel')}</span>
-                    <span className="font-stencil text-[28px]">{timer}</span>
-                  </span>
-                )}
-            </InkButton>
-            {player.error && <p role="alert" className="mt-3 font-mono text-[12px] text-blood">{t(player.error)}</p>}
-          </div>
-        )}
-      </motion.aside>
-    </div>
-  );
-}
-
-function leagueOf(elo: number) {
-  const current = LEAGUES.find(item => elo >= item.min) ?? LEAGUES[LEAGUES.length - 1]!;
-  const progress = current.next == null ? 1 : Math.min(1, Math.max(0, (elo - current.min) / (current.next - current.min)));
-  return { ...current, progress };
-}
-
-function LeagueStamp({ elo }: { elo?: number }) {
-  const league = leagueOf(elo ?? 0);
-  return (
-    <div className="ink-edge relative grid h-[108px] w-[108px] shrink-0 place-items-center border-[4px] border-ink bg-ink text-paper shadow-[4px_5px_0_rgba(26,26,26,.4)] -rotate-3">
-      <span className="pointer-events-none absolute inset-0 opacity-25" style={hatch} />
-      <span className="relative font-stencil text-[52px] leading-none">{elo == null ? '?' : league.mark}</span>
-    </div>
-  );
-}
-
-function LeagueProgress({ elo }: { elo?: number }) {
-  const { t } = useTranslation();
-  if (elo == null) {
-    return (
-      <div className="min-w-0 flex-1">
-        <p className="font-stencil text-[18px] tracking-[3px] text-ink/70">{t('league')}</p>
-        <p className="mt-1 font-hand text-[30px] text-ink/55">{t('guestMode')}</p>
+        <p className="beer-rank-status">{rank.remainingMl === 0 ? 'Баклажка осушена. Вершина элитной лиги!' : rank.remainingMl === 2000 ? 'Полная до краёв. Дно лиги.' : rank.remainingMl === 1500 ? 'Калибровочная отметка' : 'Каждый глоток — ближе к вершине.'}</p>
+        <div className="beer-rules"><p><b>↘ ПОБЕДА</b><span>Отпиваешь. Ранг растёт.</span></p><p><b>↗ ПОРАЖЕНИЕ</b><span>Штрафной долив. До 2000 мл.</span></p></div>
+        <div className="beer-next"><span>{dark ? 'СВЕТЛОЕ ОСУШЕНО ✓' : 'СЛЕДУЮЩАЯ ЛИГА'}</span><b>{dark ? 'Тёмное — элитная лига' : 'ТЁМНОЕ / при 0 мл'}</b><small>{dark ? 'Новая баклажка: старт с 1500 мл' : 'Новая баклажка тёмного: 1500 мл'}</small></div>
+        <p className="beer-elo">{profile ? `ELO ${profile.elo} · 1 пункт = 10 мл` : 'Гостевая калибровка · 1500 мл'}</p>
       </div>
-    );
-  }
-  const league = leagueOf(elo);
-  return (
-    <div className="min-w-0 flex-1">
-      <p className="font-stencil text-[18px] tracking-[3px] text-ink/70">{t('league')}</p>
-      <p className="mt-1 font-hand text-[30px] leading-none text-ink">{t(league.key)}</p>
-      <div className="mt-3 h-[16px] border-[2px] border-ink bg-paper">
-        <div className="h-full bg-ink" style={{ width: `${Math.round(league.progress * 100)}%` }} />
-      </div>
-      <p className="mt-2 font-mono text-[14px] text-ink/65">
-        {league.next == null ? t('leagueMax') : `${t('leagueProgress')} · ${elo} → ${league.next}`}
-      </p>
-    </div>
-  );
-}
-
-function DeckFan({ ids, catalog }: { ids: string[]; catalog: CardDefinition[] }) {
-  const unique = [...new Set(ids)];
-  const painted = unique.filter(id => catalog.find(card => card.id === id)?.art.url);
-  const picks = (painted.length >= 3 ? painted : unique).slice(0, 3);
-  const cards = picks.map(id => catalog.find(card => card.id === id) ?? starterCards.find(card => card.id === id));
-  return (
-    <div className="relative h-[188px] w-[220px] shrink-0">
-      {cards.map((card, index) => (
-        <FanCard key={`${picks[index]}-${index}`} card={card} index={index} total={cards.length} />
-      ))}
-    </div>
-  );
-}
-
-function FanCard({ card, index, total }: { card?: CardDefinition; index: number; total: number }) {
-  const art = useCardArt(card?.art ?? starterCards[0]!.art, 160);
-  const mid = (total - 1) / 2;
-  const rot = (index - mid) * 12;
-  const x = (index - mid) * 30;
-  return (
-    <div className="ink-edge absolute top-2 left-10 h-[168px] w-[118px] overflow-hidden border-[3px] border-ink bg-[#2b2924] shadow-[5px_6px_0_rgba(26,26,26,.4)]"
-      style={{ transform: `translateX(${x}px) rotate(${rot}deg)`, zIndex: index }}>
-      {art && <img src={art} alt="" className="h-full w-full object-cover object-[50%_18%]" draggable={false} />}
-      <span className="pointer-events-none absolute inset-0 opacity-20" style={hatch} />
-    </div>
-  );
+      <p className="bottle-footnote">2000 мл — дно <span>← ОПУСТОШАЙ →</span> 0 мл — вершина</p>
+    </section>
+  </div>;
 }

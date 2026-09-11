@@ -44,6 +44,9 @@ export function validateCard(v: unknown): v is CardDefinition {
   })) return false;
   const a = v.art;
   if (!object(a) || !asset(a.url, 'image') || !object(a.crop) || !bounded(a.threshold, 0, 1) || !bounded(a.contrast, .1, 4)) return false;
+  if (a.preset !== undefined && !['xerox', 'comic', 'stencil'].includes(a.preset as string)) return false;
+  if (a.edgeWidth !== undefined && !bounded(a.edgeWidth, 0, 4)) return false;
+  if (a.rasterIntensity !== undefined && !bounded(a.rasterIntensity, 0, 1)) return false;
   if (!bounded(a.crop.x, 0, 1) || !bounded(a.crop.y, 0, 1) || !bounded(a.crop.size, .1, 1)) return false;
   return object(v.audio) && Object.entries(v.audio).every(([k, url]) => ['spawn','attack','death'].includes(k) && asset(url, 'audio'));
 }

@@ -1,232 +1,106 @@
-import { useState, useSyncExternalStore } from 'react';
+import { SlotMachine } from './SlotMachine';
+import { audioManager } from '../AudioManager';
+﻿import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import i18n from '@kartishki/i18n';
-import { CASE_COST, PACK_COST, type CardDefinition, type CaseResult, type LootCard, type PackResult } from '@kartishki/shared';
-import { playerSession } from '../playerSession';
+import type { CardDefinition } from '@kartishki/shared';
+import { useEconomy } from '../EconomyContext';
+import { CASES, PACKS, type Product } from '../economy';
+import { CatPortrait } from '../ui/CatPortrait';
 import { Backdrop } from '../ui/Backdrop';
-import { CARD_W, CARD_H, CardBack, GameCard } from '../ui/GameCard';
+import { CardBack, GameCard } from '../ui/GameCard';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
 import { rarityOrder, rarityStyle } from '../ui/rarity';
 import { useCardArt } from '../ui/cardArt';
-import { useCatalog } from '../ui/useCatalog';
-import { chime } from '../ui/sfx';
+import { chime, tick } from '../ui/sfx';
 
-const TILE = 168;
-const WINDOW = 1180;
-
+const tabs = { slots: 'Слот-Машина', packs: 'Паки карт', cases: 'Кейсы' };
+type Tab = keyof typeof tabs;
 export function ShopScreen({ onBack }: { onBack: () => void }) {
+  const e = useEconomy();
+  const [tab, setTab] = useState<Tab>(e.opening?.kind ?? 'slots');
+  const [packId, setPackId] = useState(PACKS[0].id);
+  const [caseId, setCaseId] = useState(CASES[0].id);
+  const pack = PACKS.find(p => p.id === packId)!;
+  const crate = CASES.find(p => p.id === caseId)!;
+  return <div className="absolute inset-0 overflow-clip">
+    <Backdrop />
+    <TopBar right={<InkButton size="sm" onClick={onBack}>Назад в меню</InkButton>} />
+    <div className="shop-title"><span>ЛАВКА ДЕВЯТИ ЖИЗНЕЙ</span><small>Демо-доллары · без реальных платежей</small></div>
+    <nav className="shop-tabs" aria-label="Режим магазина">
+      {(Object.keys(tabs) as Tab[]).map(key => <button key={key} aria-pressed={tab === key} disabled={!!e.opening && e.opening.kind !== key} onClick={() => { setTab(key); e.clearMessage(); }}>{tabs[key]}</button>)}
+    </nav>
+    <p role="status" className="absolute right-12 top-[161px] max-w-[620px] text-right font-mono text-[13px] text-blood">{e.message}</p>
+    <main className="absolute inset-x-[55px] top-[222px] bottom-[24px]">
+      {tab === 'slots' && <SlotMachine />}
+      {tab === 'packs' && (e.opening?.kind === 'packs' ? <PackOpening key={e.opening.name} cards={e.opening.cards} name={e.opening.name} onDone={e.finish} /> : <div className="catalog-layout">
+        <div className="catalog-shelf">{PACKS.map((p, i) => <button key={p.id} className={`product-choice ${p.id === packId ? 'chosen' : ''}`} onClick={() => setPackId(p.id)} aria-pressed={p.id === packId}>
+          <Foil name={p.name} color={['#7f9868', '#b395cc', '#d3b655'][i]} compact />
+          <strong>{p.name}</strong><span>$ {p.cost} · 5 карт</span>{(e.inventory[p.id] ?? 0) > 0 && <b className="bonus-label">В запасе: {e.inventory[p.id]}</b>}
+        </button>)}</div>
+        <div className="shop-receipt"><span className="eyebrow">СВЕЖИЙ УЛОВ / 5 КАРТ</span><h2>{pack.name}</h2><p>Порви фольгу. Переверни каждую карту. Все копии остаются в коллекции.</p><Odds product={pack} />
+          <InkButton tone="gold" size="lg" disabled={e.dollars < pack.cost && !(e.inventory[pack.id] > 0)} onClick={() => e.openPack(pack.id)}>{e.inventory[pack.id] > 0 ? 'Открыть бонусный пак' : `Купить пак ($${pack.cost})`}</InkButton>
+        </div>
+      </div>)}
+      {tab === 'cases' && (e.opening?.kind === 'cases' ? <CaseOpening reel={e.opening.reel} landing={e.opening.landing} prize={e.opening.prize} onDone={e.finish} /> : <div className="catalog-layout">
+        <div className="catalog-shelf crates">{CASES.map((p, i) => <button key={p.id} className={`product-choice ${caseId === p.id ? 'chosen' : ''}`} onClick={() => setCaseId(p.id)} aria-pressed={caseId === p.id}>
+          <div className={`wooden-crate crate-${i}`}><span>ฅ</span><b>▣</b><small>{i ? 'IX • СЕКРЕТНО' : 'НЕ КАНТОВАТЬ'}</small></div><strong>{p.name}</strong><span>$ {p.cost} · 1 карта</span>
+        </button>)}</div>
+        <div className="shop-receipt"><span className="eyebrow">КЛЮЧ НЕ НУЖЕН</span><h2>{crate.name}</h2><Odds product={crate} /><DropPreview product={crate} /><InkButton tone="gold" size="lg" disabled={e.dollars < crate.cost} onClick={() => e.openCase(crate.id)}>ОТКРЫТЬ КЕЙС (${crate.cost})</InkButton></div>
+      </div>)}
+    </main>
+  </div>;
+}
+function Odds({ product }: { product: Product }) {
   const { t } = useTranslation();
-  const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
-  const catalog = useCatalog();
-  const [tab, setTab] = useState<'packs' | 'cases'>('packs');
-  const [pack, setPack] = useState<PackResult>();
+  return <div className="odds" aria-label="Шансы выпадения">{rarityOrder.map((r, i) => <span key={r}><i style={{ background: rarityStyle[r].frame }} />{t(r)}<b>{product.weights[i]}%</b></span>)}</div>;
+}
+function DropPreview({ product }: { product: Product }) {
+  const { catalog } = useEconomy();
+  const { t } = useTranslation();
+  return <details className="drop-preview"><summary>Все возможные карты и шансы ▾</summary><div>{catalog.filter(c => product.weights[rarityOrder.indexOf(c.rarity)] > 0).map(c => <p key={c.id}><span style={{ color: rarityStyle[c.rarity].frame }}>{c.name.ru} · {t(c.rarity)}</span><b>{(product.weights[rarityOrder.indexOf(c.rarity)] / catalog.filter(d => d.rarity === c.rarity).length).toFixed(2)}%</b></p>)}</div></details>;
+}
+function Foil({ name, color = '#c1ac62', compact = false }: { name: string; color?: string; compact?: boolean }) {
+  return <div className={`foil-pack ${compact ? 'compact' : ''}`} style={{ '--foil-color': color } as React.CSSProperties}><div className="foil-crimp" /><span className="foil-brand">КАРТИШКИ</span><div className="foil-cat">ฅ</div><strong>{name}</strong><small>5 КАРТ • НЕ КОРМИТЬ ПОСЛЕ ПОЛУНОЧИ</small><div className="foil-crimp bottom" /></div>;
+}
+export function PackOpening({ cards, name, onDone }: { cards: CardDefinition[]; name: string; onDone: () => void }) {
   const [ripped, setRipped] = useState(false);
-  const [flipped, setFlipped] = useState<Set<number>>(new Set());
-  const [burst, setBurst] = useState(0);
-  const [crate, setCrate] = useState<CaseResult>();
-  const [spinning, setSpinning] = useState(false);
-  const [prize, setPrize] = useState<LootCard>();
-
-  const balance = player.library?.profile.currency ?? 0;
-  const definition = (loot: LootCard): CardDefinition =>
-    catalog.find(card => card.id === loot.id) ?? { ...catalog[0], id: loot.id, name: loot.name, rarity: loot.rarity as CardDefinition['rarity'] };
-
-  async function openPack() {
-    const result = await playerSession.openPack();
-    if (!result) return;
-    setPack(result); setRipped(false); setFlipped(new Set());
-  }
-
-  function ripPack() {
-    if (ripped) return;
-    setRipped(true); setBurst(n => n + 1); chime('reveal');
-  }
-
-  async function openCase() {
-    const result = await playerSession.openCase();
-    if (!result) return;
-    setPrize(undefined); setCrate(result); setSpinning(true);
-    setTimeout(() => { setSpinning(false); setPrize(result.prize); chime('victory'); }, 4300);
-  }
-
-  return (
-    <div className="absolute inset-0 overflow-hidden">
-      <Backdrop />
-      <TopBar right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
-
-      <div className="absolute top-[86px] left-[48px] z-30 flex items-end gap-1">
-        {(['packs', 'cases'] as const).map(key => {
-          const active = tab === key;
-          return (
-            <button key={key} type="button" onClick={() => setTab(key)}
-              className={`relative px-10 pt-4 pb-5 font-hand text-[28px] tracking-wide border-[3px] border-ink shadow-[4px_6px_0_rgba(26,26,26,.35)] ${active ? 'bg-ink text-paper z-10' : 'bg-paper text-ink/70'}`}
-              style={{ clipPath: 'polygon(0 0, 100% 0, 92% 100%, 8% 100%)', transform: active ? 'translateY(6px)' : 'translateY(0)' }}>
-              {t(key === 'packs' ? 'tabPacks' : 'tabCases')}
-            </button>
-          );
-        })}
-        {player.error && <span role="alert" className="mb-3 ml-4 self-center font-mono text-[12px] text-blood">{t(player.error)}</span>}
-      </div>
-
-      {tab === 'packs' ? (
-        <section className="absolute top-[138px] right-0 bottom-0 left-0 px-[60px]">
-          {!pack || !ripped ? (
-            <div className="flex h-full flex-col items-center justify-center pb-4">
-              <motion.div
-                drag={!!pack} dragSnapToOrigin dragConstraints={{ left: 80, right: 80, top: 90, bottom: 40 }}
-                whileHover={pack ? { scale: 1.03, rotate: -1 } : undefined}
-                animate={pack ? { y: 0, rotate: [0, -2, 1.5, 0] } : { y: [0, -8, 0] }}
-                transition={pack ? { ...spring, rotate: { duration: 1.8, repeat: Infinity } } : { duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                onDragEnd={(_, info) => { if (Math.hypot(info.offset.x, info.offset.y) > 48) ripPack(); }}
-                onClick={() => { if (pack) ripPack(); }}
-                className={pack ? 'cursor-grab active:cursor-grabbing' : undefined}
-              >
-                <AltarPack bought={!!pack} glow={pack ? 'rgba(217,37,37,.55)' : 'rgba(245,158,11,.55)'} />
-              </motion.div>
-              <div className="mt-[-8px] h-[42px] w-[640px] border-[4px] border-ink bg-ink/90" />
-              <div className="h-[26px] w-[780px] border-[4px] border-ink bg-paper" />
-              <div className="mt-5">
-                {pack
-                  ? <InkButton tone="gold" size="lg" pulse onClick={ripPack}>{t('ripPack')}</InkButton>
-                  : <BuyPackButton loading={player.loading} poor={balance < PACK_COST} onBuy={() => void openPack()} />}
-              </div>
-            </div>
-          ) : (
-            <div className="relative flex h-[600px] flex-col items-center justify-center">
-              <AnimatePresence>
-                {Array.from({ length: 20 }, (_, n) => (
-                  <motion.span key={`${burst}-${n}`} className="pointer-events-none absolute top-[42%] left-1/2 h-[10px] w-[10px] bg-ink"
-                    initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-                    animate={{ opacity: 0, scale: 0.2, x: Math.cos(n) * (240 + n * 12), y: Math.sin(n * 2) * (170 + n * 7), rotate: n * 40 }}
-                    transition={{ duration: 1.1, ease: 'easeOut' }} />
-                ))}
-              </AnimatePresence>
-
-              <div className="flex gap-[20px]">
-                {pack.cards.map((loot, index) => {
-                  const look = rarityStyle[loot.rarity as CardDefinition['rarity']];
-                  const open = flipped.has(index);
-                  return (
-                    <motion.div key={index} className="[perspective:1200px]"
-                      initial={{ y: -220, opacity: 0, rotate: -12 }} animate={{ y: 0, opacity: 1, rotate: 0 }}
-                      transition={{ ...spring, delay: 0.12 * index }}>
-                      <motion.div className={`pack-card relative [transform-style:preserve-3d] ${open ? '' : 'closed'}`}
-                        style={{ width: 190 * 0.95, height: 260 * 0.95 }}
-                        animate={{ rotateY: open ? 180 : 0 }} transition={{ type: 'spring', stiffness: 220, damping: 22 }}
-                        onClick={() => { if (!open) { setFlipped(prev => new Set(prev).add(index)); chime('reveal'); } }}>
-                        <motion.div className="absolute inset-0 cursor-pointer [backface-visibility:hidden]"
-                          whileHover={open ? undefined : { scale: 1.06, boxShadow: `0 0 34px 8px ${look.glow}` }}
-                          aria-label={t('flipCard')} role="button"
-                          onClick={() => { if (!open) { setFlipped(prev => new Set(prev).add(index)); chime('reveal'); } }}>
-                          <CardBack scale={0.95} />
-                        </motion.div>
-                        <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                          <GameCard card={definition(loot)} scale={0.95} hoverable={false} />
-                        </div>
-                      </motion.div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-
-              <p className="mt-7 font-mono text-[12px] tracking-[2px] text-ink/60">
-                {flipped.size < pack.cards.length ? t('flipHint') : t('packOpened')}
-              </p>
-              <div className="mt-4 flex gap-4">
-                <BuyPackButton loading={player.loading} poor={balance < PACK_COST} onBuy={() => void openPack()} />
-                <InkButton onClick={() => { setPack(undefined); setRipped(false); }}>{t('done')}</InkButton>
-              </div>
-            </div>
-          )}
-        </section>
-      ) : (
-        <section className="absolute top-[210px] right-0 bottom-0 left-0 flex flex-col items-center">
-          <div className="relative overflow-hidden border-y-[4px] border-ink bg-ink/10" style={{ width: WINDOW, height: 250 }}>
-            <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 z-20 w-[4px] -translate-x-1/2 bg-blood" />
-            <div className="pointer-events-none absolute inset-0 z-10"
-              style={{ background: 'linear-gradient(90deg,#efece4 0%,transparent 16%,transparent 84%,#efece4 100%)' }} />
-            <motion.div className="absolute top-0 left-0 flex"
-              animate={{ x: crate ? -(crate.landing * TILE + TILE / 2 - WINDOW / 2) : 0 }}
-              transition={spinning ? { duration: 4.2, ease: [0.06, 0.72, 0.09, 1] } : { duration: 0 }}>
-              {(crate ? crate.reel.map((loot, index) => (
-                <ReelTile key={index} loot={loot} card={definition(loot)} />
-              )) : Array.from({ length: 14 }, (_, n) => catalog[n % Math.max(catalog.length, 1)]).map((card, index) => (
-                <ReelTile key={index} loot={card ?? { id: '', rarity: rarityOrder[index % rarityOrder.length], name: { ru: '?' } }} card={card} />
-              )))}
-            </motion.div>
-          </div>
-
-          <p className="mt-6 font-hand text-[30px] text-ink">{t('casePedestal')}</p>
-          <div className="mt-4">
-            <InkButton tone="gold" size="lg" disabled={player.loading || spinning || balance < CASE_COST} onClick={() => void openCase()}>
-              {t('openCase', { cost: CASE_COST })}
-            </InkButton>
-          </div>
-        </section>
-      )}
-
-      <AnimatePresence>
-        {prize && (
-          <motion.div className="absolute inset-0 z-50 grid place-items-center bg-black/80"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPrize(undefined)}>
-            <motion.div initial={{ scale: 0.3, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 180, damping: 14 }}>
-              <GameCard card={definition(prize)} scale={1.5} hoverable={false} />
-            </motion.div>
-            <motion.p className="absolute bottom-[90px] font-hand text-[44px] text-paper"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              {t('caseOpened')} — {t(prize.rarity)}
-            </motion.p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+  const [flipped, setFlipped] = useState<number[]>([]);
+  const [flat, setFlat] = useState<number[]>([]);
+  const start = useRef(0);
+  const rip = () => { if (!ripped) { setRipped(true); audioManager.play('pack_rip'); } };
+  return <div className="pack-opening">
+    <h2>{ripped ? 'ТВОЙ УЛОВ' : name}</h2>
+    <AnimatePresence>{!ripped && <motion.div className="sealed-pack" exit={{ y: 340, opacity: 0 }} transition={{ duration: .55 }}>
+      <Foil name={name} />
+      <motion.button className="tear-line" aria-label="Порвать пак" onPointerDown={ev => { start.current = ev.clientX; ev.currentTarget.setPointerCapture(ev.pointerId); }} onPointerUp={ev => { if (Math.abs(ev.clientX - start.current) > 35) rip(); }} onClick={rip} whileHover={{ x: [0, -3, 3, 0] }}>✂ · · · ПОТЯНИ ИЛИ НАЖМИ · · ·</motion.button>
+    </motion.div>}</AnimatePresence>
+    {ripped && <><motion.div className="torn-head" initial={{ x: 0, y: 80, rotate: 0 }} animate={{ x: 460, y: -400, rotate: 85, opacity: 0 }} transition={{ duration: .9 }}>✂ КАРТИШКИ</motion.div>
+      <div className="pack-cards">{cards.map((card, i) => <motion.div key={i} initial={{ y: 290, x: (2 - i) * 190, opacity: 0 }} animate={{ y: 0, x: 0, opacity: 1 }} transition={{ ...spring, delay: .15 + i * .1 }} className="flip-perspective">
+        <motion.button aria-label={flipped.includes(i) ? card.name.ru : `Перевернуть карту ${i + 1}`} className={`flip-card ${flat.includes(i) ? 'is-flat' : ''}`} onAnimationComplete={() => { if (flipped.includes(i) && !flat.includes(i)) setFlat(prev => [...prev, i]); }} animate={{ rotateY: flat.includes(i) ? 0 : flipped.includes(i) ? 180 : 0 }} transition={flat.includes(i) ? { duration: 0 } : { type: 'spring', stiffness: 160, damping: 19 }} onClick={() => { if (!flipped.includes(i)) { setFlipped(prev => [...prev, i]); chime(); } }}>
+          <div className="flip-front"><CardBack /></div><div className="flip-back"><GameCard card={card} hoverable={false} /></div>
+        </motion.button>{flipped.includes(i) && <Burst color={rarityStyle[card.rarity].frame} />}
+      </motion.div>)}</div>
+      <p>{flipped.length === 5 ? 'Все пять карт теперь в коллекции.' : 'Нажми на каждую карту, чтобы узнать её редкость.'}</p>
+      <InkButton tone="toxic" disabled={flipped.length !== 5} onClick={onDone}>Ура, в коллекцию!</InkButton>
+    </>}
+    {!ripped && <p className="tear-hint">Разорви пак по пунктирной линии</p>}
+  </div>;
 }
-
-const PACK_SCALE = 2.05;
-
-function BuyPackButton({ loading, poor, onBuy }: { loading: boolean; poor: boolean; onBuy: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <InkButton tone="gold" size="lg" disabled={loading || poor} onClick={onBuy}>
-      {t('buyPackLead')} <span className={poor ? 'text-blood' : undefined}>{PACK_COST} {t('buyPackUnit')}</span>
-    </InkButton>
-  );
+function Burst({ color }: { color: string }) {
+  return <div className="pointer-events-none absolute inset-0" aria-hidden><motion.div className="absolute inset-0" style={{ boxShadow: `0 0 50px 15px ${color}` }} initial={{ opacity: .8 }} animate={{ opacity: .18 }} transition={{ duration: 1.2 }} />{Array.from({ length: 16 }, (_, i) => <motion.i key={i} className="absolute left-1/2 top-1/2 h-2 w-2" style={{ background: color }} initial={{ x: 0, y: 0, opacity: 1 }} animate={{ x: Math.cos(i * Math.PI / 8) * 160, y: Math.sin(i * Math.PI / 8) * 200, opacity: 0, rotate: 180 }} transition={{ duration: .85 }} />)}</div>;
 }
-
-function AltarPack({ bought, glow }: { bought: boolean; glow: string }) {
-  const w = CARD_W * PACK_SCALE, h = CARD_H * PACK_SCALE;
-  return (
-    <div className="relative" style={{ width: w, height: h, filter: `drop-shadow(0 0 28px ${glow})` }}>
-      <div className="pack-crumple absolute inset-0 bg-[#12100e]"
-        style={{ boxShadow: 'inset 0 0 0 5px #000, 10px 12px 0 rgba(26,26,26,.4)' }}>
-        <div className="absolute inset-0 opacity-50"
-          style={{ backgroundImage: 'repeating-linear-gradient(-22deg,transparent 0 8px,#000 8px 9px), repeating-linear-gradient(48deg,transparent 0 13px,#efece418 13px 14px)' }} />
-        <div className="absolute inset-[16px] border-[3px] border-paper/35"
-          style={{ clipPath: 'polygon(3% 4%, 97% 0, 100% 96%, 0 100%)' }} />
-      </div>
-      <div className={`seal-glow absolute top-1/2 left-1/2 z-10 grid h-[168px] w-[168px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[7px] ${bought ? 'border-blood' : 'border-legendary'} bg-[#0d0d0d]`}>
-        <span className={`font-hand text-[92px] leading-none ${bought ? 'text-blood' : 'text-legendary'}`}
-          style={{ textShadow: bought ? '0 0 22px #d92525' : '0 0 22px #f59e0b' }}>✳</span>
-      </div>
-    </div>
-  );
+function CaseOpening({ reel, landing, prize, onDone }: { reel: CardDefinition[]; landing: number; prize: CardDefinition; onDone: () => void }) {
+  const [done, setDone] = useState(false);
+  const lastTile = useRef(0);
+  return <div className="case-opening"><h2>{done ? 'ПОЙМАНО!' : 'КОМУ ДОСТАНЕТСЯ ДЕВЯТАЯ ЖИЗНЬ?'}</h2><p>Одна карта. Никаких ключей.</p>
+    <div className="roulette-window"><div className="roulette-selector" /><motion.div className="roulette-ribbon" initial={{ x: 0 }} animate={{ x: -(landing * 168 + 84 - 590) }} transition={{ duration: 5.6, ease: [.08, .66, .12, 1] }} onUpdate={latest => { const tile = Math.floor(Math.abs(Number(latest.x)) / 168); if (tile !== lastTile.current) { tick(); lastTile.current = tile; } }} onAnimationComplete={() => { setDone(true); chime('victory'); }}>{reel.map((card, i) => <ReelTile card={card} key={i} />)}</motion.div></div>
+    <p role="status">{done ? prize.name.ru : 'Барабан замедляется…'}</p>
+    <AnimatePresence>{done && <motion.div role="dialog" aria-modal="true" aria-label="Выигранная карта" className="prize-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><div className="relative"><Burst color={rarityStyle[prize.rarity].frame} /><motion.div initial={{ scale: .3, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={spring}><GameCard card={prize} scale={1.4} hoverable={false} /></motion.div></div><h2>{prize.name.ru}</h2><InkButton tone="gold" onClick={onDone}>Ура, в коллекцию!</InkButton></motion.div>}</AnimatePresence>
+  </div>;
 }
-
-function ReelTile({ loot, card }: { loot: LootCard; card?: CardDefinition }) {
-  const art = useCardArt(card?.art ?? { url: '', crop: { x: 0, y: 0, size: 1 }, threshold: 0.5, contrast: 1.5 }, 128);
-  const look = rarityStyle[loot.rarity as CardDefinition['rarity']] ?? rarityStyle.common;
-  return (
-    <div className="relative shrink-0 border-r-[2px] border-ink/40 bg-paper" style={{ width: TILE, height: 250 }}>
-      <div className="absolute inset-[10px] bottom-[38px] overflow-hidden border-[2px] border-ink">
-        {art && <img src={art} alt="" className="h-full w-full object-cover" draggable={false} />}
-      </div>
-      <p className="absolute right-[10px] bottom-[16px] left-[10px] truncate text-center font-mono text-[11px]">
-        {card ? (card.name[i18n.language] || card.name.ru) : '?'}
-      </p>
-      <div className="absolute right-0 bottom-0 left-0 h-[8px]" style={{ background: look.frame }} />
-    </div>
-  );
+function ReelTile({ card }: { card: CardDefinition }) {
+  const art = useCardArt(card.art, 512);
+  return <div className="reel-tile"><div>{art ? <img src={art} alt="" /> : <CatPortrait seed={card.id} />}</div><strong>{card.name.ru}</strong><i style={{ background: rarityStyle[card.rarity].frame }} /></div>;
 }

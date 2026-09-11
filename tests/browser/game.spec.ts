@@ -21,7 +21,7 @@ test('editor publishes filtered photo and audio; clients play and attack through
   await editor.getByLabel('ID карты').fill('browser-card'); await editor.getByLabel('Название (ru)').fill('Чернильный тест');
   const png=await editor.evaluate(()=>{const c=document.createElement('canvas');c.width=100;c.height=100;const ctx=c.getContext('2d')!;ctx.fillStyle='#fff';ctx.fillRect(0,0,100,100);ctx.fillStyle='#222';ctx.fillRect(10,10,40,80);return c.toDataURL().split(',')[1];});
   await editor.getByLabel('Фотография').setInputFiles({name:'photo.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
-  await editor.getByLabel('Порог чернил').fill('0.7');
+  await editor.getByLabel('Порог контраста').fill('0.7');
   await editor.getByLabel('Контрацептив',{exact:true}).check();
   await editor.getByRole('button',{name:'Добавить способность'}).click();
   await editor.getByLabel('Типы существ (через запятую)').fill('кот,бумага');

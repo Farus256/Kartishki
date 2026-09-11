@@ -1,41 +1,47 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { audioManager } from '../AudioManager';
+import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import i18n from '@kartishki/i18n';
 import { DECK_SIZE, type CardDefinition } from '@kartishki/shared';
-import { playerSession } from '../playerSession';
+import { useEconomy } from '../EconomyContext';
+import { cardRules } from '../ui/cardText';
+import { CatPortrait } from '../ui/CatPortrait';
 import { Backdrop } from '../ui/Backdrop';
 import { GameCard, LockedSlot } from '../ui/GameCard';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
 import { rarityOrder } from '../ui/rarity';
 import { useCardArt } from '../ui/cardArt';
-import { useCatalog } from '../ui/useCatalog';
 
 const PER_PAGE = 8;
-const CARD_SCALE = 1.04;
+const CARD_SCALE = 0.96;
 const CURVE = [0, 1, 2, 3, 4, 5, 6, 7];
 const EMPTY_ART = { url: '', crop: { x: 0.5, y: 0.22, size: 1 }, threshold: 0.5, contrast: 1.5 } as const;
 
 export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onShop?: () => void }) {
   const { t } = useTranslation();
-  const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
-  const catalog = useCatalog();
+  const economy = useEconomy();
+  const catalog = economy.catalog;
   const [rarity, setRarity] = useState<'all' | string>('all');
   const [mana, setMana] = useState<number | 'all'>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [name, setName] = useState('');
   const [draft, setDraft] = useState<string[]>([]);
+  const [hovered, setHovered] = useState('');
+  const [notice, setNotice] = useState('');
+  const [flight, setFlight] = useState<{ card: CardDefinition; x: number; y: number; key: number }>();
+  const [editingId, setEditingId] = useState(economy.activeDeck);
 
-  const selected = player.library?.decks.find(deck => deck.id === player.selectedDeck);
-  useEffect(() => { if (selected) { setName(selected.name); setDraft(selected.cards); } }, [selected?.id, selected?.version]);
+  const selected = economy.decks.find(deck => deck.id === economy.activeDeck);
+  useEffect(() => { setEditingId(selected?.id ?? ''); setName(selected?.name ?? 'Новая колода'); setDraft(selected?.cards ?? []); }, [selected]);
 
-  const owned = useMemo(() => new Map(player.library?.collection.map(row => [row.cardId, row.copies]) ?? []), [player.library]);
+  const owned = useMemo(() => new Map(Object.entries(economy.owned)), [economy.owned]);
   const visible = useMemo(() => catalog.filter(card =>
     (rarity === 'all' || card.rarity === rarity)
-    && (mana === 'all' || card.cost === mana)
-    && (card.name.ru + (card.name.en ?? '')).toLowerCase().includes(search.trim().toLowerCase())
+    && (mana === 'all' || (mana === 10 ? card.cost >= 10 : card.cost === mana))
+    && (card.name.ru + (card.name.en ?? '') + cardRules(card, t, i18n.language)).toLowerCase().includes(search.trim().toLowerCase())
   ), [catalog, rarity, mana, search]);
 
   const pages = Math.max(1, Math.ceil(visible.length / PER_PAGE));
@@ -48,12 +54,15 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
   }).length);
   const peak = Math.max(1, ...curve);
 
-  function add(card: CardDefinition) {
+  function add(card: CardDefinition, index: number) {
     const copies = owned.get(card.id) ?? 0;
-    if (draft.length >= DECK_SIZE || used(card.id) >= copies) return;
-    setDraft(list => [...list, card.id]);
+    if (draft.length >= DECK_SIZE || used(card.id) >= Math.min(2, copies)) { setNotice('Максимум 30 карт в колоде и 2 копии каждой.'); return; }
+    setNotice('');
+    setFlight({ card, x: 50 + (index % 4) * 250, y: 264 + Math.floor(index / 4) * 320, key: Date.now() });
+    audioManager.play('card_place'); setDraft(list => [...list, card.id]);
   }
   function drop(id: string) {
+    if (draft.includes(id)) audioManager.play('card_remove');
     setDraft(list => { const last = list.lastIndexOf(id); return last < 0 ? list : list.filter((_, n) => n !== last); });
   }
 
@@ -62,12 +71,10 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
       <Backdrop />
       <TopBar onPlus={onShop} right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
 
-      <section className="absolute top-[100px] bottom-0 left-0 w-[1070px] overflow-visible border-r-[4px] border-ink px-[28px] pt-[8px]">
+      <section className="absolute top-[100px] bottom-0 left-0 w-[1070px] binder-board overflow-visible border-r-[8px] border-ink px-[28px] pt-[8px]">
         <div className="flex items-center gap-3">
           <h2 className="font-hand text-[28px] text-ink">{t('binder')}</h2>
-          <input value={search} placeholder={t('searchCard')} aria-label={t('searchCard')}
-            onChange={e => { setSearch(e.target.value); setPage(0); }}
-            className="ml-auto w-[250px] border-[3px] border-ink bg-paper px-3 py-[6px] font-mono text-[13px] outline-none focus:border-blood" />
+
         </div>
 
         <div className="mt-2 flex h-[32px] items-center gap-2">
@@ -77,6 +84,9 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
               {key === 'all' ? t('filterAll') : t(key)}
             </button>
           ))}
+          <input value={search} placeholder={t('searchCard')} aria-label={t('searchCard')}
+            onChange={e => { setSearch(e.target.value); setPage(0); }}
+            className="ml-auto w-[250px] border-[3px] border-ink bg-paper px-3 py-[6px] font-mono text-[13px] outline-none focus:border-blood" />
         </div>
 
         <div className="mt-1 flex h-[42px] items-center gap-[3px]">
@@ -85,7 +95,7 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
             <span key={String(value)} className="grid h-[40px] w-[36px] place-items-center">
               <button onClick={() => { setMana(value); setPage(0); }}
                 className={`grid h-[24px] w-[24px] rotate-45 place-items-center border-[2px] border-ink font-mono text-[10px] ${mana === value ? 'bg-toxic text-paper' : 'bg-paper text-ink'}`}>
-                <span className="-rotate-45">{value === 'all' ? '∗' : value}</span>
+                <span className="-rotate-45">{value === 'all' ? '∗' : value === 10 ? '10+' : value}</span>
               </button>
             </span>
           ))}
@@ -100,37 +110,46 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
               if (!card) return <LockedSlot key={`empty-${index}`} scale={CARD_SCALE} />;
               const copies = owned.get(card.id) ?? 0;
               return <GameCard key={card.id} card={card} scale={CARD_SCALE} owned={copies > 0}
-                dim={copies > 0 && used(card.id) >= copies}
-                onClick={copies > 0 ? () => add(card) : undefined} />;
+                selected={hovered === card.id} dim={copies > 0 && used(card.id) >= Math.min(2, copies)}
+                onClick={copies > 0 ? () => add(card, index) : () => economy.craft(card)} />;
             })}
           </motion.div>
         </AnimatePresence>
 
         <div className="absolute bottom-[14px] left-[28px] flex items-center gap-4">
-          <InkButton size="sm" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>←</InkButton>
-          <span className="font-mono text-[12px]">{t('page')} {safePage + 1} / {pages}</span>
-          <InkButton size="sm" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}>→</InkButton>
-          <span className="ml-4 font-mono text-[11px] text-ink/50">{t('binderHint')}</span>
+          <InkButton size="sm" disabled={safePage === 0} onClick={() => { audioManager.play('page_turn'); setPage(safePage - 1); }}>◄ Предыдущая</InkButton>
+          <span className="font-hand text-[18px]">{t('page')} {safePage + 1} / {pages}</span>
+          <InkButton size="sm" disabled={safePage >= pages - 1} onClick={() => { audioManager.play('page_turn'); setPage(safePage + 1); }}>Следующая ►</InkButton>
+          <span className="ml-4 font-mono text-[11px] text-ink/50">Добавить • тёмная карта: создать за $</span>
         </div>
       </section>
 
       <aside className="absolute top-[100px] right-0 bottom-0 flex w-[530px] flex-col bg-paper px-[24px] pt-[14px]">
         <input value={name} maxLength={60} aria-label={t('deckName')} onChange={e => setName(e.target.value)}
           className="border-[3px] border-ink bg-paper px-3 py-2 font-hand text-[26px] outline-none focus:border-blood" />
-        {(player.library?.decks.length ?? 0) > 1 && (
-          <select aria-label={t('decks')} value={player.selectedDeck} onChange={e => playerSession.selectDeck(e.target.value)}
+        {economy.decks.length > 0 && (
+          <select aria-label={t('decks')} value={editingId} onChange={e => { economy.selectDeck(e.target.value); const deck = economy.decks.find(d => d.id === e.target.value); if (deck) { setEditingId(deck.id); setName(deck.name); setDraft(deck.cards); } }}
             className="mt-2 w-full border-[2px] border-ink bg-paper px-2 py-1 font-mono text-[11px] tracking-[1px] text-ink/70">
-            {player.library?.decks.map(deck => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
+            {!editingId && <option value="">Новая колода</option>}
+            {economy.decks.map(deck => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
           </select>
         )}
 
         <div className="mt-3 flex items-baseline gap-3">
-          <span className="font-stencil text-[30px]" style={{ color: draft.length === DECK_SIZE ? '#2E8B57' : '#D92525' }}>{draft.length}</span>
+          <span className="font-stencil text-[30px]" style={{ color: draft.length === DECK_SIZE ? '#2E8B57' : '#b96a22' }}>{draft.length}</span>
           <span className="font-mono text-[13px] text-ink/60">/ {DECK_SIZE}</span>
-          <span className="ml-auto font-mono text-[11px] text-ink/50">{t('manaCurve')}</span>
+
         </div>
 
-        <div className="mt-2 flex h-[52px] items-end gap-[6px] border-b-[3px] border-ink">
+        <ul className="mt-3 flex-1 overflow-y-auto pr-1">
+          {[...new Set(draft)].map(id => {
+            const card = catalog.find(item => item.id === id);
+            return <DeckTile key={id} card={card} count={used(id)} onHover={setHovered} onDrop={() => drop(id)} />;
+          })}
+        </ul>
+
+        <span className="mt-2 font-mono text-[11px] text-ink/50">{t('manaCurve')}</span>
+        <div className="mt-2 flex shrink-0 h-[52px] items-end gap-[6px] border-b-[3px] border-ink">
           {curve.map((count, cost) => (
             <div key={cost} className="flex min-w-0 flex-1 flex-col items-center justify-end">
               <span className="font-mono text-[10px] leading-none text-ink/60">{count || '\u00a0'}</span>
@@ -144,39 +163,33 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
           ))}
         </div>
 
-        <ul className="mt-3 flex-1 overflow-y-auto pr-1">
-          {[...new Set(draft)].map(id => {
-            const card = catalog.find(item => item.id === id);
-            return <DeckTile key={id} card={card} count={used(id)} onDrop={() => drop(id)} />;
-          })}
-        </ul>
-
-        {player.error && <p role="alert" className="font-mono text-[12px] text-blood">{t(player.error)}</p>}
-        <div className="flex shrink-0 gap-3 py-4">
-          <InkButton size="sm" tone="toxic" disabled={player.loading || draft.length !== DECK_SIZE || !name.trim()}
-            onClick={() => void playerSession.saveDeck({ ...(selected ? { id: selected.id, version: selected.version } : {}), name, cards: draft })}>
-            {t('saveDeck')}
-          </InkButton>
-          <InkButton size="sm" onClick={() => { setName(t('newDeck')); setDraft([]); }}>{t('newDeck')}</InkButton>
-          {selected && <InkButton size="sm" tone="rose" disabled={player.loading} onClick={() => void playerSession.deleteDeck(selected)}>{t('deleteDeck')}</InkButton>}
+        <p role="status" className="mt-2 min-h-[18px] font-mono text-[11px] text-blood">{notice || economy.message || (visible.length === 0 ? 'По вашему запросу карт нет.' : '')}</p>
+        <div className="flex shrink-0 flex-wrap gap-3 py-4">
+          <InkButton size="sm" tone="toxic" disabled={draft.length !== DECK_SIZE || !name.trim()}
+            onClick={() => { const id = editingId || crypto.randomUUID(); if (economy.saveDeck({ id, name, cards: draft })) { setEditingId(id); setNotice('Колода сохранена.'); } }}>Сохранить колоду</InkButton>
+          <InkButton size="sm" onClick={() => setDraft([])}>Очистить</InkButton>
+          <InkButton size="sm" onClick={() => { setEditingId(''); setName('Новая колода'); setDraft([]); setNotice('Новая колода'); }}>Новая</InkButton>
+          {editingId && <InkButton size="sm" tone="rose" onClick={() => economy.deleteDeck(editingId)}>Удалить колоду</InkButton>}
         </div>
       </aside>
+      <AnimatePresence>{flight && <motion.div key={flight.key} className="pointer-events-none absolute z-50" initial={{ x: flight.x, y: flight.y, scale: .9, opacity: 1 }} animate={{ x: 1210, y: 330, scale: .15, opacity: 0 }} transition={{ type: 'spring', stiffness: 140, damping: 22 }} onAnimationComplete={() => setFlight(undefined)}><GameCard card={flight.card} hoverable={false} /></motion.div>}</AnimatePresence>
     </div>
   );
 }
 
-function DeckTile({ card, count, onDrop }: { card?: CardDefinition; count: number; onDrop: () => void }) {
+function DeckTile({ card, count, onDrop, onHover }: { card?: CardDefinition; count: number; onDrop: () => void; onHover: (id: string) => void }) {
   const art = useCardArt(card?.art ?? EMPTY_ART, 96);
   const name = card ? (card.name[i18n.language] || card.name.ru) : '?';
   return (
-    <li className="relative mb-[6px] flex h-[44px] items-center overflow-hidden border-[2px] border-ink bg-paper">
+    <li onMouseEnter={() => onHover(card?.id ?? '')} onMouseLeave={() => onHover('')} className="relative mb-[6px] flex h-[44px] items-center overflow-hidden border-[2px] border-ink bg-paper">
       {art && <img src={art} alt="" className="absolute top-[-20%] right-0 h-[150%] w-[44%] object-cover object-[70%_12%]" draggable={false} />}
+      {!art && <div className="absolute right-0 top-[-16px] h-[88px] w-[44%]"><CatPortrait seed={card?.id} /></div>}
       <div className="absolute inset-y-0 left-0 w-[72%] bg-gradient-to-r from-ink from-[62%] to-transparent" />
       <span className="relative z-10 grid h-full w-[32px] shrink-0 place-items-center bg-toxic font-stencil text-[13px] text-paper">{card?.cost ?? '?'}</span>
       <span className="relative z-10 min-w-0 flex-1 truncate px-2 font-hand text-[17px] leading-none text-paper"
         style={{ textShadow: '0 1px 3px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.8)' }}>{name}</span>
-      <span className="relative z-10 pr-2 font-stencil text-[13px] text-paper">×{count}</span>
-      <button onClick={onDrop} className="relative z-10 mr-[2px] border-[2px] border-paper/70 px-2 font-mono text-[11px] text-paper hover:bg-paper hover:text-ink">−</button>
+      <span className="relative z-10 mr-1 bg-ink px-2 py-1 font-stencil text-[13px] text-paper">×{count}</span>
+      <button aria-label={`Убрать ${name}`} onFocus={() => onHover(card?.id ?? '')} onBlur={() => onHover('')} onClick={onDrop} className="absolute inset-0 z-20 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-legendary" />
     </li>
   );
 }

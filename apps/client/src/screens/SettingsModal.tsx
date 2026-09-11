@@ -1,3 +1,4 @@
+import { audioManager } from '../AudioManager';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +27,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="mt-6 flex items-center justify-between border-[3px] border-ink px-4 py-3">
           <span className="font-mono text-[13px]">{t('sound')}</span>
           <InkButton size="sm" tone={sound ? 'ink' : 'paper'}
-            onClick={() => { localStorage.setItem('sound', sound ? 'off' : 'on'); setSound(!sound); }}>
+            onClick={() => { audioManager.setEnabled(!sound); setSound(!sound); }}>
             {t(sound ? 'on' : 'off')}
           </InkButton>
         </div>

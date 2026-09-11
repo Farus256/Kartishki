@@ -24,7 +24,7 @@ export type CardDefinition = {
   rarity: typeof rarities[number]; cost: number; attack: number; health: number;
   minionTypes: string[]; properties: string[];
   abilities: { trigger: string; effectId: string; params: Record<string, string | number | boolean> }[];
-  art: { url: string; crop: { x: number; y: number; size: number }; threshold: number; contrast: number };
+  art: { url: string; crop: { x: number; y: number; size: number }; threshold: number; contrast: number; preset?: 'xerox' | 'comic' | 'stencil'; edgeWidth?: number; rasterIntensity?: number };
   audio: Partial<Record<'spawn' | 'attack' | 'death', string>>;
 };
 export type HandCard = { instanceId: string; cardId: string };

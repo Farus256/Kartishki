@@ -1,8 +1,9 @@
+import { calibratedRank, isBeerRank, updateBeerRank, type BeerRank } from './beerRank';
 import type { CaseResult, MatchRewards, PackResult, PlayerLibrary, PlayerLogin, SavedDeck } from '@kartishki/shared';
 
 const endpoint = (import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567').replace(/^ws/,'http');
 let token = localStorage.getItem('playerToken') ?? '';
-let snapshot: { library?: PlayerLibrary; selectedDeck: string; loading: boolean; error: string } = { selectedDeck: '', loading: !!token, error: '' };
+let snapshot: { beerRank: BeerRank; library?: PlayerLibrary; selectedDeck: string; loading: boolean; error: string } = { beerRank: calibratedRank(), selectedDeck: '', loading: !!token, error: '' };
 const listeners = new Set<() => void>();
 const publish = (patch: Partial<typeof snapshot>) => { snapshot = { ...snapshot,...patch }; listeners.forEach(fn => fn()); };
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -10,9 +11,21 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
   if (!response.ok) { const data = await response.json().catch(()=>({})); throw new Error(data.error ?? 'playerServerError'); }
   return response.status === 204 ? undefined as T : response.json();
 }
+const rankCache = new Map<string, BeerRank>();
+function rankFor(profile: PlayerLibrary['profile']) {
+  const key = 'kartishki-beer-rank-v1:' + profile.id;
+  let previous = rankCache.get(profile.id);
+  if (!previous) {
+    try { const stored: unknown = JSON.parse(localStorage.getItem(key) ?? 'null'); if (isBeerRank(stored)) previous = stored; } catch { /* optional local persistence */ }
+  }
+  const rank = updateBeerRank(previous ?? calibratedRank(profile.elo), profile.elo);
+  rankCache.set(profile.id, rank);
+  try { localStorage.setItem(key, JSON.stringify(rank)); } catch { /* keep session progress in memory */ }
+  return rank;
+}
 function setLibrary(library: PlayerLibrary) {
   const selectedDeck = library.decks.some(d=>d.id===snapshot.selectedDeck) ? snapshot.selectedDeck : library.decks[0]?.id ?? '';
-  publish({ library, selectedDeck });
+  publish({ library, selectedDeck, beerRank: rankFor(library.profile) });
 }
 function addCopies(library: PlayerLibrary, ids: string[], currency: number): PlayerLibrary {
   const collection = library.collection.map(row => ({ ...row }));
@@ -40,7 +53,7 @@ export const playerSession = {
     await run(async()=>{ const result = await request<PlayerLogin>(`/${action}`,'POST',{username,password}); token=result.token; localStorage.setItem('playerToken',token); setLibrary(result.library); });
   },
   async refresh() { await run(async()=>setLibrary(await request<PlayerLibrary>('/me'))); },
-  async logout() { await run(async()=>{ await request('/logout','POST'); token=''; localStorage.removeItem('playerToken'); publish({library:undefined,selectedDeck:''}); }); },
+  async logout() { await run(async()=>{ await request('/logout','POST'); token=''; localStorage.removeItem('playerToken'); publish({library:undefined,selectedDeck:'',beerRank:calibratedRank()}); }); },
   async claimDaily() { await run(async()=>setLibrary(await request<PlayerLibrary>('/daily','POST',{}))); },
   async openPack() {
     let result: PackResult | undefined;

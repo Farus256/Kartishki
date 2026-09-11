@@ -32,6 +32,8 @@ export function App() {
   useEffect(() => { if (screen === 'match' && state.status === 'offline') setScreen('menu'); }, [screen, state.status]);
   useEffect(() => { if (state.status === 'finished') void playerSession.refresh(); }, [state.status]);
 
+  useEffect(() => { const open = () => setSettings(true); window.addEventListener('open-settings', open); return () => window.removeEventListener('open-settings', open); }, []);
+
   function toMenu() { setScreen('menu'); }
   function exit() {
     setGuest(false); setScreen('landing');

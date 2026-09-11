@@ -18,10 +18,10 @@ export function Stage({ children }: { children: ReactNode }) {
     return () => observer.disconnect();
   }, []);
   return (
-    <div className="fixed inset-0 grid place-items-center overflow-hidden bg-black">
-      <div ref={frame} className="relative overflow-hidden bg-paper shadow-[0_0_80px_rgba(0,0,0,.9)]"
+    <div className="fixed inset-0 grid place-items-center overflow-clip bg-black">
+      <div ref={frame} className="relative overflow-clip bg-paper shadow-[0_0_80px_rgba(0,0,0,.9)]"
         style={{ width: 'min(100vw, calc(100vh * 16 / 9))', aspectRatio: '16 / 9' }}>
-        <div className="absolute top-0 left-0 origin-top-left" style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})` }}>
+        <div className="absolute top-0 left-0 origin-top-left" style={{ width: STAGE_W, height: STAGE_H, zoom: scale }}>
           {children}
         </div>
       </div>

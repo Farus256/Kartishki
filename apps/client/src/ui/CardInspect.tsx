@@ -11,7 +11,7 @@ export function CardInspect({ card, attack, health }: { card: CardDefinition; at
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
-      void renderPhoto(card.art, 320).then(canvas => { if (!cancelled) photo.current?.replaceChildren(canvas); }).catch(() => {});
+      void renderPhoto(card.art, 640).then(canvas => { if (!cancelled) photo.current?.replaceChildren(canvas); }).catch(() => {});
     }, 40);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [card.art]);

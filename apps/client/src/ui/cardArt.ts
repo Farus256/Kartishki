@@ -7,7 +7,10 @@ const cache = new Map<string, Promise<string>>();
 
 export function cardArt(art: CardDefinition['art'], size = 256) {
   const key = `${size}:${JSON.stringify(art)}`;
-  if (!cache.has(key)) cache.set(key, renderPhoto(art, size).then(canvas => canvas.toDataURL()));
+  if (!cache.has(key)) {
+    if (cache.size >= 64) cache.delete(cache.keys().next().value!);
+    cache.set(key, renderPhoto(art, size).then(canvas => canvas.toDataURL()).catch(error => { cache.delete(key); throw error; }));
+  }
   return cache.get(key)!;
 }
 

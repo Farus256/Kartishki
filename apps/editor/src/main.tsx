@@ -1,3 +1,4 @@
+import { ImageProcessingPipeline } from './ImageProcessingPipeline';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useTranslation } from 'react-i18next';
@@ -79,7 +80,7 @@ function Editor() {
       </div>)}</fieldset>
       <label>{t('photo')}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>void photo(e.target.files?.[0])}/></label>
       {(['x','y','size'] as const).map(key=><label key={key}>{t(`crop_${key}`)}<input type="range" min={key==='size'?.1:0} max={1} step={.01} value={card.art.crop[key]} onChange={e=>setCard({...card,art:{...card.art,crop:{...card.art.crop,[key]:Number(e.target.value)}}})}/></label>)}
-      {(['threshold','contrast'] as const).map(key=><label key={key}>{t(key)}<input type="range" min={key==='contrast'?.1:0} max={key==='contrast'?4:1} step={.01} value={card.art[key]} onChange={e=>setCard({...card,art:{...card.art,[key]:Number(e.target.value)}})}/></label>)}
+      <ImageProcessingPipeline art={card.art} onChange={art => setCard(c => ({ ...c, art }))} />
     </section></div>
     <section className="publish"><button onClick={save}>{t('export')}</button><label>{t('adminToken')}<input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)}/></label><button disabled={busy || !token || !catalog.version} onClick={()=>void publish()}>{t('publish')}</button><p role="status">{message && t(message)}</p></section>
   </main>;
