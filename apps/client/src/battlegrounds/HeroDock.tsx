@@ -17,9 +17,10 @@ type Props = {
   onPower: () => void;
   onEnd: () => void;
   income: number;
+  canReady?: boolean;
 };
 
-export function HeroDock({ me, catalog, recruit, aiming, onPower, onEnd, income }: Props) {
+export function HeroDock({ me, catalog, recruit, aiming, onPower, onEnd, income, canReady }: Props) {
   const { t, i18n } = useTranslation();
   const dnd = useAbDnd();
   const hero = catalog.heroes.find(h => h.id === me.heroId);
@@ -54,7 +55,7 @@ export function HeroDock({ me, catalog, recruit, aiming, onPower, onEnd, income 
         </div>
         <strong><AnimatedNumber value={me.gold} />$<em>/{income}$</em></strong>
       </div>
-      <InkButton tone="blood" disabled={!recruit || me.recruitReady} onClick={onEnd}>{me.recruitReady ? t('abReady') : t('abEndRecruit')}</InkButton>
+      <InkButton tone={me.recruitReady ? 'ink' : 'blood'} disabled={!(canReady ?? recruit)} aria-pressed={me.recruitReady} onClick={onEnd}>{me.recruitReady ? t('abReady') : t('abEndRecruit')}</InkButton>
     </div>
   );
 }

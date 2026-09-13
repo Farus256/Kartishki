@@ -26,6 +26,7 @@ export const AUTO_BATTLER = {
   RECONNECT_GRACE_SECONDS: 45,
   MAX_COMBAT_ACTIONS: 512,
   MAX_COMBAT_MS: 90_000,
+  RESULT_STAMP_MS: 1800,
   DAMAGE_CAP_ENABLED: true,
   DAMAGE_CAP: 15,
 } as const;
@@ -91,6 +92,7 @@ export const AUTO_BATTLER_MESSAGES = {
   moveBoard: 'moveBoard',
   heroPower: 'heroPower',
   endRecruit: 'endRecruit',
+  cancelRecruit: 'cancelRecruit',
   discoverPick: 'discoverPick',
 } as const;
 

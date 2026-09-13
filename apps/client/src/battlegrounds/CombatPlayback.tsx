@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { abCopyName, type AutoBattlerCatalog, type CombatEvent, type CombatEventsMessage } from '@kartishki/shared';
+import { AUTO_BATTLER, abCopyName, type AutoBattlerCatalog, type CombatEvent, type CombatEventsMessage } from '@kartishki/shared';
 import type { AbCombatBoards, AbMinion, AbPlayer } from '../autoBattlerSession';
 import { audioManager } from '../AudioManager';
 import { AB_LAYOUT, combatRowXs } from './battlegroundsLayout';
@@ -254,7 +254,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     const outcome=combat.summary.tie?'draw':combat.summary.winnerId===meId?'win':'loss';
     audioManager.play(outcome==='win'?'coins_win':'card_place');
     setResult(outcome);
-    await pause(reduced?30:1400);
+    await pause(reduced?30:AUTO_BATTLER.RESULT_STAMP_MS);
     setSettled(true);
     // Only park on the result if another pair is still presenting.
     if(transition.current.otherFights){

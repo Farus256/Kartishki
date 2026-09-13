@@ -49,7 +49,8 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     if (state.phase === 'RECRUIT_PHASE') setPlaying(false);
   }, [state.phase]);
 
-  const recruit = state.phase === 'RECRUIT_PHASE' && !!me && !me.eliminated && !me.recruitReady && !playing;
+  const inRecruit = state.phase === 'RECRUIT_PHASE' && !!me && !me.eliminated && !playing;
+  const recruit = inRecruit && !me!.recruitReady;
   const discover: AbMinion[] = state.discover
     ? state.discover.options.map(option => ({
       id: option.id, cardId: option.cardId, baseId: option.cardId, kind: 'minion',
@@ -176,8 +177,8 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
                     onActivate={onBoardMinion} />
                   {selected && recruit && <div className="ab-selection-tools"><button onClick={() => { send({ type: 'sell', id: selected }); setSelected(null); }}>{t('abSell')}</button><button onClick={() => setSelected(null)}>{t('cancel')}</button></div>}
                   <div className={`ab-buy-zone ${dnd.api.zone === 'buy' ? 'is-hot' : ''}`}>
-                    <HeroDock me={me} catalog={state.catalog} recruit={recruit} aiming={!!aim} onPower={onPower}
-                      income={goldForTurn(state.turn)} onEnd={() => autoBattlerSession.endRecruit()} />
+                    <HeroDock me={me} catalog={state.catalog} recruit={recruit} canReady={inRecruit} aiming={!!aim} onPower={onPower}
+                      income={goldForTurn(state.turn)} onEnd={() => me.recruitReady ? autoBattlerSession.cancelRecruit() : autoBattlerSession.endRecruit()} />
                   </div>
                   <HandRow me={me} catalog={state.catalog} recruit={recruit} onPlay={id => send({ type: 'play', id, index: me.board.length })} />
                 </>

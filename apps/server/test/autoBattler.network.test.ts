@@ -81,6 +81,10 @@ test('two clients start an auto-battler, recruit, and receive combat events', { 
     await until(() => a.state.players.get(a.sessionId)!.board.length === 1);
 
     intent(a, MSG.endRecruit);
+    await until(() => a.state.players.get(a.sessionId)!.recruitReady);
+    intent(a, MSG.cancelRecruit);
+    await until(() => !a.state.players.get(a.sessionId)!.recruitReady);
+    intent(a, MSG.endRecruit);
     intent(b, MSG.endRecruit);
     await until(() => {
       const meNow = a.state.players.get(a.sessionId);

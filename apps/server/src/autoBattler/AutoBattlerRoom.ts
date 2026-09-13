@@ -114,7 +114,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.combatSeed = randomInt(1, 0xffffffff);
     this.pool.syncToState(this.state);
     abLog('room.create', { seed: this.state.combatSeed });
-    const recruit = (message: string, act: (player: AutoBattlerPlayerState, input: unknown, client: Client) => ActionResult) => {
+    const recruit = (message: string, act: (player: AutoBattlerPlayerState, input: unknown, client: Client) => ActionResult, whenReady = false) => {
       this.onMessage(message, (client, input: unknown) => {
         const turn = readNumber(input, 'turn');
         const actionId = readNumber(input, 'actionId');
@@ -122,7 +122,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         const seen = this.actionSequences.get(client.sessionId) ?? new Set<number>();
         if (seen.has(actionId!) || seen.size >= 2048) { this.reject(client, 'REJECTED'); return; }
         seen.add(actionId!); this.actionSequences.set(client.sessionId, seen);
-        this.recruitAction(client, player => act(player, input, client));
+        this.recruitAction(client, player => act(player, input, client), whenReady);
       });
     };
 
@@ -178,10 +178,16 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     });
 
     recruit(MSG.endRecruit, player => {
-      player.recruitReady = true;
-      if (this.allRecruitLocked()) this.beginCombat();
+      if (!player.recruitReady) {
+        player.recruitReady = true;
+        if (this.allRecruitLocked()) this.beginCombat();
+      }
       return ok();
     });
+    recruit(MSG.cancelRecruit, player => {
+      player.recruitReady = false;
+      return ok();
+    }, true);
 
     if (this.debug) {
       this.onMessage('debug', (client, input: unknown) => {
@@ -446,13 +452,13 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       .every(item => item.recruitReady || !item.connected);
   }
 
-  private recruitAction(client: Client, act: (player: AutoBattlerPlayerState) => ActionResult): void {
+  private recruitAction(client: Client, act: (player: AutoBattlerPlayerState) => ActionResult, whenReady = false): void {
     const player = this.alive(client.sessionId);
     if (!player) {
       this.reject(client, this.state.players.get(client.sessionId) ? 'PLAYER_DEAD' : 'REJECTED');
       return;
     }
-    if (this.state.phase !== 'RECRUIT_PHASE' || player.recruitReady || Date.now() >= this.state.phaseEndsAt) {
+    if (this.state.phase !== 'RECRUIT_PHASE' || Date.now() >= this.state.phaseEndsAt || (player.recruitReady && !whenReady)) {
       this.reject(client, 'ACTION_TOO_LATE');
       return;
     }
@@ -558,7 +564,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       .sort((a, b) => a.hero.health - b.hero.health || a.sessionId.localeCompare(b.sessionId));
     for (const player of dying) this.eliminate(player);
 
-    const stampMs = this.testCombatMs ? 0 : 4000;
+    const stampMs = this.testCombatMs ? 0 : AUTO_BATTLER.RESULT_STAMP_MS;
     presentationMs = (this.testCombatMs ?? presentationMs) + stampMs;
     this.state.phaseEndsAt = Date.now() + presentationMs;
     // Result is already final. This server clock is a shared presentation window,

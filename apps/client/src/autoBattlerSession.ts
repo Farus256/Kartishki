@@ -186,6 +186,7 @@ export const autoBattlerSession = {
   moveBoard(minionId: string, toIndex: number) { sendIntent(MSG.moveBoard, { minionId, toIndex }); },
   heroPower(targetId?: string) { sendIntent(MSG.heroPower, targetId ? { targetId } : {}); },
   endRecruit() { sendIntent(MSG.endRecruit); },
+  cancelRecruit() { sendIntent(MSG.cancelRecruit); },
   discoverPick(optionId: string) { sendIntent(MSG.discoverPick, { optionId }); },
   clearCombat() { publish({ combat: null, combatBoards: null }); },
   leave() {
