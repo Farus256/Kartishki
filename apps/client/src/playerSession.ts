@@ -1,4 +1,4 @@
-import { addBeerMl, applyMatchElo, beerMlForPlace, beerMlForResult, calibratedRank, isBeerRank, rankFromMl, type BeerRank } from './beerRank';
+import { addBeerMl, beerMlForPlace, beerMlForResult, calibratedRank, isBeerRank, rankFromMl, type BeerRank } from './beerRank';
 import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type BattlegroundsRewards, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerSettings, type SavedDeck } from '@kartishki/shared';
 import { applyPlayerSettings, currentLocalSettings } from './applySettings';
 import { serverOrigin } from './serverUrl';
@@ -60,9 +60,9 @@ export const playerSession = {
   },
   patchProfile(rewards: MatchRewards) {
     if (!snapshot.library) return;
-    const previousElo = snapshot.library.profile.elo;
+    const previousElo = snapshot.library.profile.beerMl ?? 0;
     setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp ?? snapshot.library.profile.xp, beerMl: rewards.beerMl ?? snapshot.library.profile.beerMl } });
-    publish({ lastReward: { elo: rewards.elo, previousElo, gained: rewards.gained } });
+    publish({ lastReward: { elo: rewards.beerMl, previousElo, gained: rewards.gained } });
   },
   addXp(amount: number) {
     if (!(XP_AWARDS as readonly number[]).includes(amount)) return;
@@ -78,10 +78,10 @@ export const playerSession = {
   },
   finishMatch(result: 'win' | 'loss' | 'draw') {
     if (snapshot.library || snapshot.lastReward) return;
-    const previousElo = snapshot.beerRank.lastElo;
+    const previousElo = snapshot.beerRank.remainingMl;
     const score = result === 'win' ? 1 : result === 'draw' ? 0.5 : 0;
-    const elo = applyMatchElo(previousElo, score);
-    const beerRank = { ...addBeerMl(snapshot.beerRank, beerMlForResult(score)), lastElo: elo };
+    const beerRank = addBeerMl(snapshot.beerRank, beerMlForResult(score));
+    const elo = beerRank.remainingMl;
     const xp = snapshot.xp + (result === 'win' ? MATCH_WIN_XP : result === 'draw' ? MATCH_DRAW_XP : MATCH_LOSS_XP);
     try { localStorage.setItem(GUEST_RANK_KEY, JSON.stringify(beerRank)); localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* memory rank still updates */ }
     publish({ beerRank, xp, lastReward: { elo, previousElo, gained: 0 } });
@@ -89,15 +89,15 @@ export const playerSession = {
   finishBattlegrounds(rewards: BattlegroundsRewards) {
     if (snapshot.lastReward) return;
     if (snapshot.library && (rewards.xp > 0 || rewards.elo > 0 || rewards.beerMl > 0 || rewards.currency > 0 || rewards.gained > 0)) {
-      const previousElo = snapshot.library.profile.elo;
+      const previousElo = snapshot.library.profile.beerMl ?? 0;
       setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp, beerMl: rewards.beerMl ?? snapshot.library.profile.beerMl } });
-      publish({ lastReward: { elo: rewards.elo, previousElo, gained: rewards.gained, xpGain: rewards.xpGain } });
+      publish({ lastReward: { elo: rewards.beerMl, previousElo, gained: rewards.gained, xpGain: rewards.xpGain } });
       return;
     }
     if (snapshot.library) return;
-    const previousElo = snapshot.beerRank.lastElo;
-    const elo = Math.max(0, previousElo + rewards.eloDelta);
-    const beerRank = { ...addBeerMl(snapshot.beerRank, rewards.beerMlGain ?? beerMlForPlace(rewards.place, 8)), lastElo: elo };
+    const previousElo = snapshot.beerRank.remainingMl;
+    const beerRank = addBeerMl(snapshot.beerRank, rewards.beerMlGain ?? beerMlForPlace(rewards.place, 8));
+    const elo = beerRank.remainingMl;
     const xp = snapshot.xp + rewards.xpGain;
     try { localStorage.setItem(GUEST_RANK_KEY, JSON.stringify(beerRank)); localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* memory rank still updates */ }
     publish({ beerRank, xp, lastReward: { elo, previousElo, gained: rewards.gained, xpGain: rewards.xpGain } });

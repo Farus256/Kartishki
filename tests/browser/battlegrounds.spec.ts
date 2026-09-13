@@ -4,6 +4,37 @@ import { actionsOf, openMockAb, pointerDrag, setFixture } from './abDnd';
 import type { AbSnapshot } from '../../apps/client/src/autoBattlerSession';
 const snapshot=(p:import('@playwright/test').Page):Promise<AbSnapshot>=>p.evaluate("import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/autoBattlerSession.ts')).name).then(m=>m.autoBattlerSession.getSnapshot())");
 
+test('server recruit transition preserves combat deaths, result and round health', async ({ page }) => {
+  const state = abFixture();
+  await openMockAb(page, state);
+  const a = state.players[0]!.board[0]!;
+  const b = { ...a, id: 'last-enemy', owner: 'p1' };
+  state.phase = 'COMBAT_PHASE';
+  state.players[1]!.health = 13;
+  state.combatBoards = { playerA: 'p0', playerB: 'p1', a: [a], b: [b] };
+  state.combat = { turn: 8, pairIndex: 0, seed: 1, playerA: 'p0', playerB: 'p1', ghost: false,
+    durationMs: 8000, initialHealth: { p0: 27, p1: 19 }, boards: { a: [a], b: [b] },
+    events: [{ id: 1, kind: 'ATTACK', sourceId: a.id, targetId: b.id },
+      { id: 2, kind: 'DAMAGE', targetId: b.id, amount: b.health, remainingHealth: 0 },
+      { id: 3, kind: 'DEATH', targetId: b.id },
+      { id: 4, kind: 'PLAYER_DAMAGE', targetId: 'p1', amount: 6, remainingHealth: 13 }],
+    summary: { winnerId: 'p0', loserId: 'p1', damage: 6, tie: false } };
+  await setFixture(page, state);
+  await expect(page.getByTestId('ab-combat-foe').locator('.ab-combat-hero-vitals')).toHaveText('19');
+  await expect(page.getByTestId('ab-combat-me').locator('.ab-combat-hero-vitals')).toHaveText('27');
+  state.phase = 'RECRUIT_PHASE'; state.turn++;
+  await setFixture(page, state);
+  await expect(page.getByTestId('ab-combat')).toBeVisible();
+  await expect(page.getByTestId('ab-leaderboard')).toContainText('19');
+  await page.locator('.ab-combat-speed button').last().click();
+  await expect(page.getByTestId('ab-result-stamp')).toBeVisible();
+  await expect(page.getByTestId('ab-minion-last-enemy')).toHaveCount(0);
+  await expect(page.getByTestId('ab-combat-foe').locator('.ab-combat-hero-vitals')).toHaveText('13');
+  await page.screenshot({ path: 'artifacts/ab-complete-result.png' });
+  await expect(page.getByTestId('ab-combat')).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByTestId('ab-leaderboard')).toContainText('13');
+});
+
 test('hero power tooltips and roster clear the frame without blinking or overlap', async ({ page }) => {
   const state = abFixture();
   state.players[0]!.power = { id: 'ab-power-heal', goldCost: 1, targeted: false, targetDomain: 'none', isPassive: false, isExhausted: false };

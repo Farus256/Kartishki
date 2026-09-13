@@ -31,6 +31,7 @@ export class AudioManager {
   private track = 0;
   private currentUrl = '';
   private menuWanted = false;
+  private failedTracks = new Set<string>();
   private music?: HTMLAudioElement;
   private voiceNodes = new Set<HTMLAudioElement>();
   private lastVoice = 0;
@@ -42,6 +43,10 @@ export class AudioManager {
     if (this.music) return this.music;
     const node = new Audio();
     node.addEventListener('ended', () => this.nextMenuTrack());
+    node.addEventListener('error', () => {
+      this.failedTracks.add(this.currentUrl);
+      if (this.playlist.some(url => !this.failedTracks.has(url))) this.nextMenuTrack();
+    });
     this.music = node;
     return node;
   }
@@ -111,12 +116,12 @@ export class AudioManager {
   setMenuTracks(urls: string[]) {
     const same = urls.length === this.playlist.length && urls.every((url, i) => url === this.playlist[i]);
     this.playlist = urls;
-    if (!same) { this.track = 0; this.currentUrl = ''; }
+    if (!same) { this.track = 0; this.currentUrl = ''; this.failedTracks.clear(); }
     if (this.menuWanted) this.playMenu();
   }
   playMenu() {
     this.menuWanted = true;
-    if (!this.enabled || this.musicVol <= 0 || !this.playlist.length) { this.pauseMusic(); return; }
+    if (!this.enabled || this.musicVol <= 0 || !this.playlist.some(url => !this.failedTracks.has(url))) { this.pauseMusic(); return; }
     const url = this.playlist[this.track % this.playlist.length]!;
     const node = this.player();
     if (this.currentUrl !== url) { this.currentUrl = url; node.src = url; }
@@ -127,7 +132,10 @@ export class AudioManager {
   private pauseMusic() { this.music?.pause(); }
   private nextMenuTrack() {
     if (!this.playlist.length) return;
-    this.track = (this.track + 1) % this.playlist.length;
+    for (let i = 0; i < this.playlist.length; i++) {
+      this.track = (this.track + 1) % this.playlist.length;
+      if (!this.failedTracks.has(this.playlist[this.track]!)) break;
+    }
     this.currentUrl = '';
     if (this.menuWanted) this.playMenu();
   }
@@ -140,7 +148,8 @@ export class AudioManager {
     const unlock = () => { if (this.menuWanted) this.playMenu(); };
     document.addEventListener('click', click);
     document.addEventListener('pointerdown', unlock);
-    return () => { document.removeEventListener('click', click); document.removeEventListener('pointerdown', unlock); };
+    document.addEventListener('keydown', unlock);
+    return () => { document.removeEventListener('click', click); document.removeEventListener('pointerdown', unlock); document.removeEventListener('keydown', unlock); };
   }
 }
 export const audioManager = new AudioManager();

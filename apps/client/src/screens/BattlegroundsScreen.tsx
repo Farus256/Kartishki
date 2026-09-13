@@ -32,8 +32,11 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
   const [playing, setPlaying] = useState(false);
   const lastCombat = useRef<{ combat: NonNullable<typeof state.combat>; boards: NonNullable<typeof state.combatBoards> } | null>(null);
   if (state.combat && state.combatBoards) lastCombat.current = { combat: state.combat, boards: state.combatBoards };
-  const combatTable = playing || state.phase === 'COMBAT_PHASE';
-  const leaderboardPlayers = combatTable ? recruitHeroes.current : state.players;
+  const combatTable = playing || !!state.combat || state.phase === 'COMBAT_PHASE';
+  const leaderboardPlayers = combatTable ? (recruitHeroes.current.length ? recruitHeroes.current : state.players).map(p => ({
+    ...p, health: lastCombat.current?.combat.initialHealth?.[p.sessionId] ?? p.health,
+    eliminated: lastCombat.current?.combat.initialHealth?.[p.sessionId] !== undefined ? lastCombat.current.combat.initialHealth[p.sessionId]! <= 0 : p.eliminated,
+  })) : state.players;
   if (!combatTable && !state.combat) lastCombat.current = null;
   const [selected, setSelected] = useState<string | null>(null);
   const [triple, setTriple] = useState(false);
@@ -47,9 +50,6 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
 
   useEffect(() => { void autoBattlerSession.connect(); }, []);
   useEffect(() => { if (state.combat) setPlaying(true); }, [state.combat]);
-  useEffect(() => {
-    if (state.phase === 'RECRUIT_PHASE') setPlaying(false);
-  }, [state.phase]);
 
   const inRecruit = state.phase === 'RECRUIT_PHASE' && !!me && !me.eliminated && !playing;
   const recruit = inRecruit && !me!.recruitReady;
@@ -126,7 +126,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     setSelected(current => current === id ? null : id);
   }
 
-  const timer = state.phase === 'RECRUIT_PHASE'
+  const timer = !combatTable && state.phase === 'RECRUIT_PHASE'
     ? t('abTimer', { n: state.recruitSeconds })
     : state.phase === 'HERO_SELECTION'
       ? t('abTimer', { n: state.heroSeconds })
@@ -145,8 +145,8 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
         <header className="ab-header">
           <strong className="ab-brand">КАРТИШКИ <i>✳</i></strong>
           <span className={`connection ${state.status}`}>{t(state.status)}</span>
-          <span>{t('abPhase_' + state.phase, { defaultValue: state.phase })}</span>
-          {state.turn > 0 && <span>{t('turn', { turn: state.turn })}</span>}
+          <span>{t('abPhase_' + (combatTable ? 'COMBAT_PHASE' : state.phase), { defaultValue: state.phase })}</span>
+          {state.turn > 0 && <span>{t('turn', { turn: combatTable ? lastCombat.current?.combat.turn ?? state.turn : state.turn })}</span>}
           <span className={`ab-timer ${state.phase === 'RECRUIT_PHASE' && state.recruitSeconds <= 5 ? 'is-critical' : state.phase === 'RECRUIT_PHASE' && state.recruitSeconds <= 10 ? 'is-urgent' : ''}`} data-testid="ab-timer">{timer}</span>
           <span className="ab-header-count">{state.players.length}/{AUTO_BATTLER.MAX_PLAYERS}</span>
           <div className="ml-auto flex gap-2">
@@ -217,11 +217,11 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
           <DiscoverModal options={discover} catalog={state.catalog} onPick={id => { if (dnd.api.tryLock(`discover:${id}`)) autoBattlerSession.discoverPick(id); }} />
         )}
 
-        {(state.phase === 'GAME_OVER' || me?.eliminated) && !playing && (
+        {(state.phase === 'GAME_OVER' || me?.eliminated) && !combatTable && (
           <div className="ab-modal" data-testid="ab-gameover">
             <div className="ab-modal-card">
               <h2>{t(state.phase === 'GAME_OVER' ? 'abGameOver' : 'abEliminated')}</h2>
-              <p className="result">{t(state.winnerId === state.sessionId ? 'win' : state.winnerId ? 'loss' : 'draw')}</p>
+              <p className="result">{t(state.winnerId === state.sessionId ? 'win' : me?.eliminated || state.winnerId ? 'loss' : 'draw')}</p>
               {me?.placement ? <p>{t('abPlace', { n: me.placement })}</p> : null}
               {reward && <p>{t('abRewardElo', { n: `${reward.elo - reward.previousElo > 0 ? '+' : ''}${reward.elo - reward.previousElo}` })} · {t('abRewardXp', { n: reward.xpGain ?? 0 })} · +${reward.gained}</p>}
               <div className="ab-gameover-actions">

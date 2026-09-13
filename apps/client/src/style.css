@@ -156,7 +156,19 @@ audio { max-width: 100%; }
 .casino-games button { min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; border:4px solid var(--ink); background:#d6c7ae; box-shadow:8px 10px #1a1a166; transform:rotate(-1deg); }
 .casino-games button:nth-child(2) { transform:rotate(1.2deg); background:#b9c69f; }
 .casino-games button:nth-child(3) { transform:rotate(-.4deg); background:#c8b2a2; }
-.casino-games button.is-selected { outline:5px solid var(--blood); outline-offset:4px; transform:translateY(-10px) rotate(0); }
+.casino-games button.is-selected { outline:3px solid var(--blood); outline-offset:5px; transform:translateY(-10px) rotate(0); box-shadow:8px 18px 0 #1a1a1633; }
+.casino-games button { position:relative; overflow:hidden; padding:28px 16px; border-radius:6px 18px 6px 18px; transition:transform .2s,box-shadow .2s; background-image:radial-gradient(ellipse at top,#fff5,transparent 70%); }
+.casino-games button::after { content:''; position:absolute; inset:9px; border:1px dashed #1a1a1644; border-radius:3px 10px; pointer-events:none; }
+.casino-games button:hover { transform:translateY(-6px); box-shadow:8px 16px 0 #1a1a1633; }
+.casino-games button:focus-visible { outline:3px solid var(--blood); outline-offset:5px; }
+.casino-games button strong { text-align:center; line-height:1.15; }
+.casino-games button small { padding:7px 12px; background:#fff5; border-radius:20px; }
+.casino-rules { border-radius:5px 20px 5px 20px; }
+.casino-rules li { gap:20px; align-items:center; }
+.casino-rules li b { color:var(--blood); font-variant-numeric:tabular-nums; }
+.casino-prize { border-radius:8px; background-image:radial-gradient(ellipse at top,#e9d59d88,transparent 75%); }
+.casino-prize-cards { flex-wrap:wrap; max-height:360px; overflow:auto; }
+@media(prefers-reduced-motion:reduce) { .casino-games button { transition:none; } }
 .casino-games button > span { font:86px/1 var(--font-stencil); }
 .casino-games button strong { font:28px var(--font-hand); }
 .casino-games button small { font:13px var(--font-mono); }

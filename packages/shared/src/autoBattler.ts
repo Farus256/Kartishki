@@ -303,6 +303,8 @@ export type CombatEventsMessage = {
   seed: number;
   events: CombatEvent[];
   boards: { a: CombatVisualMinion[]; b: CombatVisualMinion[] };
+  /** Public hero health before any pair resolves this round. */
+  initialHealth?: Record<string, number>;
   durationMs: number;
   summary: {
     winnerId: string;

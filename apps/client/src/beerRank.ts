@@ -9,10 +9,6 @@ export function rankFromMl(ml: number, lastElo = 1000): BeerRank {
 export function calibratedRank(elo = 1000): BeerRank {
   return rankFromMl(0, elo);
 }
-export function applyMatchElo(elo: number, score: number, opponentElo = 1000) {
-  const expected = 1 / (1 + 10 ** ((opponentElo - elo) / 400));
-  return Math.max(0, Math.round(elo + 32 * (score - expected)));
-}
 export function addBeerMl(rank: BeerRank, delta: number): BeerRank {
   if (!Number.isFinite(delta) || !delta) return rank;
   return rankFromMl(rank.remainingMl + Math.trunc(delta), rank.lastElo);

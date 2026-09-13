@@ -39,7 +39,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    effects.add(animation);animation.onfinish=()=>effects.delete(animation);
   };
   setSettled(false);setTally(null);setBanner('VS');setResult(null);setRecruit(false);setLeaving(false);setFailed(false);
-  setHeroVitals(Object.fromEntries((initialHeroes ?? players).map(p=>[p.sessionId,{health:p.health,damage:0}])));
+  setHeroVitals(Object.fromEntries((initialHeroes?.length ? initialHeroes : players).map(p=>[p.sessionId,{health:combat.initialHealth?.[p.sessionId] ?? p.health,damage:0}])));
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const pause=(ms:number,step?:(u:number)=>void)=>new Promise<void>(resolve=>{
    if(rate.current>=100){step?.(1);resolve();return;}
@@ -256,7 +256,8 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     const outcome=combat.summary.tie?'draw':combat.summary.winnerId===meId?'win':'loss';
     audioManager.play(outcome==='win'?'coins_win':'card_place');
     setResult(outcome);
-    await pause(reduced?30:AUTO_BATTLER.RESULT_STAMP_MS);
+    // The result must remain readable even after Skip or with reduced motion.
+    await new Promise<void>(resolve=>setTimeout(resolve,AUTO_BATTLER.RESULT_STAMP_MS));
     setSettled(true);
     // Only park on the result if another pair is still presenting.
     if(transition.current.otherFights){
@@ -284,7 +285,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    field.current?.querySelectorAll<HTMLElement>('.ab-combat-me,.ab-combat-foe').forEach(el=>{el.style.translate='';el.style.zIndex='';});
    if(field.current)field.current.style.transform='';
   };
- },[combat,boards,meId,catalog,mineA,topOwner,foe?.displayName,t,otherFights]);
+ },[combat,boards,meId,catalog,mineA,topOwner,foe?.displayName,t]);
 
  return <div className={`ab-combat-wrap ${waiting ? 'is-settled' : ''}`} data-testid="ab-combat">
   <div className="ab-combat-speed">

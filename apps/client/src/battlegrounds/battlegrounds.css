@@ -213,7 +213,7 @@
 .ab-screen .hero-selection { top:var(--ab-header,52px); background:#26241de0; }
 .ab-screen .hero-selection h1 { color:var(--paper); font-family:var(--font-hand); }
 .ab-screen .hero-ability p { font:14px/1.4 var(--font-mono); }
-.paper-tooltip { position:fixed; z-index:1000; width:270px; max-height:210px; padding:14px; border:2px solid var(--ink); color:var(--ink); background:var(--paper); box-shadow:5px 6px #1a1a1a70; pointer-events:none; font:12px/1.45 var(--font-mono); }
+.paper-tooltip { position:fixed; z-index:1000; width:270px; max-height:210px; padding:14px; border:2px solid var(--ink); border-radius:3px 10px 3px 10px; color:var(--ink); background:var(--paper); box-shadow:5px 6px #1a1a1a70; pointer-events:none; font:12px/1.55 var(--font-mono); }
 .paper-tooltip strong { font:23px var(--font-hand); }
 .paper-tooltip p { margin:7px 0; }
 .paper-tooltip.is-dossier { width:248px; max-height:none; padding:0; border:0; background:transparent; box-shadow:none; overflow:visible; }
@@ -505,3 +505,9 @@
 .ab-combat-hero-image { width:136px; height:146px; margin:0; border:5px ridge #b18c55; }
 .ab-combat-hero-vitals.ab-hero-health { font:30px var(--font-stencil); }
 .ab-combat-power-anchor { left:calc(50% + 105px); top:34px; }
+.ab-combat-speed { padding:6px; border:1px solid #d3b87577; border-radius:12px; background:#18241ff2; box-shadow:0 4px 18px #0005; }
+.ab-combat-speed button { min-height:36px; min-width:44px; border-radius:7px; font-variant-numeric:tabular-nums; }
+.ab-combat-speed button[aria-pressed=true] { background:#dec384; color:#18241f; box-shadow:inset 0 0 0 1px #fff5; }
+.ab-combat-speed button:focus-visible { outline:2px solid #ffe2a0; outline-offset:2px; }
+.ab-result-stamp b { text-shadow:0 3px 0 #0005; }
+.ab-combat-wait { border:1px solid #d3b87566; border-radius:20px; padding:10px 22px; background:#18241fee; color:#f4e4bd; }

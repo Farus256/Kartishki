@@ -11,12 +11,10 @@ import {
   CombatPairState,
   battlegroundsCurrencyReward,
   HeroState,
-  battlegroundsEloDelta,
   battlegroundsXp,
   beerMlForPlace,
   initialUpgradeCost,
   resolveAutoBattlerCatalog,
-  resolveBattlegroundsElo,
   tavernSizeForTier,
   type ActionErrorCode,
   type AutoBattlerHeroDef,
@@ -493,6 +491,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     const currentBoards = new Map([...this.state.players.values()].filter(p => !p.eliminated).map(p => [p.sessionId, snapshotBoard(p)]));
     for (const [id, board] of currentBoards) this.lastBoards.set(id, board);
     let presentationMs = 2500;
+    const initialHealth = Object.fromEntries([...this.state.players.values()].map(p => [p.sessionId, p.hero.health]));
 
     if (!this.state.pairing.length) this.assignPairing();
 
@@ -520,6 +519,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         seed,
         events: result.events,
         boards: { a: snapA.board, b: snapB.board },
+        initialHealth,
         durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 4_500 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 1_100 + result.events.length * 220),
         summary: { winnerId: result.winnerId, loserId: result.loserId, damage: result.damage, tie: result.tie },
       };
@@ -669,14 +669,13 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.settled = true;
     const players = [...this.state.players.values()];
     const count = players.length;
-    const amount = resolveBattlegroundsElo(catalogStore.snapshot().playerLeveling);
     const loggedIn = players.flatMap(player => {
       const playerId = this.playerIds.get(player.sessionId);
       return playerId && player.placement > 0 ? [{ playerId, place: player.placement }] : [];
     });
     let persisted: Record<string, { elo: number; currency: number; gained: number; xp: number; beerMl: number }> = {};
     try {
-      if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, amount, count);
+      if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, undefined, count);
     } catch (error) { console.error('Failed to persist battlegrounds result', error); }
     for (const player of players) {
       if (player.placement < 1) continue;
@@ -684,10 +683,11 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       if (!client) continue;
       const playerId = this.playerIds.get(player.sessionId);
       const row = playerId ? persisted[playerId] : undefined;
-      const eloDelta = battlegroundsEloDelta(player.placement, count, amount);
+      const beerMlGain = beerMlForPlace(player.placement, count);
+      const eloDelta = beerMlGain;
       const xpGain = battlegroundsXp(player.placement, count);
       const payload: BattlegroundsRewards = {
-        place: player.placement, eloDelta, xpGain, beerMlGain: beerMlForPlace(player.placement, count),
+        place: player.placement, eloDelta, xpGain, beerMlGain,
         elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? battlegroundsCurrencyReward(player.placement), xp: row?.xp ?? 0, beerMl: row?.beerMl ?? 0,
       };
       client.send(EV.rewards, payload);

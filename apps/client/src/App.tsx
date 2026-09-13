@@ -43,7 +43,7 @@ export function App() {
 
   useEffect(() => { const open = () => setSettings(true); window.addEventListener('open-settings', open); return () => window.removeEventListener('open-settings', open); }, []);
   useEffect(() => { audioManager.setCardVoiceTracks(cardVoiceTracks); }, []);
-  useEffect(() => { audioManager.setMenuTracks([...builtInBackgroundTracks, ...menuTracks.map(track => menuTrackUrl(track.url))]); }, [menuTracks]);
+  useEffect(() => { audioManager.setMenuTracks(menuTracks.length ? menuTracks.map(track => menuTrackUrl(track.url)) : builtInBackgroundTracks); }, [menuTracks]);
   useEffect(() => {
     if (screen !== 'landing') audioManager.playMenu();
     else audioManager.stopMenu();

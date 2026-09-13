@@ -1,13 +1,12 @@
 ﻿import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { BEER_DRAW_MAX, BEER_DRAW_MIN, BEER_LOSS_MAX, BEER_LOSS_MIN, BEER_WIN_MAX, BEER_WIN_MIN } from '@kartishki/shared';
-import { addBeerMl, applyMatchElo, beerMlForPlace, beerMlForResult, calibratedRank, isBeerRank, rankFromMl } from '../apps/client/src/beerRank';
+import { addBeerMl, beerMlForPlace, beerMlForResult, calibratedRank, isBeerRank, rankFromMl } from '../apps/client/src/beerRank';
 const low = () => 0;
 const high = () => 0.999999;
-test('equal opponents move 16 elo', () => {
-  assert.equal(applyMatchElo(1000, 1), 1016);
-  assert.equal(applyMatchElo(1000, 0), 984);
-  assert.equal(applyMatchElo(1000, 0.5), 1000);
+test('beer rewards do not depend on legacy elo', () => {
+  assert.equal(addBeerMl(rankFromMl(100, 1000), 60).remainingMl, 160);
+  assert.equal(addBeerMl(rankFromMl(100, 2000), 60).remainingMl, 160);
 });
 test('new players start with an empty bottle', () => {
   assert.deepEqual(calibratedRank(), { league: 'light', remainingMl: 0, lastElo: 1000 });

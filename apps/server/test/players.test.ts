@@ -17,7 +17,7 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     await assert.rejects(() => store.register('алиса', 'password1'), error => error instanceof PlayerError && error.code === 'usernameTaken');
     await assert.rejects(() => store.login('Алиса', 'wrongpass'), error => error instanceof PlayerError && error.code === 'loginFailed');
     const again = await store.login('Алиса', 'password1');
-    assert.equal(again.library.profile.elo, 1000);
+    assert.equal(again.library.profile.elo, 0);
     assert.equal(again.library.profile.xp, 0);
     assert.equal(again.library.profile.beerMl, 0);
     assert.equal(again.library.profile.currency, 0);
@@ -54,8 +54,8 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     assert.equal(rewards[playerId]!.gained, WIN_REWARD);
     assert.equal(rewards[playerId]!.xp, PACK_XP + CASE_XP + MATCH_WIN_XP);
     assert.equal(rewards[bob.library.profile.id]!.xp, MATCH_LOSS_XP);
-    assert.ok(rewards[playerId]!.elo > 1000);
-    assert.ok(rewards[bob.library.profile.id]!.elo < 1000);
+    assert.equal(rewards[playerId]!.elo, rewards[playerId]!.beerMl);
+    assert.equal(rewards[bob.library.profile.id]!.elo, 0);
     assert.ok(rewards[playerId]!.beerMl >= BEER_WIN_MIN && rewards[playerId]!.beerMl <= BEER_WIN_MAX);
     assert.equal(rewards[bob.library.profile.id]!.beerMl, 0);
     const vsGuest = await store.settleVs(playerId, 1);
@@ -83,7 +83,7 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
       { playerId, place: 1 },
       { playerId: bob.library.profile.id, place: 2 },
     ], 40, 2);
-    assert.equal(bg[playerId]!.elo, beforeBg.profile.elo + battlegroundsEloDelta(1, 2, 40));
+    assert.equal(bg[playerId]!.elo, bg[playerId]!.beerMl);
     assert.equal(bg[playerId]!.gained, 400);
     assert.equal(bg[playerId]!.currency, beforeBg.profile.currency + battlegroundsCurrencyReward(1));
     assert.equal(bg[bob.library.profile.id]!.gained, 200);

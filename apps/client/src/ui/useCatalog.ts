@@ -32,7 +32,7 @@ export function usePlayerLeveling(): PlayerLeveling {
 }
 
 export function menuTrackUrl(url: string) {
-  return url.startsWith('http') ? url : `${apiBase}${url}`;
+  return new URL(url, `${apiBase}/`).href;
 }
 
 export function useMenuTracks(): MenuMusicTrack[] {

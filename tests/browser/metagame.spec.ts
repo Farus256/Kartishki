@@ -1,5 +1,34 @@
 ﻿import { test, expect, type Page } from '@playwright/test';
 const state = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('kartishki-demo-economy-v1')!));
+
+test('custom music takes priority and skips an unavailable track', async ({ page }) => {
+  const first = `/api/music/${'a'.repeat(64)}.wav`;
+  const second = `/api/music/${'b'.repeat(64)}.wav`;
+  const wav = Buffer.alloc(44 + 16000);
+  wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(16000, 40);
+  await page.route('**/api/catalog', route => route.fulfill({ json: { cards: [], menuMusic: { tracks: [
+    { id: 'first', name: 'Unavailable', url: first }, { id: 'second', name: 'Custom', url: second },
+  ] } } }));
+  await page.route(`**${first}`, route => route.fulfill({ status: 404 }));
+  await page.route(`**${second}`, route => route.fulfill({ contentType: 'audio/wav', body: wav }));
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.setItem('sound', 'on');
+    const original = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      (window as unknown as { musicNode: HTMLMediaElement }).musicNode = this;
+      return original.call(this);
+    };
+  });
+  await page.getByRole('button', { name: 'Играть как гость' }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const node = (window as unknown as { musicNode?: HTMLMediaElement }).musicNode;
+    return node && !node.paused && node.readyState >= 2 ? new URL(node.src).pathname : '';
+  })).toBe(second);
+});
 async function enter(page: Page, screen: 'deck' | 'shop') {
   await page.goto('/');
   await page.getByRole('button', { name: 'Играть как гость' }).click();
