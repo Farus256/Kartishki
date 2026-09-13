@@ -3,7 +3,7 @@ import test from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CASE_COST, CASE_XP, CASINO_XP, DAILY_REWARD, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_XP, WIN_REWARD, starterCards } from '@kartishki/shared';
+import { CASE_COST, CASE_XP, CASINO_XP, DAILY_REWARD, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_XP, WIN_REWARD, battlegroundsEloDelta, remainingMlFromElo, starterCards } from '@kartishki/shared';
 import { migratePlayers, openDatabase } from '../src/database';
 import { PlayerError, PlayerStore } from '../src/players';
 
@@ -61,8 +61,18 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     const afterSpin = await store.addXp(playerId, CASINO_XP);
     assert.equal(afterSpin.profile.xp, vsGuest.xp + CASINO_XP);
     await assert.rejects(() => store.addXp(playerId, 7), error => error instanceof PlayerError && error.code === 'invalidRequest');
+    const beforeBg = await store.library(playerId);
+    const bg = await store.settleBattlegrounds([
+      { playerId, place: 1 },
+      { playerId: bob.library.profile.id, place: 2 },
+    ], 40, 2);
+    assert.equal(bg[playerId]!.elo, beforeBg.profile.elo + battlegroundsEloDelta(1, 2, 40));
+    assert.equal(bg[playerId]!.xp, beforeBg.profile.xp + MATCH_WIN_XP);
+    assert.equal(bg[bob.library.profile.id]!.xp, MATCH_LOSS_XP + MATCH_LOSS_XP);
     const ladder = await store.ladder();
     assert.equal(ladder[0]!.username, 'Алиса');
+    assert.equal(ladder[0]!.xp, PACK_XP + CASE_XP + MATCH_WIN_XP + MATCH_WIN_XP + CASINO_XP + MATCH_WIN_XP);
+    assert.equal(ladder[0]!.remainingMl, remainingMlFromElo(ladder[0]!.elo));
     await store.logout(again.token);
     await assert.rejects(() => store.authenticate(again.token), error => error instanceof PlayerError && error.code === 'loginRequired');
   } finally {

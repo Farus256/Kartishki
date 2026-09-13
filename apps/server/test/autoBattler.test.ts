@@ -23,6 +23,26 @@ const catalog = starterAutoBattlerCatalog;
 const def = (id: string) => catalog.minions.find(item => item.id === id);
 const registry = createDefaultRegistry(catalog.minions);
 
+test('special actions replace damage, preserve snapshots, and work with zero attack', () => {
+  for (const keyword of ['humiliate', 'bait']) {
+    const source = minion({ id: 'shouter', cardId: 'ab-whelp', attack: 0, health: 30, keywords: [keyword, 'windfury'] });
+    const target = minion({ id: 'victim', cardId: 'ab-ward', attack: 5, health: 20, owner: 'b', keywords: ['divineShield'] });
+    const a = { playerId: 'a', tavernTier: 1, board: [source, minion({ id: 'idle', cardId: 'ab-ward', attack: 0 })] };
+    const b = { playerId: 'b', tavernTier: 1, board: [target] };
+    const result = resolveCombat(a, b, 42, registry, def);
+    const kind = keyword === 'humiliate' ? 'HUMILIATE' : 'BAIT';
+    const actions = result.events.filter(e => e.sourceId === source.id);
+    assert.equal(actions[0]?.kind, kind);
+    assert.equal(actions[1]?.kind, kind);
+    assert.ok(!actions.some(e => ['ATTACK', 'DAMAGE', 'CLEAVE_DAMAGE'].includes(e.kind)));
+    assert.equal(keyword === 'humiliate' ? actions[0]?.attack : actions[0]?.remainingHealth, 1);
+    assert.equal(target.attack, 5);
+    assert.equal(target.health, 20);
+    assert.deepEqual(target.keywords, ['divineShield']);
+    assert.deepEqual(result, resolveCombat(a, b, 42, registry, def));
+  }
+});
+
 function minion(partial: Partial<CombatMinion> & Pick<CombatMinion, 'id' | 'cardId'>): CombatMinion {
   return {
     baseId: partial.cardId,

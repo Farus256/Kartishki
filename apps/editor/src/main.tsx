@@ -2,6 +2,7 @@ import { AbilitiesEditor } from './AbilitiesEditor';
 import { BattlegroundsEditor } from './BattlegroundsEditor';
 import { HeroEditor } from './HeroEditor';
 import { LevelsEditor } from './LevelsEditor';
+import { MusicEditor } from './MusicEditor';
 import { ImageProcessingPipeline } from './ImageProcessingPipeline';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -16,11 +17,11 @@ import '../../client/src/style.css';
 const DRAFT_KEY = 'kartishki-editor-draft-v1';
 const MODE_KEY = 'kartishki-editor-mode-v1';
 const endpoint = import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567';
-type EditorMode = 'cards' | 'heroes' | 'battlegrounds' | 'levels';
+type EditorMode = 'cards' | 'heroes' | 'battlegrounds' | 'levels' | 'music';
 function readMode(): EditorMode {
   try {
     const mode = localStorage.getItem(MODE_KEY);
-    if (mode === 'cards' || mode === 'heroes' || mode === 'battlegrounds' || mode === 'levels') return mode;
+    if (mode === 'cards' || mode === 'heroes' || mode === 'battlegrounds' || mode === 'levels' || mode === 'music') return mode;
   } catch { /* First visit opens Battlegrounds. */ }
   return 'battlegrounds';
 }
@@ -72,11 +73,13 @@ function Editor() {
     <button type="button" aria-pressed={mode === 'battlegrounds'} onClick={() => { setMode('battlegrounds'); void load(); }}>{i18n.language === 'ru' ? 'Поле сражений' : 'Battlegrounds'}</button>
     <button type="button" aria-pressed={mode === 'cards'} onClick={() => setMode('cards')}>{i18n.language === 'ru' ? 'Обычные карты' : 'Standard cards'}</button>
     <button type="button" aria-pressed={mode === 'levels'} onClick={() => { setMode('levels'); void load(); }}>{t('levelsEditor')}</button>
+    <button type="button" aria-pressed={mode === 'music'} onClick={() => { setMode('music'); void load(); }}>{t('menuMusic')}</button>
     <select aria-label={t('language')} value={i18n.language} onChange={e => { void i18n.changeLanguage(e.target.value); document.documentElement.lang=e.target.value; }}><option value="ru">Русский</option><option value="en">English</option></select>
   </>;
   if (mode === 'heroes') return <HeroEditor onBack={() => { setMode('cards'); void load(); }} />;
   if (mode === 'battlegrounds') return <BattlegroundsEditor nav={nav} />;
   if (mode === 'levels') return <LevelsEditor nav={nav} />;
+  if (mode === 'music') return <MusicEditor nav={nav} />;
   return <main className="editor"><header><h1>{t('editor')}</h1><div className="editor-nav">{nav}<button onClick={() => setMode('heroes')}>Редактор героев</button></div></header>
     <p className="editor-autosave">{draftStatus}</p><div className="toolbar"><button onClick={() => choose({ ...structuredClone(starterCards[0]), id: `card-${Date.now()}`, name: { ru: t('newCard'), en: '' } })}>{t('newCard')}</button><button disabled={busy} onClick={() => void load()}>{t('reloadCatalog')}</button>
     <select aria-label={t('catalog')} value={catalog.cards.some(c=>c.id===card.id) ? card.id : ''} onChange={e => { const c=catalog.cards.find(c=>c.id===e.target.value); if(c) choose(c); }}><option value="">{t('draft')}</option>{catalog.cards.map(c=><option key={c.id} value={c.id}>{c.name[i18n.language] || c.name.ru}</option>)}</select>

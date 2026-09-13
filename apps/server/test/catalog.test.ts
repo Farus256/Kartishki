@@ -148,13 +148,28 @@ test('player leveling names and xp persist for new clients', () => {
     assert.equal(pinned.playerLeveling!.levels.length,30);
     const leveling=structuredClone(starterLeveling);
     leveling.levels[0] = { ru: 'Чернильный птенец', en: 'Ink chick', xp: 12 };
+    leveling.battlegroundsElo = 48;
     const next=store.publishPlayerLeveling(leveling,pinned.version);
     assert.equal(next.version,pinned.version+1);
+    assert.equal(next.playerLeveling!.battlegroundsElo,48);
     assert.equal(next.playerLeveling!.levels[0]!.ru,'Чернильный птенец');
     assert.equal(next.playerLeveling!.levels[0]!.xp,12);
     assert.equal(pinned.playerLeveling!.levels[0]!.xp,starterLeveling.levels[0]!.xp);
     assert.equal(new CatalogStore(file).snapshot().playerLeveling!.levels[0]!.ru,'Чернильный птенец');
     assert.throws(()=>store.publishPlayerLeveling(leveling,pinned.version),/catalogConflict/);
     assert.throws(()=>store.publishPlayerLeveling({levels:leveling.levels.slice(0,10)},next.version),/invalidLeveling/);
+  } finally { rmSync(file,{force:true}); rmdirSync(dir); }
+});
+
+test('menu music playlist persists for the client menu', () => {
+  const dir=mkdtempSync(join(tmpdir(),'kartishki-music-')), file=join(dir,'catalog.json');
+  try {
+    const store=new CatalogStore(file), pinned=store.snapshot();
+    const hash='ab'.repeat(32);
+    const music={tracks:[{id:'intro',name:'Интро',url:`/api/music/${hash}.mp3`}]};
+    const next=store.publishMenuMusic(music,pinned.version);
+    assert.equal(next.menuMusic!.tracks[0]!.name,'Интро');
+    assert.equal(new CatalogStore(file).snapshot().menuMusic!.tracks[0]!.url,`/api/music/${hash}.mp3`);
+    assert.throws(()=>store.publishMenuMusic({tracks:[{id:'x',name:'bad',url:'http://evil/x.mp3'}]},next.version),/invalidAudio/);
   } finally { rmSync(file,{force:true}); rmdirSync(dir); }
 });

@@ -284,6 +284,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     run.pointer = pointer;
     if (!run.armed) {
       run.armed = true;
+      try { run.host.setPointerCapture(run.pointerId); } catch { /* synthetic pointers */ }
       suppressRef.current = run.source;
       setGhost(run.minion);
       setView({
@@ -356,6 +357,8 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     if (ghostRef.current) ghostRef.current.style.transition = '';
     const screen = screenRef.current;
     if (!screen) return;
+    // Finish the previous reorder before measuring this gesture's targets.
+    screen.querySelectorAll('.ab-board .ab-minion').forEach(el => el.getAnimations().forEach(animation => animation.finish()));
     const root = stageBox(screen);
     const src = event.currentTarget.getBoundingClientRect();
     const pointer = clientToStage(event.clientX, event.clientY, root);
@@ -376,10 +379,11 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       host: screen,
       session: createDragSession(),
       powerOrigin: power ? { x: power.x + power.w / 2, y: power.y + power.h / 2 } : pointer,
-      insertionCenters: null,
+      insertionCenters: payload.kind === 'board' ? clientBoardCenters(screen) : null,
     };
     runRef.current = run;
-    try { screen.setPointerCapture(event.pointerId); } catch { /* capture optional */ }
+    // Capture after pickup: capturing on pointerdown retargets ordinary clicks
+    // to the screen and prevents card selection and hero-power activation.
     const move = (ev: PointerEvent) => onMove(ev);
     const up = (ev: PointerEvent) => {
       if (runRef.current?.pointerId !== ev.pointerId) return;

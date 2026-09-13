@@ -15,6 +15,7 @@ export type CombatMinion = {
   golden: boolean;
   owner: string;
   auraAttack: number;
+  humiliated?: boolean;
 };
 
 export type CombatantSnapshot = {

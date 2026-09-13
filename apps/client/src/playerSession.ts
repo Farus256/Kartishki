@@ -1,10 +1,10 @@
 import { applyMatchElo, calibratedRank, isBeerRank, updateBeerRank, type BeerRank } from './beerRank';
-import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type SavedDeck } from '@kartishki/shared';
+import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type BattlegroundsRewards, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type SavedDeck } from '@kartishki/shared';
 
 const endpoint = (import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567').replace(/^ws/,'http');
 const GUEST_RANK_KEY = 'kartishki-beer-rank-v1:guest';
 const GUEST_XP_KEY = 'kartishki-player-xp-v1:guest';
-export type MatchReward = { elo: number; previousElo: number; gained: number };
+export type MatchReward = { elo: number; previousElo: number; gained: number; xpGain?: number };
 function loadGuestRank(): BeerRank {
   try { const stored: unknown = JSON.parse(localStorage.getItem(GUEST_RANK_KEY) ?? 'null'); if (isBeerRank(stored)) return stored; } catch { /* keep the calibrated guest bottle */ }
   return calibratedRank();
@@ -85,6 +85,23 @@ export const playerSession = {
     try { localStorage.setItem(GUEST_RANK_KEY, JSON.stringify(beerRank)); localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* memory rank still updates */ }
     publish({ beerRank, xp, lastReward: { elo, previousElo, gained: 0 } });
   },
+  finishBattlegrounds(rewards: BattlegroundsRewards) {
+    if (snapshot.lastReward) return;
+    if (snapshot.library && (rewards.xp > 0 || rewards.elo > 0)) {
+      const previousElo = snapshot.library.profile.elo;
+      setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, xp: rewards.xp } });
+      publish({ lastReward: { elo: rewards.elo, previousElo, gained: 0, xpGain: rewards.xpGain } });
+      return;
+    }
+    if (snapshot.library) return;
+    const previousElo = snapshot.beerRank.lastElo;
+    const elo = Math.max(0, previousElo + rewards.eloDelta);
+    const beerRank = updateBeerRank(snapshot.beerRank, elo);
+    const xp = snapshot.xp + rewards.xpGain;
+    try { localStorage.setItem(GUEST_RANK_KEY, JSON.stringify(beerRank)); localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* memory rank still updates */ }
+    publish({ beerRank, xp, lastReward: { elo, previousElo, gained: 0, xpGain: rewards.xpGain } });
+  },
+  authOptions() { return token ? { playerToken: token } : {}; },
   clearMatchReward() { publish({ lastReward: undefined }); },
   async authenticate(action: 'register'|'login', username: string, password: string) {
     await run(async()=>{ const result = await request<PlayerLogin>(`/${action}`,'POST',{username,password}); token=result.token; localStorage.setItem('playerToken',token); setLibrary(result.library); });

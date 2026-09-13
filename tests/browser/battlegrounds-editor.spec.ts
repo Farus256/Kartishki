@@ -1,6 +1,25 @@
 import { test, expect } from '@playwright/test';
 import type { Catalog } from '@kartishki/shared';
 
+let original: Catalog;
+test.beforeEach(async ({ request }) => {
+  original = await (await request.get(`${process.env.SERVER_TEST_URL ?? 'http://127.0.0.1:2567'}/api/catalog`)).json();
+});
+test.afterEach(async ({ request }) => {
+  const server = process.env.SERVER_TEST_URL ?? 'http://127.0.0.1:2567';
+  let current: Catalog = await (await request.get(`${server}/api/catalog`)).json();
+  const restore = async (path: string, field: string, value: unknown) => {
+    const response = await request.put(`${server}/api/${path}`, { data: { version: current.version, [field]: value } });
+    expect(response.ok()).toBeTruthy();
+    current = await response.json();
+  };
+  const minion = original.autoBattlerMinions?.find(m => m.id === 'ab-whelp');
+  const hero = original.autoBattlerHeroes?.find(h => h.id === 'ab-hero-captain');
+  if (minion && JSON.stringify(minion) !== JSON.stringify(current.autoBattlerMinions?.find(m => m.id === minion.id))) await restore('auto-battler', 'minion', minion);
+  if (hero && JSON.stringify(hero) !== JSON.stringify(current.autoBattlerHeroes?.find(h => h.id === hero.id))) await restore('auto-battler-heroes', 'hero', hero);
+  if (JSON.stringify(original.autoBattlerCopy) !== JSON.stringify(current.autoBattlerCopy)) await restore('auto-battler-copy', 'copy', original.autoBattlerCopy ?? {});
+});
+
 test('editor publishes a Battlegrounds minion into the catalog', async ({ page, request }) => {
   const server = process.env.SERVER_TEST_URL ?? 'http://127.0.0.1:2567';
   await page.goto(process.env.EDITOR_TEST_URL ?? 'http://127.0.0.1:5174');
@@ -9,6 +28,8 @@ test('editor publishes a Battlegrounds minion into the catalog', async ({ page, 
   await page.getByLabel('Каталог лавки').selectOption('ab-whelp');
   await page.getByLabel('Атака', { exact: true }).fill('7');
   await page.getByLabel('Здоровье', { exact: true }).fill('5');
+  await page.getByRole('checkbox', { name: /^Унижение:/ }).check();
+  await page.getByRole('checkbox', { name: /^Байт:/ }).check();
   await expect(page.locator('.ab-minion-stats b')).toContainText('7');
   await expect(page.locator('.ab-minion-stats i')).toContainText('5');
   await page.getByRole('button', { name: 'Опубликовать существо', exact: true }).click();
@@ -17,6 +38,7 @@ test('editor publishes a Battlegrounds minion into the catalog', async ({ page, 
   const whelp = catalog.autoBattlerMinions?.find(m => m.id === 'ab-whelp');
   expect(whelp?.attack).toBe(7);
   expect(whelp?.health).toBe(5);
+  expect(whelp?.keywords).toEqual(expect.arrayContaining(['humiliate', 'bait']));
   await page.screenshot({ path: 'artifacts/ab-editor.png', fullPage: true });
 });
 

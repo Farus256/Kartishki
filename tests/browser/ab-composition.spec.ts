@@ -29,14 +29,14 @@ test('composition matrix: compact rows, independent Hero anchor, Hand region and
    await page.waitForTimeout(300);
    const g=await geometry(page);
    expect(Math.abs(g.hero.cx-g.stage.cx)).toBeLessThan(1);
-   expect(g.hand.x).toBeGreaterThan(g.hero.right+20*size.width/1600);
-   expect(g.hand.x).toBeGreaterThan(g.power.right);
+   expect(g.hand.right).toBeLessThan(g.hero.x);
+   expect(g.power.x).toBeGreaterThan(g.hero.right);
    expect(g.scroll).toBe(false);
    const tokens=page.locator('.ab-board .ab-minion');
    const first=(await tokens.first().boundingBox())!,last=(await tokens.last().boundingBox())!;
    expect(Math.abs((first.x+last.x+last.width)/2-g.stage.cx)).toBeLessThan(2);
    expect(first.height/first.width).toBeLessThan(1.15);
-   expect(first.width/size.width).toBeCloseTo(132/1600,2);
+   expect(first.width/size.width).toBeCloseTo(150/1600,2);
    await page.screenshot({path:`artifacts/ui-after/recruit-${size.width}-${n}.png`});
   }
  }
@@ -110,7 +110,7 @@ for(const speed of [1,2,100])test(`authoritative damage, stats, death, summon an
  expect(results).toHaveLength(1);
  expect(results[0].event).toBe('8');
  expect(results[0].units.sort((x:{id:string},y:{id:string})=>x.id.localeCompare(y.id))).toEqual([{id:'born',attack:'4',health:'5'},{id:a.id,attack:'9',health:'3'}]);
- expect(results[0].heroes[0]).toMatch(/♥\s*0/);expect(results[0].lethal).toBe(1);
+ expect(results[0].heroes[0].trim()).toBe('0');expect(results[0].lethal).toBe(1);
  expect(await actionsOf(page)).toEqual([]);
 });
 

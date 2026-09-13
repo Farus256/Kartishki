@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { LEVEL_COUNT, levelFromXp, starterLeveling, validatePlayerLeveling } from '@kartishki/shared';
+import { LEVEL_COUNT, battlegroundsEloDelta, battlegroundsXp, levelFromXp, MATCH_LOSS_XP, MATCH_WIN_XP, resolveBattlegroundsElo, starterLeveling, validatePlayerLeveling } from '@kartishki/shared';
 
 test('starter table has 30 named levels and rejects broken rows', () => {
   assert.equal(starterLeveling.levels.length, LEVEL_COUNT);
@@ -22,4 +22,15 @@ test('levelFromXp spends each quota then caps at 30', () => {
   assert.equal(maxed.maxed, true);
   assert.equal(maxed.left, 0);
   assert.equal(levelFromXp(total + 500).maxed, true);
+});
+
+test('battlegrounds rating scales from first to last place', () => {
+  assert.equal(battlegroundsEloDelta(1, 8, 32), 32);
+  assert.equal(battlegroundsEloDelta(8, 8, 32), -32);
+  assert.equal(battlegroundsEloDelta(1, 2, 40), 40);
+  assert.equal(battlegroundsXp(1, 8), MATCH_WIN_XP);
+  assert.equal(battlegroundsXp(8, 8), MATCH_LOSS_XP);
+  assert.equal(resolveBattlegroundsElo(undefined), 32);
+  assert.equal(validatePlayerLeveling({ ...starterLeveling, battlegroundsElo: 201 }), false);
+  assert.ok(validatePlayerLeveling({ ...starterLeveling, battlegroundsElo: 16 }));
 });

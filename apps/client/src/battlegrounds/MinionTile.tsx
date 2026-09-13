@@ -44,12 +44,16 @@ export function BuffFlashProvider({ me, children }: { me?: AbPlayer; children: R
 }
 
 function SwordIcon() {
-  return <svg className="ab-stat-icon is-sword" viewBox="0 0 56 64" aria-hidden>
-    <path d="M28 2 38 14 32 16 32 34 48 38 48 46 32 42 32 54 40 62 16 62 24 54 24 42 8 46 8 38 24 34 24 16 18 14Z" />
-    <path className="ab-sword-edge" d="M28 8V34" />
+  return <svg className="ab-stat-icon is-sword" viewBox="0 0 64 72" aria-hidden>
+    <path className="ab-attack-blade" d="M5 3 18 7 50 49 43 55 11 15Z" />
+    <path className="ab-sword-edge" d="M10 9 44 49" />
+    <path className="ab-attack-hilt" d="m38 48 17-11 4 6-17 12Zm7 5 6-4 9 15-6 4Z" />
+    <circle className="ab-attack-rim" cx="29" cy="43" r="23" />
+    <circle className="ab-attack-disc" cx="29" cy="43" r="18.5" />
+    <path className="ab-attack-shine" d="M14 42a15 15 0 0 1 18-14" />
   </svg>;
 }
-function HeartIcon() {
+export function HeartIcon() {
   return <svg className="ab-stat-icon is-heart" viewBox="0 0 56 64" aria-hidden>
     <path d="M28 60C14 48 4 36 4 22 4 11 12 5 20 6c5 1 7 5 8 10 1-5 3-9 8-10 8-1 16 5 16 16 0 14-14 26-24 38z" />
   </svg>;
@@ -120,6 +124,7 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
         className={`ab-minion ${fullCard ? 'is-full-card' : 'is-token'} ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''} ${selected ? 'is-selected' : ''} ${canDrag ? 'is-draggable' : ''} ${lifted ? 'is-lifted' : ''} ${shopLift ? 'is-shop-lift' : ''} ${isTarget ? 'is-target' : ''} ${dim ? 'is-dim' : ''}`}
         aria-disabled={!!disabled}
         data-ab-id={minion.id}
+        data-keywords={minion.keywords.join(' ')}
         data-ab-target={targetDomain}
         onDragStart={event => event.preventDefault()}
         onPointerDown={event => {
@@ -130,6 +135,8 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
         data-testid={`ab-minion-${minion.id}`}>
         <span className="ab-minion-art">{spell ? <span className="ab-reward-mark">Ⅲ<br />★</span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" draggable={false} />}</span>
         <span className="ab-minion-tier">{spell ? '★' : minion.tavernTier}</span>
+        {minion.keywords.includes('divineShield') && <span className="ab-shield-bubble" aria-hidden="true" />}
+        {minion.keywords.includes('windfury') && <span className="ab-wind" aria-hidden="true"><i /><i /><i /></span>}
         <span className="ab-minion-name">{name}</span>
         {!spell && (
           <span className="ab-minion-stats">
@@ -144,7 +151,7 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
           </span>
         )}
         <span className="ab-minion-keys">
-          {[...minion.keywords].map(key => <em key={key} aria-label={abCopyName(catalog.copy, 'keywords', key, i18n.language, t(`abKeyword_${key}`))}>{KEYWORD_MARK[key] ?? key[0]}</em>)}
+          {[...minion.keywords].map(key => <em key={key} data-keyword={key} aria-label={abCopyName(catalog.copy, 'keywords', key, i18n.language, t(`abKeyword_${key}`))}>{KEYWORD_MARK[key] ?? key[0]}</em>)}
         </span>
         {actionLabel && <span className="ab-minion-act">{actionLabel}</span>}
       </button>

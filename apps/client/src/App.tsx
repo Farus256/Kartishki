@@ -12,6 +12,8 @@ import { ShopScreen } from './screens/ShopScreen';
 import { MatchScreen } from './screens/MatchScreen';
 import { BattlegroundsScreen } from './screens/BattlegroundsScreen';
 import { SettingsModal } from './screens/SettingsModal';
+import { audioManager } from './AudioManager';
+import { menuTrackUrl, useMenuTracks } from './ui/useCatalog';
 
 type Screen = 'landing' | 'menu' | 'deck' | 'shop' | 'match' | 'battlegrounds';
 
@@ -25,6 +27,7 @@ export function App() {
   const [queue, setQueue] = useState(false);
   const [settings, setSettings] = useState(false);
   const signedIn = !!player.library;
+  const menuTracks = useMenuTracks();
 
   const firstPaint = useRef(true);
   useEffect(() => { firstPaint.current = false; }, []);
@@ -34,6 +37,12 @@ export function App() {
   useEffect(() => { if (state.status === 'offline') playerSession.clearMatchReward(); }, [state.status]);
 
   useEffect(() => { const open = () => setSettings(true); window.addEventListener('open-settings', open); return () => window.removeEventListener('open-settings', open); }, []);
+  useEffect(() => { audioManager.setMenuTracks(menuTracks.map(track => menuTrackUrl(track.url))); }, [menuTracks]);
+  useEffect(() => {
+    if (screen === 'menu') audioManager.playMenu();
+    else audioManager.stopMenu();
+    return () => audioManager.stopMenu();
+  }, [screen]);
 
   function toMenu() { setScreen('menu'); }
   function exit() {

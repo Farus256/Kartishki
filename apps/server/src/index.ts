@@ -1,10 +1,11 @@
 import { Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { matchRoomWithPlayers } from './MatchRoom';
-import { AutoBattlerRoom } from './autoBattler/AutoBattlerRoom';
+import { autoBattlerRoomWithPlayers } from './autoBattler/AutoBattlerRoom';
 import express from 'express';
 import { catalogStore } from './catalog';
-import { validateAutoBattlerCopy, validateAutoBattlerHero, validateAutoBattlerMinion, validateCard, validatePlayerLeveling } from '@kartishki/shared';
+import { validateAutoBattlerCopy, validateAutoBattlerHero, validateAutoBattlerMinion, validateCard, validateMenuMusic, validatePlayerLeveling } from '@kartishki/shared';
+import { musicAssets } from './musicAssets';
 import { openDatabase, migratePlayers } from './database';
 import { PlayerStore } from './players';
 import { playerApi } from './playerApi';
@@ -26,6 +27,7 @@ app.use('/api', (req, res, next) => {
 });
 app.use('/api/players', playerApi(players,catalogStore));
 app.use('/api/portraits', portraitAssets());
+app.use('/api/music', musicAssets());
 app.get('/api/catalog', (_req, res) => res.json(catalogStore.snapshot()));
 app.put('/api/catalog', express.json({ limit: '7mb' }), (req, res) => {
   if (!validateCard(req.body?.card) || !Number.isInteger(req.body?.version)) { res.status(400).json({ error: 'invalidCard' }); return; }
@@ -52,6 +54,11 @@ app.put('/api/player-leveling', express.json({ limit: '64kb' }), (req, res) => {
   try { res.json(catalogStore.publishPlayerLeveling(req.body.leveling, req.body.version)); }
   catch (error) { const reason = error instanceof Error ? error.message : 'publishError'; res.status(reason === 'catalogConflict' ? 409 : 400).json({ error: reason }); }
 });
+app.put('/api/menu-music', express.json({ limit: '32kb' }), (req, res) => {
+  if (!Number.isInteger(req.body?.version) || !validateMenuMusic(req.body?.menuMusic)) { res.status(400).json({ error: 'invalidAudio' }); return; }
+  try { res.json(catalogStore.publishMenuMusic(req.body.menuMusic, req.body.version)); }
+  catch (error) { const reason = error instanceof Error ? error.message : 'publishError'; res.status(reason === 'catalogConflict' ? 409 : 400).json({ error: reason }); }
+});
 app.put('/api/auto-battler-copy', express.json({ limit: '1mb' }), (req, res) => {
   if (!Number.isInteger(req.body?.version) || !validateAutoBattlerCopy(req.body?.copy)) { res.status(400).json({ error: 'invalidCard' }); return; }
   try { res.json(catalogStore.publishAutoBattlerCopy(req.body.copy, req.body.version)); }
@@ -59,7 +66,7 @@ app.put('/api/auto-battler-copy', express.json({ limit: '1mb' }), (req, res) => 
 });
 const server = new Server({ transport });
 server.define('match', matchRoomWithPlayers(players));
-server.define('autoBattler', AutoBattlerRoom).filterBy(['table']);
+server.define('autoBattler', autoBattlerRoomWithPlayers(players)).filterBy(['table']);
 server.onShutdown(() => db.close());
 await server.listen(Number(process.env.PORT ?? 2567), '127.0.0.1');
 console.log('Colyseus listening on http://127.0.0.1:2567');

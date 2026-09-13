@@ -8,14 +8,40 @@ const files = {
 } as const;
 export type Sound = keyof typeof files;
 
+function readUnit(key: string, fallback: number) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null || raw === '') return fallback;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
+  } catch { /* keep the default until storage works */ }
+  return fallback;
+}
+
 /** One context, decoded buffer cache and a bounded pool of simultaneous voices. */
 export class AudioManager {
   private context?: AudioContext;
   private buffers = new Map<Sound, Promise<AudioBuffer | undefined>>();
   private voices = new Set<AudioBufferSourceNode>();
   private last = new Map<Sound, number>();
+  private sfxVol = readUnit('sfxVolume', 1);
+  private musicVol = readUnit('musicVolume', 0.5);
+  private playlist: string[] = [];
+  private track = 0;
+  private currentUrl = '';
+  private menuWanted = false;
+  private music?: HTMLAudioElement;
   private get enabled() { try { return localStorage.getItem('sound') !== 'off'; } catch { return true; } }
+  get sfxVolume() { return this.sfxVol; }
+  get musicVolume() { return this.musicVol; }
   private init() { return this.context ??= new AudioContext(); }
+  private player() {
+    if (this.music) return this.music;
+    const node = new Audio();
+    node.addEventListener('ended', () => this.nextMenuTrack());
+    this.music = node;
+    return node;
+  }
   preload() { for (const name of Object.keys(files) as Sound[]) void this.buffer(name); }
   private buffer(name: Sound) {
     if (!this.buffers.has(name)) this.buffers.set(name, (async () => {
@@ -39,7 +65,7 @@ export class AudioManager {
         if (cancelled || !this.enabled || !buffer) return;
         if (this.voices.size >= 16) { const oldest = this.voices.values().next().value!; oldest.stop(); this.voices.delete(oldest); }
         source = ctx.createBufferSource(); source.buffer = buffer; source.loop = loop;
-        const gain = ctx.createGain(); gain.gain.value = loop ? .18 : name === 'card_hover' ? .16 : .45;
+        const gain = ctx.createGain(); gain.gain.value = (loop ? .18 : name === 'card_hover' ? .16 : .45) * this.sfxVol;
         source.connect(gain).connect(ctx.destination); this.voices.add(source);
         const voice = source;
         voice.onended = () => { this.voices.delete(voice); voice.disconnect(); gain.disconnect(); if (source === voice) source = undefined; };
@@ -50,7 +76,41 @@ export class AudioManager {
   }
   setEnabled(enabled: boolean) {
     try { localStorage.setItem('sound', enabled ? 'on' : 'off'); } catch { /* optional storage */ }
-    if (!enabled) { for (const voice of this.voices) voice.stop(); this.voices.clear(); }
+    if (!enabled) { for (const voice of this.voices) voice.stop(); this.voices.clear(); this.pauseMusic(); }
+    else if (this.menuWanted) this.playMenu();
+  }
+  setSfxVolume(value: number) {
+    this.sfxVol = Math.min(1, Math.max(0, value));
+    try { localStorage.setItem('sfxVolume', String(this.sfxVol)); } catch { /* optional storage */ }
+  }
+  setMusicVolume(value: number) {
+    this.musicVol = Math.min(1, Math.max(0, value));
+    try { localStorage.setItem('musicVolume', String(this.musicVol)); } catch { /* optional storage */ }
+    if (this.music) this.music.volume = this.musicVol;
+    if (this.menuWanted) this.playMenu();
+  }
+  setMenuTracks(urls: string[]) {
+    const same = urls.length === this.playlist.length && urls.every((url, i) => url === this.playlist[i]);
+    this.playlist = urls;
+    if (!same) { this.track = 0; this.currentUrl = ''; }
+    if (this.menuWanted) this.playMenu();
+  }
+  playMenu() {
+    this.menuWanted = true;
+    if (!this.enabled || this.musicVol <= 0 || !this.playlist.length) { this.pauseMusic(); return; }
+    const url = this.playlist[this.track % this.playlist.length]!;
+    const node = this.player();
+    if (this.currentUrl !== url) { this.currentUrl = url; node.src = url; }
+    node.volume = this.musicVol;
+    void node.play().catch(() => {});
+  }
+  stopMenu() { this.menuWanted = false; this.pauseMusic(); }
+  private pauseMusic() { this.music?.pause(); }
+  private nextMenuTrack() {
+    if (!this.playlist.length) return;
+    this.track = (this.track + 1) % this.playlist.length;
+    this.currentUrl = '';
+    if (this.menuWanted) this.playMenu();
   }
   install() {
     this.preload();
@@ -58,8 +118,10 @@ export class AudioManager {
       const button = (event.target as Element)?.closest('button');
       if (button && !button.disabled) this.play(button.closest('.shop-tabs') ? 'ui_select' : 'ui_click');
     };
+    const unlock = () => { if (this.menuWanted) this.playMenu(); };
     document.addEventListener('click', click);
-    return () => document.removeEventListener('click', click);
+    document.addEventListener('pointerdown', unlock);
+    return () => { document.removeEventListener('click', click); document.removeEventListener('pointerdown', unlock); };
   }
 }
 export const audioManager = new AudioManager();

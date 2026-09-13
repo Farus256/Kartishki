@@ -13,7 +13,7 @@ export function AnimatedNumber({ value }: { value: number }) {
     return () => clearTimeout(timer);
   }, [value]);
   return <span className="ab-number" data-value={value}>
-    <span key={change.serial} className={change.delta ? `ab-number-pulse ${change.delta > 0 ? 'is-gain' : 'is-loss'}` : ''}>{value}</span>
+    <span className={change.delta ? `ab-number-pulse ${change.delta > 0 ? 'is-gain' : 'is-loss'}` : ''}>{value}</span>
     {!!change.delta && <small key={`delta-${change.serial}`} aria-hidden className={`ab-number-delta ${change.delta > 0 ? 'is-gain' : 'is-loss'}`}>{change.delta > 0 ? '+' : '−'}{Math.abs(change.delta)}</small>}
   </span>;
 }

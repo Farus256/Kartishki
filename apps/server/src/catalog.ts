@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling } from '@kartishki/shared';
+import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, validateMenuMusic, emptyMenuMusic, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic } from '@kartishki/shared';
 
 export class CatalogStore {
   private catalog: Catalog = { version: 1, cards: structuredClone(starterCards), heroes: structuredClone(starterHeroes), autoBattlerMinions: structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: structuredClone(starterAutoBattlerHeroes), playerLeveling: structuredClone(starterLeveling) };
@@ -13,10 +13,11 @@ export class CatalogStore {
       if (data.autoBattlerHeroes && !validAutoBattlerHeroes(data.autoBattlerHeroes)) throw new Error('Invalid auto-battler heroes');
       if (data.autoBattlerCopy && !validateAutoBattlerCopy(data.autoBattlerCopy)) throw new Error('Invalid auto-battler copy');
       if (data.playerLeveling && !validatePlayerLeveling(data.playerLeveling)) throw new Error('Invalid player leveling');
-      this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: data.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: data.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling) };
+      if (data.menuMusic && !validateMenuMusic(data.menuMusic)) throw new Error('Invalid menu music');
+      this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: data.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: data.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling), menuMusic: data.menuMusic ?? structuredClone(emptyMenuMusic) };
     }
   }
-  snapshot(): Catalog { return structuredClone({ ...this.catalog, autoBattlerMinions: this.catalog.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: this.catalog.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: this.catalog.playerLeveling ?? structuredClone(starterLeveling) }); }
+  snapshot(): Catalog { return structuredClone({ ...this.catalog, autoBattlerMinions: this.catalog.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: this.catalog.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: this.catalog.playerLeveling ?? structuredClone(starterLeveling), menuMusic: this.catalog.menuMusic ?? structuredClone(emptyMenuMusic) }); }
   publishHero(hero: HeroDefinition, version: number) {
     if (!validateHero(hero) || hero.ability.effectId === 'summon' && !this.catalog.cards.some(c => c.id === hero.ability.cardId)) throw new Error('invalidHero');
     if (version !== this.catalog.version) throw new Error('catalogConflict');
@@ -65,6 +66,13 @@ export class CatalogStore {
     if (!validatePlayerLeveling(leveling)) throw new Error('invalidLeveling');
     if (version !== this.catalog.version) throw new Error('catalogConflict');
     const next = { ...this.catalog, version: version + 1, playerLeveling: structuredClone(leveling) };
+    mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(`${this.file}.tmp`, JSON.stringify(next)); renameSync(`${this.file}.tmp`, this.file);
+    this.catalog = next; return this.snapshot();
+  }
+  publishMenuMusic(menuMusic: MenuMusic, version: number) {
+    if (!validateMenuMusic(menuMusic)) throw new Error('invalidAudio');
+    if (version !== this.catalog.version) throw new Error('catalogConflict');
+    const next = { ...this.catalog, version: version + 1, menuMusic: structuredClone(menuMusic) };
     mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(`${this.file}.tmp`, JSON.stringify(next)); renameSync(`${this.file}.tmp`, this.file);
     this.catalog = next; return this.snapshot();
   }

@@ -1,15 +1,35 @@
 ﻿import { useEffect, useState, useSyncExternalStore } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { DAILY_REWARD } from '@kartishki/shared';
+import { DAILY_REWARD, levelFromXp, type LadderRow } from '@kartishki/shared';
 import { playerSession } from '../playerSession';
 import { Backdrop } from '../ui/Backdrop';
 import { MenuFotoWallpaper } from '../ui/MenuFotoWallpaper';
 import { BeerBottle } from '../ui/BeerBottle';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
+import { apiBase, usePlayerLeveling } from '../ui/useCatalog';
 
 type Props = { onPlay: () => void; onBattlegrounds: () => void; onDeck: () => void; onShop: () => void; onSettings: () => void; onExit: () => void };
+const TROPHY = { 1: '#c9a227', 2: '#9aa0a6', 3: '#b87333' } as const;
+function Trophy({ place }: { place: 1 | 2 | 3 }) {
+  return <svg className="menu-ladder-trophy" viewBox="0 0 20 22" aria-hidden>
+    <path fill={TROPHY[place]} stroke="#302b22" strokeWidth="1.1"
+      d="M5 1.6h10v1.6h2.4v2.6c0 1.5-1.1 2.8-2.6 3.1A4.7 4.7 0 0 1 11 12.6V14h2.2v1.7H6.8V14H9v-1.4A4.7 4.7 0 0 1 5.2 8.9C3.7 8.6 2.6 7.3 2.6 5.8V3.2H5V1.6z" />
+    <path fill={TROPHY[place]} stroke="#302b22" strokeWidth="1.1" d="M7.2 16.6h5.6v1.4H7.2zM5.6 18.6h8.8v1.5H5.6z" />
+  </svg>;
+}
+function useLadder() {
+  const [rows, setRows] = useState<LadderRow[]>([]);
+  useEffect(() => {
+    let live = true;
+    void fetch(`${apiBase}/api/players/ladder`).then(r => r.ok ? r.json() : []).then(data => {
+      if (live && Array.isArray(data)) setRows(data);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  return rows;
+}
 function untilMidnight() {
   // The account API uses PostgreSQL CURRENT_DATE (UTC), so the countdown uses UTC too.
   const now = new Date();
@@ -23,6 +43,8 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
   const profile = player.library?.profile;
   const rank = player.beerRank;
   const dark = rank.league === 'dark';
+  const ladder = useLadder();
+  const leveling = usePlayerLeveling();
   const dailyReady = !!profile?.dailyAvailable;
   const [timer, setTimer] = useState(untilMidnight);
   useEffect(() => {
@@ -67,6 +89,32 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
         <div className="bottle-halo" aria-hidden />
         <BeerBottle remainingMl={rank.remainingMl} league={rank.league} />
       </div>
+    </section>
+    <section className="menu-ladder" data-testid="menu-ladder" aria-label={t('menuLadder')}>
+      <h2>{t('menuLadder')}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th className="place" scope="col" />
+            <th scope="col">{t('ladderNick')}</th>
+            <th className="lvl" scope="col">{t('ladderLevel')}</th>
+            <th className="ml" scope="col">{t('ladderMl')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 10 }, (_, index) => {
+            const row = ladder[index];
+            const place = index + 1;
+            const medal = row && (place === 1 || place === 2 || place === 3) ? place : 0;
+            return <tr key={row ? `${row.username}-${place}` : `empty-${place}`} className={!row ? 'is-empty' : medal ? `is-${['', 'gold', 'silver', 'bronze'][medal]}` : undefined}>
+              <td className="place">{medal ? <Trophy place={medal} /> : place}</td>
+              <td className="nick">{row?.username ?? ''}</td>
+              <td className="lvl">{row ? levelFromXp(row.xp, leveling).level : ''}</td>
+              <td className="ml">{row ? row.remainingMl.toLocaleString('ru-RU') : ''}</td>
+            </tr>;
+          })}
+        </tbody>
+      </table>
     </section>
   </div>;
 }

@@ -1,7 +1,5 @@
-﻿export const BOTTLE_CAPACITY = 2000;
-export const CALIBRATION_ML = 1500;
-/** Presentation economy: one point of earned/lost ELO changes the bottle by 10 ml. */
-export const ML_PER_ELO = 10;
+﻿import { BOTTLE_CAPACITY, CALIBRATION_ML, ML_PER_ELO } from '@kartishki/shared';
+export { BOTTLE_CAPACITY, CALIBRATION_ML, ML_PER_ELO, remainingMlFromElo } from '@kartishki/shared';
 export type BeerLeague = 'light' | 'dark';
 export type BeerRank = { league: BeerLeague; remainingMl: number; lastElo: number };
 export function calibratedRank(elo = 1000): BeerRank {

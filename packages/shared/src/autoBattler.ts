@@ -120,6 +120,7 @@ export const AUTO_BATTLER_CLIENT_EVENTS = {
   heroOffers: 'heroOffers',
   combatEvents: 'combatEvents',
   discoverOptions: 'discoverOptions',
+  rewards: 'rewards',
 } as const;
 
 export type HeroPowerTargetDomain = 'tavern' | 'board' | 'none';
@@ -248,6 +249,8 @@ export type AutoBattlerRoomState = InstanceType<typeof AutoBattlerRoomState>;
 export type CombatEventKind =
   | 'COMBAT_START'
   | 'ATTACK'
+  | 'HUMILIATE'
+  | 'BAIT'
   | 'DAMAGE'
   | 'CLEAVE_DAMAGE'
   | 'DIVINE_SHIELD_POP'
@@ -312,7 +315,7 @@ export type DiscoverOptionsMessage = {
   options: { id: string; cardId: string; attack: number; health: number; tavernTier: number; keywords: string[] }[];
 };
 
-export const autoBattlerKeywords = ['taunt', 'divineShield', 'poisonous', 'deathrattle', 'battlecry', 'windfury', 'reborn', 'cleave', 'immune', 'cannotAttack'] as const;
+export const autoBattlerKeywords = ['taunt', 'divineShield', 'poisonous', 'deathrattle', 'battlecry', 'windfury', 'reborn', 'cleave', 'immune', 'cannotAttack', 'humiliate', 'bait'] as const;
 export type AutoBattlerKeyword = typeof autoBattlerKeywords[number];
 
 export const autoBattlerTribes = ['beast', 'mech', 'pirate', 'undead', 'neutral'] as const;

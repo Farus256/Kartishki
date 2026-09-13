@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AutoBattlerCatalog, CombatEvent, CombatEventsMessage } from '@kartishki/shared';
+import { abCopyName, type AutoBattlerCatalog, type CombatEvent, type CombatEventsMessage } from '@kartishki/shared';
 import type { AbCombatBoards, AbMinion, AbPlayer } from '../autoBattlerSession';
 import { audioManager } from '../AudioManager';
 import { AB_LAYOUT, combatRowXs } from './battlegroundsLayout';
 import { AbHeroFace } from './AbHeroFace';
-import { MinionTile } from './MinionTile';
+import { HeartIcon, MinionTile } from './MinionTile';
 import { combatImpact } from './combatImpact';
+import { HeroPowerTooltip } from './HeroPowerTooltip';
 
 type Props = { combat: CombatEventsMessage; boards: AbCombatBoards; meId: string; catalog: AutoBattlerCatalog; players: AbPlayer[]; pairing?: { playerA: string; playerB: string }[]; initialHeroes?: AbPlayer[]; waiting?: boolean; recruitAfter?: boolean; phaseReady?: boolean; onDone: () => void };
 type Piece = { minion: AbMinion; side: 0 | 1 };
 const W=AB_LAYOUT.COMBAT_W,H=AB_LAYOUT.COMBAT_H,CW=AB_LAYOUT.MINION_W,CH=AB_LAYOUT.MINION_H;
-const weight=(e:CombatEvent)=>e.kind==='ATTACK'?1600:e.kind==='DEATH'?360:e.kind==='SUMMON'?350:e.kind==='PLAYER_DAMAGE'?2400:e.kind==='STATS'?420:140;
+const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?1900:e.kind==='DEATH'?440:e.kind==='SUMMON'?520:['DEATHRATTLE','REBORN'].includes(e.kind)?600:e.kind==='PLAYER_DAMAGE'?2400:e.kind==='STATS'?420:180;
 
 /** HTML cards match the tavern tile. Pixi is not used for combat minions. */
 export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],initialHeroes,waiting=false,recruitAfter=true,phaseReady=true,onDone}:Props){
@@ -26,7 +27,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
  const [speed,setSpeed]=useState(1);const [failed,setFailed]=useState(false);
  const [pieces,setPieces]=useState<Piece[]>([]);const [facedown,setFacedown]=useState<Set<string>>(new Set());
  const [banner,setBanner]=useState('VS');const [result,setResult]=useState<'win'|'loss'|'draw'|null>(null);const [recruit,setRecruit]=useState(false);const [leaving,setLeaving]=useState(false);
- const {t}=useTranslation();
+ const {t,i18n}=useTranslation();
  const mineA=combat.playerA===meId;const topOwner=mineA?combat.playerB:combat.playerA;
  const foe=players.find(p=>p.sessionId===topOwner);const mine=players.find(p=>p.sessionId===meId);
 
@@ -80,6 +81,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    if(!piece)return;
    if(event.kind==='DIVINE_SHIELD_POP'){
     piece.minion={...piece.minion,keywords:piece.minion.keywords.filter(k=>k!=='divineShield')};
+    tiles.current.get(event.targetId)?.classList.add('is-shield-breaking');
     if(!reduced&&rate.current<100)tiles.current.get(event.targetId)?.animate([{filter:'brightness(2) drop-shadow(0 0 24px #ffdf80)'},{filter:'none'}],{duration:450/rate.current});
     return;
    }
@@ -121,7 +123,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
      if(!attacker)return;
      const id=attacker,el=tiles.current.get(id),at=home(piecesRef.current,id);
      if(el && (piecesRef.current.find(p=>p.minion.id===id)?.minion.health??0)>0){const x=parseFloat(el.style.left)*W/100,y=parseFloat(el.style.top)*H/100;
-      await pause(reduced?1:240*budget,u=>{const ease=1-(1-u)**3;place(id,x+(at.x-x)*ease,y+(at.y-y)*ease);});
+      await pause(reduced?1:300*budget,u=>{const ease=1-(1-u)**3;place(id,x+(at.x-x)*ease,y+(at.y-y)*ease);});
       el.classList.remove('is-attacking');place(id,at.x,at.y);
      }attacker=null;
     };
@@ -134,7 +136,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
      const list=piecesRef.current;
      const src=event.sourceId?home(list,event.sourceId):null;const dst=event.targetId?home(list,event.targetId):null;
      if(event.kind==='ATTACK'&&event.sourceId&&event.targetId&&src&&dst){
-      if(struck)await pause(reduced?8:640);
+      if(struck)await pause(reduced?8:820);
       struck=true;
       attacker=event.sourceId;
       const el=tiles.current.get(attacker);el?.classList.add('is-attacking');
@@ -150,13 +152,27 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       tiles.current.get(event.targetId)?.classList.remove('is-targeted');
       audioManager.play('card_hover');
       await pause(reduced?1:70*budget,u=>{const coil=1-(1-u)**3;if(!reduced)place(event.sourceId!,src.x-dx/distance*32*coil,src.y-dy/distance*32*coil,variant===1?-.18*coil:variant===2?.06*coil:0,1+.1*coil);});
-      await pause(reduced?1:95*budget,u=>{
+      await pause(reduced?1:140*budget,u=>{
        const ease=u**4,arc=Math.sin(Math.PI*u)*(variant===1?52:variant===2?-28:0);
        if(!reduced)place(event.sourceId!,src.x-dx/distance*32*(1-ease)+(impact.x-src.x)*ease-dy/distance*arc,src.y-dy/distance*32*(1-ease)+(impact.y-src.y)*ease+dx/distance*arc,variant===1?Math.sin(Math.PI*u)*.22:variant===2?-.12*u:.04*u,1+(variant===2?.18:.04)*Math.sin(Math.PI*u));
       });
       audioManager.play('reel_stop');
       // Presentation-only hit-stop; authoritative damage events follow in order.
       await pause(reduced?1:50);
+     }else if(event.kind==='HUMILIATE'||event.kind==='BAIT'){
+      const source=event.sourceId?tiles.current.get(event.sourceId):null;
+      const target=event.targetId?tiles.current.get(event.targetId):null;
+      const effect=event.kind==='BAIT'?'is-baiting':'is-shouting';
+      source?.classList.add(effect);
+      target?.classList.add('is-startled');
+      await pause(reduced?8:ms*.6);
+      if(cancelled)return;
+      await commit(list.map(p=>p.minion.id===event.targetId?{...p,minion:{...p.minion,attack:event.attack??p.minion.attack,health:event.remainingHealth??p.minion.health}}:p));
+      target?.classList.remove('is-debuff');
+      if(target){void target.offsetWidth;target.classList.add('is-debuff');}
+      await pause(reduced?8:ms*.4);
+      source?.classList.remove(effect);
+      target?.classList.remove('is-startled');
      }else if(event.kind==='DAMAGE'||event.kind==='CLEAVE_DAMAGE'){
       if(event.targetId&&event.remainingHealth!==undefined){
        paintHit(event);await commit([...piecesRef.current]);
@@ -166,7 +182,10 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       if(event.targetId){
        const tile=tiles.current.get(event.targetId);
        tile?.classList.remove('is-buff-card','is-buff-ability','is-buff-power');
-       if(tile){void tile.offsetWidth;tile.classList.add(event.sourceId?'is-buff-card':'is-buff-ability');}
+       const previous=list.find(p=>p.minion.id===event.targetId)?.minion;
+       const decreased=previous&&((event.attack??previous.attack)<previous.attack||(event.remainingHealth??previous.health)<previous.health);
+       tile?.classList.remove('is-debuff');
+       if(tile){void tile.offsetWidth;tile.classList.add(decreased?'is-debuff':event.sourceId?'is-buff-card':'is-buff-ability');}
        await commit(list.map(p=>p.minion.id===event.targetId?{...p,minion:{...p.minion,attack:event.attack??p.minion.attack,health:event.remainingHealth??p.minion.health}}:p));
       }
       await pause(ms);
@@ -192,7 +211,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       for(let i=0;i<next.length;i++){if(next[i]!.side!==side)continue;if(seen===at){insert=i;break;}seen++;}
       if(rowIdx<0)next.push({minion:born,side});else next.splice(insert,0,{minion:born,side});
       audioManager.play('card_place');await commit(next);restack(next);
-      const bornEl=tiles.current.get(born.id);if(bornEl&&!reduced)bornEl.animate([{opacity:0,scale:'.7'},{opacity:1,scale:'1'}],{duration:180/rate.current});
+      const bornEl=tiles.current.get(born.id);if(bornEl&&!reduced)animate(bornEl,[{opacity:0,scale:'.7',filter:'brightness(1.8)'},{opacity:1,scale:'1',filter:'none'}],360);
       await pause(ms);
      }else if(event.kind==='PLAYER_DAMAGE'){
       if(event.targetId){
@@ -226,7 +245,9 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
        }
        setTally(null);await pause(reduced?8:550);
       }
-     }else if(event.kind==='DEATHRATTLE'){setBanner(t('abDeathrattle'));await pause(ms);setBanner('');}
+     }else if(event.kind==='DEATHRATTLE'||event.kind==='REBORN'){
+      setBanner(event.kind==='DEATHRATTLE'?t('abDeathrattle'):t('abReborn',{defaultValue:i18n.language.startsWith('ru')?'Возрождение':'Reborn'}));await pause(ms);setBanner('');
+     }
     }
     await returnAttacker();
     if(cancelled)return;
@@ -257,7 +278,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    cancelled=true;
    effects.forEach(animation=>animation.cancel());
    field.current?.querySelectorAll('.ab-combat-pop,.ab-combat-shard').forEach(el=>el.remove());
-   tiles.current.forEach(el=>{el.classList.remove('is-rip','is-hit','is-attacking','is-thinking','is-targeted','is-buff-card','is-buff-ability','is-buff-power');el.style.transform='';el.style.opacity='';});
+   tiles.current.forEach(el=>{el.classList.remove('is-rip','is-hit','is-attacking','is-thinking','is-targeted','is-buff-card','is-buff-ability','is-buff-power','is-shouting','is-baiting','is-startled','is-debuff','is-shield-breaking');el.style.transform='';el.style.opacity='';});
    field.current?.querySelectorAll<HTMLElement>('.ab-combat-me,.ab-combat-foe').forEach(el=>{el.style.translate='';el.style.zIndex='';});
    if(field.current)field.current.style.transform='';
   };
@@ -271,9 +292,17 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
   {failed?<div className="ab-combat-fallback"><h2>{t('abCombat')}</h2><p>{combat.summary.tie?t('draw'):combat.summary.winnerId===meId?t('win'):t('loss')}</p><button onClick={onDone}>{t('done')}</button></div>:
   <div ref={field} className="ab-combat">
    {[{player:foe,cls:'ab-combat-foe'},{player:mine,cls:'ab-combat-me'}].map(({player,cls})=>player&&<div key={player.sessionId} className={cls+(heroVitals[player.sessionId]?.health<=0?' is-lethal':'')} data-testid={cls}>
+    <div className="ab-combat-portrait">
     <AbHeroFace className="ab-combat-hero-image" id={player.heroId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} />
+    <span className="ab-combat-hero-vitals ab-hero-health" aria-label={`${t('health')}: ${heroVitals[player.sessionId]?.health}`}><HeartIcon /><span>{heroVitals[player.sessionId]?.health}</span></span>
+    </div>
     <strong>{combat.ghost&&player===foe?t('abGhost')+' ':''}{player.displayName}</strong>
-    <span className="ab-combat-hero-vitals">{String.fromCodePoint(9829)} {heroVitals[player.sessionId]?.health}</span>
+    <HeroPowerTooltip power={player.power} catalog={catalog} combat className="ab-combat-power-anchor">
+    <div className="ab-power" tabIndex={0} aria-label={t('abPower')}>
+      <b>{abCopyName(catalog.copy,'powers',player.power.id,i18n.language,t(`abPower_${player.power.id}`,{defaultValue:t('abPower')}))}</b>
+      <span>{player.power.isPassive?t('abPassive'):`${player.power.goldCost}`}</span>
+    </div>
+    </HeroPowerTooltip>
     {!!heroVitals[player.sessionId]?.damage&&<b className="ab-combat-hero-damage">-{heroVitals[player.sessionId]?.damage}</b>}
    </div>)}
    {tally&&<b className={`ab-hero-tally ${tally.id===meId?'is-mine':'is-foe'}`} data-testid="ab-hero-tally">⚔ {tally.amount}</b>}

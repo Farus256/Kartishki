@@ -8,6 +8,8 @@ import { InkButton, spring } from '../ui/InkButton';
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [sound, setSound] = useState(() => localStorage.getItem('sound') !== 'off');
+  const [sfx, setSfx] = useState(() => Math.round(audioManager.sfxVolume * 100));
+  const [music, setMusic] = useState(() => Math.round(audioManager.musicVolume * 100));
   return (
     <motion.div className="absolute inset-0 z-50 grid place-items-center bg-black/70"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -31,6 +33,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             {t(sound ? 'on' : 'off')}
           </InkButton>
         </div>
+
+        <label className="mt-5 block font-mono text-[13px] text-ink/70">
+          {t('sfxVolume')} · {sfx}%
+          <input type="range" min={0} max={100} value={sfx} aria-label={t('sfxVolume')}
+            className="mt-2 w-full accent-[#1a1a1a]"
+            onChange={e => { const n = Number(e.target.value); audioManager.setSfxVolume(n / 100); setSfx(n); }} />
+        </label>
+        <label className="mt-4 block font-mono text-[13px] text-ink/70">
+          {t('musicVolume')} · {music}%
+          <input type="range" min={0} max={100} value={music} aria-label={t('musicVolume')}
+            className="mt-2 w-full accent-[#1a1a1a]"
+            onChange={e => { const n = Number(e.target.value); audioManager.setMusicVolume(n / 100); setMusic(n); }} />
+        </label>
 
         <div className="mt-8 flex justify-end">
           <InkButton tone="blood" onClick={onClose}>{t('close')}</InkButton>

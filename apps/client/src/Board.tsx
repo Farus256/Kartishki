@@ -265,7 +265,7 @@ export function Board() {
           }
         }
         const url = session.getSnapshot().cards.find(c => c.id === event.cardId)?.audio[event.kind as 'spawn'|'attack'|'death'];
-        if (url && localStorage.getItem('sound') !== 'off') { const audio = new Audio(url); audio.volume = .45; void audio.play().catch(() => {}); }
+        if (url && localStorage.getItem('sound') !== 'off') { const audio = new Audio(url); audio.volume = .45 * audioManager.sfxVolume; void audio.play().catch(() => {}); }
       });
       draw();
       app.ticker.add(ticker => {

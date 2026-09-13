@@ -35,7 +35,7 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
   return (
     <section className={`ab-tavern ${me.tavern.frozen ? 'is-frozen' : ''} reaction-${reaction.toLowerCase()}`} data-testid="ab-tavern" style={{ '--ab-card': `${AB_LAYOUT.TAVERN_W}px`, '--ab-tavern-gap': `${tavernGap(me.tavern.offers.length)}px` } as CSSProperties}>
       <div className="ab-tavern-head">
-        <header className="ab-tier-sign" key={me.tavernTier}>
+        <header className="ab-tier-sign">
           <PaperTooltip content={t('abTierHint')}><strong>{t('abTier', { tier: me.tavernTier })} <small>{'★'.repeat(me.tavernTier)}</small></strong></PaperTooltip>
           <InkButton size="sm" tone="gold" disabled={!canUpgrade} onClick={onTierUp}>
             {me.tavernTier === 6 ? 'MAX' : `${t('abTierUp')} $${me.upgradeCost}`}
@@ -67,7 +67,7 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
         ))}
       </div>
       {me.tavern.frozen && <span className="ab-frozen-stamp">{t('abFrozen')}</span>}
-      {reaction==='UPGRADE'&&<span key={me.tavernTier} className="ab-tavern-flourish" aria-hidden>★ {'★'.repeat(me.tavernTier)} ★</span>}
+      {reaction==='UPGRADE'&&<span className="ab-tavern-flourish" aria-hidden>★ {'★'.repeat(me.tavernTier)} ★</span>}
     </section>
   );
 }

@@ -1,8 +1,93 @@
 import { test, expect } from '@playwright/test';
 import { abFixture } from './abFixture';
-import { openMockAb, pointerDrag, setFixture } from './abDnd';
+import { actionsOf, openMockAb, pointerDrag, setFixture } from './abDnd';
 import type { AbSnapshot } from '../../apps/client/src/autoBattlerSession';
 const snapshot=(p:import('@playwright/test').Page):Promise<AbSnapshot>=>p.evaluate("import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/autoBattlerSession.ts')).name).then(m=>m.autoBattlerSession.getSnapshot())");
+
+test('hero power tooltips and roster clear the frame without blinking or overlap', async ({ page }) => {
+  const state = abFixture();
+  state.players[0]!.power = { id: 'ab-power-heal', goldCost: 1, targeted: false, targetDomain: 'none', isPassive: false, isExhausted: false };
+  await openMockAb(page, state);
+  const power = page.getByTestId('ab-hero-power');
+  await expect(power).toHaveCSS('animation-name', 'none');
+  await expect(power).toHaveCSS('outline-color', 'rgb(98, 223, 133)');
+  await power.hover();
+  await expect(page.getByRole('tooltip')).toContainText('восстановите 1 здоровья');
+  state.players[0]!.power.isExhausted = true;
+  await setFixture(page, state);
+  await page.mouse.move(2, 2);
+  await power.hover();
+  await expect(page.getByRole('tooltip')).toContainText('Уже использована');
+  await expect(power).toHaveCSS('opacity', '1');
+  await expect(power).toBeDisabled();
+  await power.evaluate((el: HTMLButtonElement) => el.click());
+  expect(await actionsOf(page)).toEqual([]);
+  await power.focus();
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  for (const width of [1366, 1920, 2560]) {
+    await page.setViewportSize({ width, height: Math.round(width * 9 / 16) });
+    const boxes = await page.evaluate(() => {
+      const rect = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      const stage = rect('.ab-stage'), roster = rect('.ab-leaderboard'), vitals = rect('.ab-hero-vitals'), hand = rect('.ab-hand');
+      const scale = rect('.ab-screen').width / 1600;
+      const before = getComputedStyle(document.querySelector('.ab-stage')!, '::before');
+      return { frameLeft: stage.left + (parseFloat(before.left) - 14) * scale, rosterRight: roster.right, vitalsLeft: vitals.left, handRight: hand.right };
+    });
+    expect(boxes.frameLeft).toBeGreaterThan(boxes.rosterRight);
+    expect(boxes.handRight).toBeLessThan(boxes.vitalsLeft);
+  }
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.screenshot({ path: 'artifacts/ab-layout-fixed.png' });
+});
+
+test('keyword visuals, final ten-second fuse and real card clicks', async ({ page }) => {
+  const state = abFixture();
+  state.recruitSeconds = 10;
+  state.players[0]!.board[0]!.keywords = ['divineShield', 'windfury', 'deathrattle', 'battlecry', 'humiliate', 'bait'];
+  await openMockAb(page, state);
+  const card = page.getByTestId('ab-minion-p0-m0');
+  await expect(card.locator('.ab-shield-bubble')).toBeVisible();
+  await expect(card.locator('.ab-wind')).toBeVisible();
+  await expect(card.locator('[data-keyword=deathrattle]')).toBeVisible();
+  await expect(card.locator('[data-keyword=battlecry]')).toBeVisible();
+  await expect(page.getByTestId('ab-rope')).toBeVisible();
+  await card.click();
+  await expect(page.locator('.ab-selection-tools')).toBeVisible();
+  const hero = await page.locator('.ab-hero-face').boundingBox();
+  const power = await page.getByTestId('ab-hero-power').boundingBox();
+  expect(power!.x).toBeGreaterThan(hero!.x + hero!.width);
+  expect(Math.abs(power!.width - power!.height)).toBeLessThan(2);
+  await page.mouse.move(2, 2);
+  await page.screenshot({ path: 'artifacts/ab-keywords-rope.png' });
+  state.recruitSeconds = 11;
+  await setFixture(page, state);
+  await expect(page.getByTestId('ab-rope')).toHaveCount(0);
+});
+
+test('special combat actions animate without lunging and update target stats', async ({ page }) => {
+  const state = abFixture();
+  const a = state.players[0]!.board.slice(0, 1);
+  const b = [{ ...a[0]!, id: 'special-target', owner: 'p1', attack: 12, health: 20 }];
+  state.phase = 'COMBAT_PHASE';
+  state.combatBoards = { playerA: 'p0', playerB: 'p1', a, b };
+  state.combat = { turn: 8, pairIndex: 0, seed: 1, playerA: 'p0', playerB: 'p1', ghost: false,
+    durationMs: 20000, boards: { a, b }, events: [
+      { id: 1, kind: 'HUMILIATE', sourceId: a[0]!.id, targetId: b[0]!.id, attack: 1, remainingHealth: 20 },
+      { id: 2, kind: 'BAIT', sourceId: a[0]!.id, targetId: b[0]!.id, attack: 1, remainingHealth: 1 },
+    ], summary: { winnerId: '', loserId: '', damage: 0, tie: true } };
+  await openMockAb(page, state);
+  await expect(page.locator('.is-shouting')).toBeVisible();
+  await expect(page.locator('.is-startled')).toBeVisible();
+  await expect(page.locator('.is-attacking')).toHaveCount(0);
+  await page.locator('.ab-combat-power-anchor .ab-power').first().hover();
+  await expect(page.getByRole('tooltip')).toContainText('Доступна во время найма');
+  await expect(page.locator('.is-baiting')).toBeVisible();
+  const target = page.getByTestId('ab-minion-special-target');
+  await expect(target.locator('.ab-minion-stats b .ab-number')).toHaveText('1');
+  await expect(target.locator('.ab-minion-stats i .ab-number')).toHaveText('1');
+});
 
 test('tavern mode opens the 16:9 table and joins autoBattler', async ({ page }) => {
   const errors: string[] = [];

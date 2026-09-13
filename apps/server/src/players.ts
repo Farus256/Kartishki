@@ -1,8 +1,9 @@
 import { createHash, randomBytes, randomInt, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import {
-  CASE_COST, CASE_XP, DAILY_REWARD, DECK_SIZE, MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP,
-  PACK_COST, PACK_SIZE, PACK_XP, WIN_REWARD, XP_AWARDS, starterCards,
+  BATTLEGROUNDS_ELO_MAX, CASE_COST, CASE_XP, DAILY_REWARD, DECK_SIZE, DEFAULT_BATTLEGROUNDS_ELO,
+  MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_SIZE, PACK_XP, WIN_REWARD, XP_AWARDS,
+  battlegroundsEloDelta, battlegroundsXp, remainingMlFromElo, starterCards,
   type CardDefinition, type CaseResult, type LadderRow, type LootCard, type MatchRewards,
   type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerProfile, type SavedDeck,
 } from '@kartishki/shared';
@@ -84,8 +85,12 @@ export class PlayerStore {
     return { profile, collection, decks };
   }
   async ladder(): Promise<LadderRow[]> {
-    return (await this.db.query<LadderRow>('SELECT username, elo FROM players ORDER BY elo DESC, username LIMIT 10')).rows
-      .map(row => ({ username: row.username, elo: Number(row.elo) }));
+    return (await this.db.query<{ username: string; elo: string | number; xp: string | number }>(
+      'SELECT username, elo, xp FROM players ORDER BY elo DESC, username LIMIT 10')).rows
+      .map(row => {
+        const elo = Number(row.elo);
+        return { username: row.username, elo, xp: Number(row.xp), remainingMl: remainingMlFromElo(elo) };
+      });
   }
   private async validateDeck(tx: Sql, playerId: string, cards: unknown, catalog: CardDefinition[]): Promise<string[]> {
     if (!Array.isArray(cards) || cards.length !== DECK_SIZE || !cards.every(id => typeof id === 'string' && catalog.some(c => c.id === id))) throw new PlayerError('invalidDeck');
@@ -208,6 +213,28 @@ export class PlayerStore {
       const xp = Number(row.xp) + xpGain;
       await tx.query('UPDATE players SET elo = $2, currency = currency + $3, xp = $4 WHERE id = $1', [playerId, elo, gained, xp]);
       return { elo, currency: currency + gained, gained, xp };
+    });
+  }
+  async settleBattlegrounds(results: { playerId: string; place: number }[], amount?: number, count = 0): Promise<Record<string, MatchRewards>> {
+    const unique = new Map<string, number>();
+    for (const row of results) if (row.playerId && row.place > 0) unique.set(row.playerId, row.place);
+    if (unique.size < 1) return {};
+    const field = count >= 2 ? count : unique.size;
+    const eloAmount = Number.isInteger(amount) && amount! >= 0 && amount! <= BATTLEGROUNDS_ELO_MAX ? amount! : DEFAULT_BATTLEGROUNDS_ELO;
+    return this.db.transaction(async tx => {
+      const result: Record<string, MatchRewards> = {};
+      for (const id of [...unique.keys()].sort()) {
+        const row = (await tx.query<{ elo: string | number; currency: string | number; xp: string | number }>('SELECT elo, currency, xp FROM players WHERE id = $1 FOR UPDATE', [id])).rows[0];
+        if (!row) continue;
+        const place = unique.get(id)!;
+        const eloDelta = battlegroundsEloDelta(place, field, eloAmount);
+        const xpGain = battlegroundsXp(place, field);
+        const elo = Math.max(0, Number(row.elo) + eloDelta);
+        const xp = Number(row.xp) + xpGain;
+        await tx.query('UPDATE players SET elo = $2, xp = $3 WHERE id = $1', [id, elo, xp]);
+        result[id] = { elo, currency: Number(row.currency), gained: 0, xp };
+      }
+      return result;
     });
   }
 }

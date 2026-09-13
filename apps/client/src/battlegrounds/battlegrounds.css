@@ -262,8 +262,8 @@
 .ab-round-band { position:absolute; top:378px; left:0; right:0; justify-content:center; opacity:.8; }
 .ab-round-band > span:nth-child(2),.ab-round-band > small { display:none; }
 .ab-selection-tools { top:586px; pointer-events:auto; }
-.ab-screen .ab-minion.is-token { height:144px; padding:6px; border:3px solid var(--ink); border-radius:44% 42% 20% 22% / 30% 34% 18% 20%; background:#c9bd9e; box-shadow:4px 6px #1a1a1a65; }
-.ab-screen .ab-minion.is-token .ab-minion-art { height:124px; border-radius:42% 40% 18% 20%; clip-path:none; border:2px solid var(--ink); }
+.ab-screen .ab-minion.is-token { height:170px; padding:5px; border:4px solid #6e5740; border-radius:50%; background:linear-gradient(110deg,#d7b776,#4c3429 45%,#c8a575); box-shadow:0 3px 0 #261b18,0 7px 12px #24120f88,inset 0 0 0 2px #efcf95; }
+.ab-screen .ab-minion.is-token .ab-minion-art { height:152px; border-radius:50%; clip-path:none; border:1px solid #362922; }
 .ab-screen .ab-minion.is-token .ab-minion-name { display:none; }
 .ab-screen .ab-minion.is-token .ab-minion-tier { width:24px; height:24px; font-size:14px; line-height:20px; left:2px; top:-4px; }
 .ab-screen .ab-minion.is-token .ab-minion-stats { bottom:-8px; left:-6px; right:-6px; font-size:28px; }
@@ -415,3 +415,86 @@
 @keyframes ab-buff-ability-ink { 0% { opacity:0; } 30% { opacity:1; } to { opacity:0; } }
 @keyframes ab-buff-card { 0% { opacity:0; transform:translateX(-16px); } 35% { opacity:1; transform:translateX(8px); } to { opacity:0; transform:translateX(28px); } }
 @keyframes ab-buff-card-ring { 0% { box-shadow:0 0 0 0 #2e8b57aa; } 40% { box-shadow:0 0 0 10px #2e8b5744; } to { box-shadow:0 0 0 18px #2e8b5700; } }
+/* Sculpted tavern frame and portrait-first battlefield tokens. */
+.ab-screen { background:radial-gradient(ellipse at 52% 44%,#a56b50 0%,#6a4235 55%,#241b24 90%); }
+.ab-stage::before { inset:132px -18px 192px; border-radius:22% 22% 28% 28% / 16% 16% 24% 24%; background:radial-gradient(ellipse at 50% 35%,#d6aa7c,#ae7657 70%,#795040); border:12px ridge #735244; box-shadow:0 0 0 7px #34262c,0 0 0 14px #876449,inset 0 0 50px #5d352b,0 15px 35px #140d16aa; }
+.ab-header { background:linear-gradient(#392c35,#221b24); color:#f5dcb2; border-color:#a77a49; }
+.ab-leaderboard { background:linear-gradient(90deg,#251e29,#594032); border-right:4px ridge #a17a55; color:#f0d7b1; }
+.ab-leaderboard li { border-radius:12px; background:linear-gradient(120deg,#684c3d,#302832); border-color:#b08b5f; color:#ffe5b5; }
+.ab-leaderboard li.is-me { border-color:#64cddd; box-shadow:0 0 12px #35a7c3; }
+.ab-lb-face { border-radius:38% 38% 15% 15%; }
+.ab-round-band { color:#422c24; text-shadow:0 1px #e8bb86; }
+.ab-zone-player .ab-board,.ab-zone-player .ab-slot,.ab-tavern-row,.ab-combat-card { height:170px; min-height:170px; }
+.ab-combat-wrap { --ab-card:150px; }
+.ab-screen .ab-minion.is-token .ab-minion-keys { display:flex; bottom:-12px; background:transparent; gap:3px; z-index:5; }
+.ab-minion.is-draggable::before { content:''; position:absolute; inset:0; z-index:6; border-radius:0; background:transparent; }
+.ab-minion-keys em { color:#f3d278; text-shadow:0 2px 2px #211922,1px 0 #211922,-1px 0 #211922; font-size:18px; font-weight:bold; }
+.ab-minion-keys [data-keyword=deathrattle] { color:#e6e1d1; font-size:25px; }
+.ab-minion-keys [data-keyword=battlecry] { font-size:27px; letter-spacing:-6px; padding-right:6px; color:#ffd761; }
+.ab-minion-keys [data-keyword=divineShield],.ab-minion-keys [data-keyword=windfury] { display:none; }
+.ab-shield-bubble { position:absolute; inset:-9px -7px; z-index:3; border:3px solid #fff4b8dd; border-radius:50%; background:radial-gradient(ellipse at 25% 14%,#fffbe577,transparent 35%,#ffe17a12 65%,#fff2a080); box-shadow:inset 0 0 15px #fff1a9,0 0 13px #ffd64fa0; pointer-events:none; }
+.ab-shield-bubble::before { content:''; position:absolute; inset:6px; border-radius:50%; border-left:4px solid #ffffffa8; transform:rotate(22deg); }
+.ab-wind { position:absolute; inset:-7px -12px; pointer-events:none; z-index:4; overflow:visible; }
+.ab-wind i { position:absolute; left:-5%; top:18%; width:110%; height:34%; border-top:3px solid #defaffbb; border-radius:50%; transform:rotate(-18deg); animation:ab-wind-flow 1.8s ease-in-out infinite; }
+.ab-wind i:nth-child(2) { top:42%; animation-delay:-.6s; }
+.ab-wind i:nth-child(3) { top:65%; animation-delay:-1.2s; }
+@keyframes ab-wind-flow { 0%,100% { translate:-5px 0; opacity:.35; } 50% { translate:5px -3px; opacity:1; } }
+.ab-hero-face { border:5px ridge #b18c55; background:#493329; box-shadow:0 0 0 4px #382932,0 8px 20px #21141ca0; }
+.ab-hero-vitals { color:#ffdfab; text-shadow:0 2px 3px #221720; }
+.ab-hero-dock > span { left:calc(50% + 76px); top:5px; }
+.ab-power { width:104px; height:104px; min-height:104px; border:7px ridge #b48b4e; border-radius:50%; background:radial-gradient(circle at 40% 35%,#84afb3,#355561 55%,#202b3a); color:#fff0c5; box-shadow:0 0 0 4px #382932,0 7px 13px #24151aaa; font-size:17px; text-align:center; transform:none; position:relative; }
+.ab-power b { line-height:1.05; }
+.ab-power b { font-size:14px; overflow-wrap:anywhere; }
+.ab-combat-power { position:absolute; left:calc(50% + 76px); top:10px; }
+.ab-power span { position:absolute; top:-23px; left:50%; transform:translateX(-50%); margin:0; padding:5px 8px; border:3px ridge #d9b46b; border-radius:50%; background:#a57529; color:white; font-size:13px; white-space:nowrap; }
+.ab-power.is-ready { background:radial-gradient(circle at 40% 35%,#a0d7df,#347582 60%,#253746); }
+.ab-zone-player .ab-hand { top:738px; left:280px; right:280px; height:104px; align-items:flex-start; }
+.ab-hero-dock > .ab-gold { top:166px; color:#ffe3a3; }
+.ab-rope { position:absolute; top:399px; left:1%; right:1%; height:7px; z-index:8; pointer-events:none; background:#31251c55; border-radius:50%; }
+.ab-rope-remaining { position:relative; height:7px; background:repeating-linear-gradient(115deg,#6e3b19 0 3px,#dbac60 4px 7px); box-shadow:0 2px 3px #3a201b; transition:width 1s linear; }
+.ab-rope-ember { position:absolute; right:-8px; top:-8px; width:20px; height:20px; border-radius:50%; background:#fff8c1; box-shadow:0 0 8px 4px #ffcc39,0 0 23px 8px #ff641b; animation:ab-ember .18s infinite alternate; }
+.ab-rope-ember::after { content:'✦'; position:absolute; top:-21px; left:-4px; color:#ffd769; font-size:32px; }
+@keyframes ab-ember { to { transform:scale(.8,1.3) rotate(25deg); filter:brightness(1.3); } }
+.ab-combat-card.is-baiting .ab-combat-face { animation:ab-bait .13s infinite alternate; }
+.ab-combat-card.is-shouting::after { content:'◖ )))'; position:absolute; top:15%; left:65%; color:#fce5a7; font-size:40px; text-shadow:0 2px #59323a; animation:ab-shout .35s infinite; z-index:8; }
+.ab-combat-card.is-startled::after { content:'!'; position:absolute; left:40%; top:-52px; color:#ffe270; font:bold 54px Georgia,serif; text-shadow:0 3px #5b2523; z-index:8; }
+@keyframes ab-bait { to { transform:translateX(6px) rotate(4deg); } }
+@keyframes ab-shout { to { translate:22px 0; opacity:.3; } }
+@media(prefers-reduced-motion:reduce) { .ab-wind i,.ab-rope-ember,.ab-combat-card.is-baiting .ab-combat-face,.ab-combat-card.is-shouting::after { animation:none; } .ab-rope-remaining { transition:none; } }
+/* Keep the table frame outside the roster and give the hero controls solid surfaces. */
+.ab-stage { margin-left:40px; }
+.ab-stage::before { bottom:224px; border-radius:22% 22% 12% 12% / 16% 16% 10% 10%; }
+.ab-hero-vitals { left:calc(50% - 190px); top:38px; width:120px; }
+.ab-power.is-ready { animation:none; outline:3px solid #62df85; outline-offset:3px; box-shadow:0 0 0 4px #382932,0 7px 13px #24151aaa; }
+.ab-power.is-exhausted,.ab-power[aria-disabled=true],.ab-power:disabled { animation:none; opacity:1; filter:none; background:radial-gradient(circle at 40% 35%,#55525a,#33313a); color:#c7bdad; border-color:#80725c; cursor:default; }
+.ab-power.is-exhausted span,.ab-power[aria-disabled=true] span { background:#554938; color:#e4d7bf; border-color:#988465; }
+.ab-power.is-aiming { outline:3px solid #62df85; outline-offset:5px; }
+.ab-combat-power-anchor { position:absolute; left:calc(50% + 76px); top:10px; pointer-events:auto; }
+.ab-combat-foe,.ab-combat-me { color:#f5dcb2; text-shadow:0 2px 3px #221720; }
+.ab-combat-card.is-shield-breaking::before { content:''; position:absolute; inset:-8px; border:4px solid #fff1a0; border-radius:50%; pointer-events:none; animation:ab-shield-shatter .5s ease-out both; z-index:7; }
+.ab-combat-card.is-debuff .ab-minion-art { animation:ab-debuff .65s ease-out; }
+@keyframes ab-shield-shatter { from { opacity:1; scale:1; } to { opacity:0; scale:1.35; border-style:dashed; } }
+@keyframes ab-debuff { 30% { filter:sepia(.7) saturate(3) hue-rotate(300deg); } to { filter:none; } }
+@media(prefers-reduced-motion:reduce) { .ab-combat-card.is-shield-breaking::before,.ab-combat-card.is-debuff .ab-minion-art { animation:none; opacity:0; } }
+/* Larger hero portraits, corner health gems and a sword behind the attack medallion. */
+.ab-stat-icon.is-sword { transform:none; inset:-13px -9px -7px; width:calc(100% + 18px); height:calc(100% + 20px); }
+.ab-stat-icon .ab-attack-blade { fill:#d4dce0; stroke:#373334; }
+.ab-stat-icon .ab-attack-hilt { fill:#8d6a43; stroke:#302b27; }
+.ab-stat-icon .ab-attack-rim { fill:#a89977; stroke:#352e26; stroke-width:2.5; }
+.ab-stat-icon .ab-attack-disc { fill:#e3ad25; stroke:#fff0aa; stroke-width:2; }
+.ab-stat-icon .ab-attack-shine { fill:none; stroke:#fff8ce; stroke-width:2.5; }
+.ab-minion-stats b { padding-top:6px; padding-right:4px; color:#fff; text-shadow:2px 2px 0 #21170d,-1px -1px 0 #21170d,1px -1px 0 #21170d,-1px 1px 0 #21170d; }
+.ab-hero-face { width:136px; height:146px; left:calc(50% - 68px); top:10px; overflow:visible; }
+.ab-hero-health { position:absolute; right:-15px; bottom:-10px; width:46px; height:48px; display:grid; place-items:center; isolation:isolate; color:#fff; font:30px var(--font-stencil); text-shadow:2px 2px #441719,-1px -1px #441719; z-index:3; }
+.ab-hero-health .ab-stat-icon { inset:-5px -5px; width:calc(100% + 10px); height:calc(100% + 10px); }
+.ab-hero-health .ab-stat-icon.is-heart { fill:#c82935; }
+.ab-hero-vitals { top:163px; left:calc(50% - 90px); width:180px; }
+.ab-hero-dock > span { left:calc(50% + 105px); top:34px; }
+.ab-zone-player .ab-hand { left:0; right:calc(50% + 115px); top:690px; height:152px; }
+.ab-combat-foe,.ab-combat-me { height:184px; }
+.ab-combat-foe { top:25px; }
+.ab-combat-me { top:618px; }
+.ab-combat-portrait { position:relative; width:136px; height:146px; margin:0 auto 8px; }
+.ab-combat-hero-image { width:136px; height:146px; margin:0; border:5px ridge #b18c55; }
+.ab-combat-hero-vitals.ab-hero-health { font:30px var(--font-stencil); }
+.ab-combat-power-anchor { left:calc(50% + 105px); top:34px; }

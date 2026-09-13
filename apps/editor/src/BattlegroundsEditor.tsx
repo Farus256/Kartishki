@@ -241,6 +241,9 @@ export function BattlegroundsEditor({ nav }: { nav?: ReactNode }) {
       </fieldset>
       <fieldset><legend>{ru ? 'Свойства' : 'Keywords'}</legend>
         {autoBattlerKeywords.map(key => <label className="check" key={key}><input type="checkbox" checked={minion.keywords.includes(key)} onChange={e => toggleKeyword(key, e.target.checked)} />{label('keywords', key, t(`abKeyword_${key}`))}</label>)}
+        {(minion.keywords.includes('humiliate') || minion.keywords.includes('bait')) && <p>{ru
+          ? 'Эти свойства заменяют обычный удар: без контактного урона и ответного удара. Если выбраны оба, применяются оба эффекта. Двойной удар повторяет действие. Изменения действуют только в текущем бою.'
+          : 'These properties replace the attack without contact damage or retaliation. Selecting both applies both effects. Windfury repeats the action. Changes last only for the current combat.'}</p>}
       </fieldset>
       {minion.keywords.includes('deathrattle') && <fieldset><legend>{label('keywords', 'deathrattle', ru ? 'Прощание' : 'Deathrattle')}</legend>
         <label>{ru ? 'Призыв' : 'Summon'}<select value={minion.deathrattle?.summonId ?? ''} onChange={e => setMinion({ ...minion, deathrattle: { summonId: e.target.value, count: minion.deathrattle?.count ?? 1 } })}>

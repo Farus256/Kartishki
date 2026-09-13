@@ -40,12 +40,14 @@ export type HeroDefinition = {
   id: string; name: string; description: string; health: number; art: CardDefinition['art'];
   ability: { name: string; cost: number; effectId: 'damage' | 'heal' | 'summon'; amount: number; cardId?: string };
 };
-export type Catalog = { version: number; cards: CardDefinition[]; heroes?: HeroDefinition[]; autoBattlerMinions?: import('./autoBattler').AutoBattlerMinionDef[]; autoBattlerHeroes?: import('./autoBattler').AutoBattlerHeroDef[]; autoBattlerCopy?: import('./autoBattler').AutoBattlerCopy; playerLeveling?: import('./leveling').PlayerLeveling };
+export type Catalog = { version: number; cards: CardDefinition[]; heroes?: HeroDefinition[]; autoBattlerMinions?: import('./autoBattler').AutoBattlerMinionDef[]; autoBattlerHeroes?: import('./autoBattler').AutoBattlerHeroDef[]; autoBattlerCopy?: import('./autoBattler').AutoBattlerCopy; playerLeveling?: import('./leveling').PlayerLeveling; menuMusic?: import('./menuMusic').MenuMusic };
 export { starterHeroes, validateHero } from './heroes';
 export { starterCards, validateCard, effects, triggers, properties } from './cards';
 export {
   DAILY_REWARD, WIN_REWARD, PACK_COST, CASE_COST, PACK_SIZE,
+  BOTTLE_CAPACITY, CALIBRATION_ML, ML_PER_ELO, remainingMlFromElo,
 } from './players';
-export type { PlayerProfile, SavedDeck, PlayerLibrary, PlayerLogin, LootCard, PackResult, CaseResult, LadderRow, MatchRewards } from './players';
+export type { PlayerProfile, SavedDeck, PlayerLibrary, PlayerLogin, LootCard, PackResult, CaseResult, LadderRow, MatchRewards, BattlegroundsRewards } from './players';
 export * from './autoBattler';
 export * from './leveling';
+export * from './menuMusic';

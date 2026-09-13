@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties }
 import { useTranslation } from 'react-i18next';
 import { AUTO_BATTLER, goldForTurn } from '@kartishki/shared';
 import { autoBattlerSession, type AbMinion } from '../autoBattlerSession';
+import { playerSession } from '../playerSession';
 import { GameCursor } from '../ui/GameCursor';
 import { BoardRow } from '../battlegrounds/BoardRow';
 import { BuffFlashProvider } from '../battlegrounds/MinionTile';
@@ -22,6 +23,8 @@ import '../battlegrounds/battlegrounds.css';
 export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
   const { t } = useTranslation();
   const state = useSyncExternalStore(autoBattlerSession.subscribe, autoBattlerSession.getSnapshot);
+  const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
+  const reward = player.lastReward;
   const recruitHeroes = useRef(state.players);
   if (state.phase === 'RECRUIT_PHASE' && !state.combat) recruitHeroes.current = state.players;
   const [aim, setAim] = useState<'tavern' | 'board' | null>(null);
@@ -80,8 +83,8 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  function leave() { autoBattlerSession.leave(); onLeave(); }
-  function playAgain() { lastTriple.current = 0; setTriple(false); setPlaying(false); autoBattlerSession.leave(); void autoBattlerSession.connect(); }
+  function leave() { autoBattlerSession.leave(); playerSession.clearMatchReward(); onLeave(); }
+  function playAgain() { lastTriple.current = 0; setTriple(false); setPlaying(false); playerSession.clearMatchReward(); autoBattlerSession.leave(); void autoBattlerSession.connect(); }
 
   function send(intent: AbIntent) {
     if (!dnd.api.tryLock(intentKey(intent))) return;
@@ -143,6 +146,11 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
         <div className="ab-layout">
           <Leaderboard players={state.players} meId={state.sessionId} catalog={state.catalog} />
           <div className="ab-stage">
+            {!combatTable && state.phase === 'RECRUIT_PHASE' && state.recruitSeconds > 0 && state.recruitSeconds <= 10 && (
+              <div className="ab-rope" data-testid="ab-rope" aria-label={timer}>
+                <div className="ab-rope-remaining" style={{ width: `${state.recruitSeconds * 10}%` }}><span className="ab-rope-ember" /></div>
+              </div>
+            )}
             <section className="ab-zone-tavern" data-testid="ab-zone-tavern">
               {me && (
                 <TavernRow me={me} catalog={state.catalog} recruit={recruit} aimingTavern={aim === 'tavern'}
@@ -202,6 +210,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
               <h2>{t(state.phase === 'GAME_OVER' ? 'abGameOver' : 'abEliminated')}</h2>
               <p className="result">{t(state.winnerId === state.sessionId ? 'win' : state.winnerId ? 'loss' : 'draw')}</p>
               {me?.placement ? <p>{t('abPlace', { n: me.placement })}</p> : null}
+              {reward && <p>{t('abRewardElo', { n: `${reward.elo - reward.previousElo > 0 ? '+' : ''}${reward.elo - reward.previousElo}` })} · {t('abRewardXp', { n: reward.xpGain ?? 0 })}</p>}
               <div className="ab-gameover-actions">
                 <InkButton tone="blood" onClick={playAgain}>{t('abPlayAgain')}</InkButton>
                 <InkButton tone="ink" onClick={leave}>{t('backToMenu')}</InkButton>

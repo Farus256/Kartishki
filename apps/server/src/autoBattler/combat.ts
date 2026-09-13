@@ -42,7 +42,7 @@ function living(board: CombatMinion[]): CombatMinion[] {
 }
 
 function atk(minion: CombatMinion): number {
-  return minion.attack + minion.auraAttack;
+  return minion.humiliated ? 1 : minion.attack + minion.auraAttack;
 }
 
 function pickDefender(board: CombatMinion[], rng: ReturnType<typeof createRng>): CombatMinion | undefined {
@@ -181,7 +181,7 @@ function nextAttacker(board: CombatMinion[], start: number): { minion: CombatMin
   for (let step = 0; step < board.length; step++) {
     const index = (start + step) % board.length;
     const candidate = board[index]!;
-    if (candidate.health > 0 && atk(candidate) > 0 && !candidate.keywords.includes('cannotAttack')) {
+    if (candidate.health > 0 && (atk(candidate) > 0 || candidate.keywords.includes('humiliate') || candidate.keywords.includes('bait')) && !candidate.keywords.includes('cannotAttack')) {
       return { minion: candidate, index };
     }
   }
@@ -268,6 +268,19 @@ export function resolveCombat(
       if (!defender) break;
 
       ctx.currentSourceId = attacker.id;
+      // Special actions replace contact damage, including retaliation and cleave.
+      if (attacker.keywords.includes('humiliate') || attacker.keywords.includes('bait')) {
+        if (attacker.keywords.includes('humiliate')) {
+          defender.humiliated = true;
+          defender.attack = 1;
+          ctx.emit({ kind: 'HUMILIATE', sourceId: attacker.id, targetId: defender.id, attack: 1, remainingHealth: defender.health });
+        }
+        if (attacker.keywords.includes('bait')) {
+          defender.health = 1;
+          ctx.emit({ kind: 'BAIT', sourceId: attacker.id, targetId: defender.id, attack: atk(defender), remainingHealth: 1 });
+        }
+        continue;
+      }
       ctx.emit({
         kind: 'ATTACK',
         sourceId: attacker.id,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { resolveLeveling, type CardDefinition, type Catalog, type PlayerLeveling, starterLeveling } from '@kartishki/shared';
+import { resolveLeveling, resolveMenuMusic, type CardDefinition, type Catalog, type MenuMusicTrack, type PlayerLeveling, starterLeveling } from '@kartishki/shared';
 
 export const apiBase = (import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567').replace(/^ws/, 'http');
 
@@ -28,4 +28,18 @@ export function usePlayerLeveling(): PlayerLeveling {
     return () => { live = false; };
   }, []);
   return table;
+}
+
+export function menuTrackUrl(url: string) {
+  return url.startsWith('http') ? url : `${apiBase}${url}`;
+}
+
+export function useMenuTracks(): MenuMusicTrack[] {
+  const [tracks, setTracks] = useState<MenuMusicTrack[]>([]);
+  useEffect(() => {
+    let live = true;
+    void loadCatalog().then(data => { if (live) setTracks(resolveMenuMusic(data.menuMusic).tracks); });
+    return () => { live = false; };
+  }, []);
+  return tracks;
 }

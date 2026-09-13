@@ -10,14 +10,19 @@ import {
   AutoBattlerRoomState,
   CombatPairState,
   HeroState,
+  battlegroundsEloDelta,
+  battlegroundsXp,
   initialUpgradeCost,
   resolveAutoBattlerCatalog,
+  resolveBattlegroundsElo,
   tavernSizeForTier,
   type ActionErrorCode,
   type AutoBattlerHeroDef,
+  type BattlegroundsRewards,
   type CombatEventsMessage,
   type DiscoverOptionsMessage,
 } from '@kartishki/shared';
+import { PlayerError, type PlayerStore } from '../players';
 import { resolveCombat, snapshotBoard } from './combat';
 import { errorPayload, ok } from './errors';
 import { createDefaultRegistry } from './keywords';
@@ -54,8 +59,11 @@ function readNumber(input: unknown, key: string): number | undefined {
 }
 
 export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
+  protected playerStore?: PlayerStore;
   maxClients = AUTO_BATTLER.MAX_PLAYERS;
   state = new AutoBattlerRoomState();
+  private readonly playerIds = new Map<string, string>();
+  private settled = false;
 
   private readonly catalog = resolveAutoBattlerCatalog(catalogStore.snapshot());
   private readonly pool = new SharedMinionPool(this.catalog);
@@ -198,7 +206,17 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.combatDeadline?.clear();
   }
 
-  onJoin(client: Client, options: { displayName?: unknown } = {}) {
+  async onAuth(_client: Client, options: { playerToken?: unknown } = {}): Promise<{ playerId?: string }> {
+    if (options.playerToken === undefined || !this.playerStore) return {};
+    try {
+      return { playerId: await this.playerStore.authenticate(options.playerToken) };
+    } catch (error) {
+      if (error instanceof PlayerError) throw new ServerError(error.status, error.code);
+      throw error;
+    }
+  }
+
+  onJoin(client: Client, options: { displayName?: unknown } = {}, auth: { playerId?: string } = {}) {
     const existing = this.state.players.get(client.sessionId);
     if (existing) {
       existing.connected = true;
@@ -207,6 +225,10 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       return;
     }
     if (this.state.phase !== 'LOBBY') throw new ServerError(409, 'matchInProgress');
+    if (auth.playerId) {
+      if ([...this.playerIds.values()].includes(auth.playerId)) throw new ServerError(409, 'alreadyInMatch');
+      this.playerIds.set(client.sessionId, auth.playerId);
+    }
     const player = new AutoBattlerPlayerState();
     player.sessionId = client.sessionId;
     player.displayName = typeof options.displayName === 'string' && options.displayName.trim()
@@ -489,7 +511,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         seed,
         events: result.events,
         boards: { a: snapA.board, b: snapB.board },
-        durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 11000 + result.events.filter(e => e.kind === 'ATTACK').length * 2500 + result.events.length * 340),
+        durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 11000 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 3000 + result.events.length * 400),
         summary: { winnerId: result.winnerId, loserId: result.loserId, damage: result.damage, tie: result.tie },
       };
 
@@ -617,6 +639,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
   private finishIfNeeded(): boolean {
     const alive = [...this.state.players.values()].filter(player => !player.eliminated);
     if (alive.length > 1) return false;
+    if (this.state.phase === 'GAME_OVER') return true;
     if (alive[0]) {
       alive[0].placement = 1;
       this.state.winnerId = alive[0].sessionId;
@@ -628,6 +651,41 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.phaseEndsAt = 0;
     this.state.revision++;
     abLog('game.over', { winner: this.state.winnerId });
+    void this.persistRewards();
     return true;
   }
+
+  private async persistRewards() {
+    if (this.settled || this.state.phase !== 'GAME_OVER') return;
+    this.settled = true;
+    const players = [...this.state.players.values()];
+    const count = players.length;
+    const amount = resolveBattlegroundsElo(catalogStore.snapshot().playerLeveling);
+    const loggedIn = players.flatMap(player => {
+      const playerId = this.playerIds.get(player.sessionId);
+      return playerId && player.placement > 0 ? [{ playerId, place: player.placement }] : [];
+    });
+    let persisted: Record<string, { elo: number; currency: number; gained: number; xp: number }> = {};
+    try {
+      if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, amount, count);
+    } catch (error) { console.error('Failed to persist battlegrounds result', error); }
+    for (const player of players) {
+      if (player.placement < 1) continue;
+      const client = this.clients.find(item => item.sessionId === player.sessionId);
+      if (!client) continue;
+      const playerId = this.playerIds.get(player.sessionId);
+      const row = playerId ? persisted[playerId] : undefined;
+      const eloDelta = battlegroundsEloDelta(player.placement, count, amount);
+      const xpGain = battlegroundsXp(player.placement, count);
+      const payload: BattlegroundsRewards = {
+        place: player.placement, eloDelta, xpGain,
+        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? 0, xp: row?.xp ?? 0,
+      };
+      client.send(EV.rewards, payload);
+    }
+  }
+}
+
+export function autoBattlerRoomWithPlayers(store: PlayerStore) {
+  return class extends AutoBattlerRoom { protected playerStore = store; };
 }

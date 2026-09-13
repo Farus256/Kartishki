@@ -9,6 +9,7 @@ import {
   type AutoBattlerHeroDef,
   type AutoBattlerMinionState,
   type AutoBattlerPlayerState,
+  type BattlegroundsRewards,
   type CombatEventsMessage,
   type DiscoverOptionsMessage,
 } from '@kartishki/shared';
@@ -124,9 +125,9 @@ export const autoBattlerSession = {
       try {
         joined = token
           ? await client.reconnect<AutoBattlerRoomState>(token, AutoBattlerRoomState)
-          : await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table }, AutoBattlerRoomState);
+          : await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table, ...playerSession.authOptions() }, AutoBattlerRoomState);
       } catch {
-        joined = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table }, AutoBattlerRoomState);
+        joined = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table, ...playerSession.authOptions() }, AutoBattlerRoomState);
       }
       if (attempt !== generation) { await joined.leave(); return; }
       room = joined;
@@ -135,6 +136,7 @@ export const autoBattlerSession = {
       joined.onMessage(EV.catalog, (catalog: AutoBattlerCatalog) => { if (room === joined) publish({ catalog }); });
       joined.onMessage(EV.heroOffers, (heroOffers: AutoBattlerHeroDef[]) => { if (room === joined) publish({ heroOffers }); });
       joined.onMessage(EV.discoverOptions, (discover: DiscoverOptionsMessage) => { if (room === joined) publish({ discover }); });
+      joined.onMessage(EV.rewards, (rewards: BattlegroundsRewards) => { if (room === joined) playerSession.finishBattlegrounds(rewards); });
       joined.onMessage(EV.combatEvents, (combat: CombatEventsMessage) => {
         if (room !== joined) return;
         const visual = (m: CombatEventsMessage['boards']['a'][number]): AbMinion => ({ ...m, kind: 'minion', maxHealth: m.health });

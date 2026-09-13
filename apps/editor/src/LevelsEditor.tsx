@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { resolveLeveling, starterLeveling, validatePlayerLeveling, type Catalog, type PlayerLeveling } from '@kartishki/shared';
+import { BATTLEGROUNDS_ELO_MAX, resolveLeveling, starterLeveling, validatePlayerLeveling, type Catalog, type PlayerLeveling } from '@kartishki/shared';
 
 const endpoint = import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567';
 
@@ -25,6 +25,7 @@ export function LevelsEditor({ nav }: { nav: ReactNode }) {
   useEffect(() => { void load(); }, []);
   function patch(index: number, key: 'ru' | 'en' | 'xp', value: string) {
     setLeveling(current => ({
+      ...current,
       levels: current.levels.map((row, i) => i !== index ? row : { ...row, [key]: key === 'xp' ? Number(value) : value }),
     }));
   }
@@ -43,6 +44,11 @@ export function LevelsEditor({ nav }: { nav: ReactNode }) {
   return <main className="editor">
     <header><h1>{t('levelsEditor')}</h1><div className="editor-nav">{nav}</div></header>
     <p>{t('levelsEditorNote')}</p>
+    <label className="battlegrounds-elo">{t('battlegroundsElo')}
+      <input type="number" min={0} max={BATTLEGROUNDS_ELO_MAX} value={leveling.battlegroundsElo ?? 32}
+        onChange={e => setLeveling(current => ({ ...current, battlegroundsElo: Number(e.target.value) }))} />
+    </label>
+    <p>{t('battlegroundsEloNote')}</p>
     <div className="toolbar"><button disabled={busy} onClick={() => void load()}>{t('reloadCatalog')}</button></div>
     <table className="levels-table">
       <thead><tr><th>#</th><th>{t('name')} (ru)</th><th>{t('name')} (en)</th><th>{t('levelXpNeed')}</th></tr></thead>
