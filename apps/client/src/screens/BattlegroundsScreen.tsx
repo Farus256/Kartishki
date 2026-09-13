@@ -45,6 +45,9 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
 
   useEffect(() => { void autoBattlerSession.connect(); }, []);
   useEffect(() => { if (state.combat) setPlaying(true); }, [state.combat]);
+  useEffect(() => {
+    if (state.phase === 'RECRUIT_PHASE') setPlaying(false);
+  }, [state.phase]);
 
   const recruit = state.phase === 'RECRUIT_PHASE' && !!me && !me.eliminated && !me.recruitReady && !playing;
   const discover: AbMinion[] = state.discover
@@ -154,8 +157,9 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
             <section className="ab-zone-tavern" data-testid="ab-zone-tavern">
               {me && (
                 <TavernRow me={me} catalog={state.catalog} recruit={recruit} aimingTavern={aim === 'tavern'}
-                  onBuy={onTavernMinion} onReroll={() => autoBattlerSession.reroll()}
-                  onFreeze={() => autoBattlerSession.freeze()} onTierUp={() => autoBattlerSession.tierUp()}
+                  onBuy={onTavernMinion} onReroll={() => { if (dnd.api.tryLock('reroll')) autoBattlerSession.reroll(); }}
+                  onFreeze={() => { if (dnd.api.tryLock('freeze')) autoBattlerSession.freeze(); }}
+                  onTierUp={() => { if (dnd.api.tryLock('tierUp')) autoBattlerSession.tierUp(); }}
                   error={state.error} />
               )}
             </section>
@@ -201,7 +205,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
         )}
 
         {discover.length > 0 && recruit && (
-          <DiscoverModal options={discover} catalog={state.catalog} onPick={id => autoBattlerSession.discoverPick(id)} />
+          <DiscoverModal options={discover} catalog={state.catalog} onPick={id => { if (dnd.api.tryLock(`discover:${id}`)) autoBattlerSession.discoverPick(id); }} />
         )}
 
         {(state.phase === 'GAME_OVER' || me?.eliminated) && !playing && (

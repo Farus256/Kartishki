@@ -7,29 +7,6 @@ export function passedDragThreshold(dx: number, dy: number, threshold = DRAG_THR
   return dx * dx + dy * dy >= threshold * threshold;
 }
 
-/** Insertion 0..centers.length from pointer X vs remaining-minion centers. */
-export function insertionIndex(
-  pointerX: number,
-  centers: number[],
-  prev = -1,
-  deadzone = INSERT_HYSTERESIS_PX,
-): number {
-  if (centers.length === 0) return 0;
-  let next = 0;
-  for (let i = 0; i < centers.length; i++) {
-    if (pointerX >= centers[i]!) next = i + 1;
-  }
-  if (prev < 0 || prev === next) return next;
-  if (next > prev) {
-    const gate = centers[prev]! + deadzone;
-    if (pointerX < gate) return prev;
-  } else {
-    const gate = centers[next]! - deadzone;
-    if (pointerX > gate) return prev;
-  }
-  return next;
-}
-
 /**
  * tryMoveBoard splices `from` then insertAt(toIndex).
  * `preview` is the gap among remaining minions (0..len-1).

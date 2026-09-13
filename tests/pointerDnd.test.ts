@@ -32,7 +32,7 @@ test('grab offset keeps the grabbed corner under the pointer', () => {
   assert.notEqual(grab.x, 75, 'must not teleport to card center');
 });
 
-test('insertion index uses midpoints and hysteresis', () => {
+test('insertion index uses nearest center and hysteresis', () => {
   const centers = [100, 250, 400, 550, 700, 850, 1000];
   assert.equal(insertionIndex(400, centers, null, 18, 6), 2);
   assert.equal(insertionIndex(410, centers, 2, 18, 6), 2);
@@ -54,14 +54,15 @@ test('preview board leaves a live gap without padding empty inventory slots', ()
   assert.deepEqual(slots.map(item => item?.id), ['m1', 'm2', 'm3', undefined, 'm4', 'm5', 'm6']);
 });
 
-test('hit zones prefer sell then board, and shop only buys', () => {
+test('hit zones prefer sell then board; shop buys on hero or board; miss cancels', () => {
   const buy = { x: 200, y: 500, w: 400, h: 200 };
   const sell = { x: 400, y: 40, w: 80, h: 80 };
   const board = { x: 200, y: 280, w: 800, h: 160 };
   assert.equal(hitZone('shop', { x: 300, y: 560 }, { buy, sell, board }), 'buy');
+  assert.equal(hitZone('shop', { x: 500, y: 320 }, { buy, sell, board }), 'buy');
   assert.equal(hitZone('shop', { x: 420, y: 60 }, { buy, sell, board }), 'none');
   assert.equal(hitZone('board', { x: 420, y: 60 }, { buy, sell, board }), 'sell');
-  assert.equal(hitZone('board', { x: 10, y: 10 }, { buy, sell, board }), 'board');
+  assert.equal(hitZone('board', { x: 10, y: 10 }, { buy, sell, board }), 'none');
   assert.equal(hitZone('hand', { x: 500, y: 320 }, { buy, sell, board }), 'board');
   assert.equal(hitZone('hand', { x: 10, y: 10 }, { buy, sell, board }), 'none');
 });

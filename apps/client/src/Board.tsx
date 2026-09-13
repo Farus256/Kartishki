@@ -155,6 +155,7 @@ export function Board() {
       }
       function draw() {
         if (cancelled) return;
+        if (drag) return;
         for (const item of animated) poses.set(item.id, { x: item.node.x, y: item.node.y, rot: item.node.rotation });
         drag = undefined;
         board.removeChildren().forEach(n => n.destroy({ children: true })); animated = []; positions = new Map();

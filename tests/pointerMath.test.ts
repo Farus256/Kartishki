@@ -3,11 +3,11 @@ import { test } from 'node:test';
 import {
   canPlayToBoard,
   createIntentLock,
-  insertionIndex,
   moveToIndex,
   passedDragThreshold,
   playToIndex,
 } from '../apps/client/src/battlegrounds/pointerMath';
+import { insertionIndex } from '../apps/client/src/battlegrounds/pointerDnd';
 import { clientToStage, STAGE_W } from '../apps/client/src/ui/stageCoords';
 
 const centers = [200, 400, 600, 800, 1000];
@@ -17,19 +17,11 @@ test('threshold ignores jitter, accepts a real pull', () => {
   assert.equal(passedDragThreshold(5, 4), true);
 });
 
-test('insertion: empty / left / between / right', () => {
-  assert.equal(insertionIndex(50, []), 0);
-  assert.equal(insertionIndex(100, centers), 0);
-  assert.equal(insertionIndex(400, centers), 2);
-  assert.equal(insertionIndex(1200, centers), 5);
-});
-
-test('hysteresis does not flicker on the boundary', () => {
-  assert.equal(insertionIndex(600, centers, 2, 8), 2);
-  assert.equal(insertionIndex(607, centers, 2, 8), 2);
-  assert.equal(insertionIndex(609, centers, 2, 8), 3);
-  assert.equal(insertionIndex(397, centers, 2, 8), 2);
-  assert.equal(insertionIndex(391, centers, 2, 8), 1);
+test('insertion uses the live nearest-center formula', () => {
+  assert.equal(insertionIndex(50, [], null, 8, 0), 0);
+  assert.equal(insertionIndex(100, centers, null, 8, 5), 0);
+  assert.equal(insertionIndex(400, centers, null, 8, 5), 1);
+  assert.equal(insertionIndex(1200, centers, null, 8, 5), 4);
 });
 
 test('move dest matches server splice-then-insert (0→6, 6→0, 2→4)', () => {
@@ -71,5 +63,5 @@ test('1366 and 2560 map the same design X to the same insertion', () => {
   const xb = clientToStage(clientB, b.top + 100, b).x;
   assert.ok(Math.abs(xa - designX) < 0.5);
   assert.ok(Math.abs(xb - designX) < 0.5);
-  assert.equal(insertionIndex(xa, centers), insertionIndex(xb, centers));
+  assert.equal(insertionIndex(xa, centers, null, 8, 5), insertionIndex(xb, centers, null, 8, 5));
 });

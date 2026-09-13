@@ -108,7 +108,7 @@ function boardInsertIndex(run: Run, clientX: number, _clientY: number, maxIndex:
 
 function zoneAt(kind: AbDragKind, clientX: number, clientY: number, point: { x: number; y: number }, areas: { buy?: LocalRect; sell?: LocalRect; board?: LocalRect }): DropZone {
   if ((kind === 'board' || kind === 'hand') && over(clientX, clientY, '[data-testid="ab-sell-zone"]')) return 'sell';
-  if (kind === 'shop' && (over(clientX, clientY, '[data-testid="ab-hero"]') || over(clientX, clientY, '[data-testid="ab-hand"]') || over(clientX, clientY, '.ab-buy-zone'))) return 'buy';
+  if (kind === 'shop' && (over(clientX, clientY, '[data-testid="ab-hero"]') || over(clientX, clientY, '[data-testid="ab-hand"]') || over(clientX, clientY, '.ab-buy-zone') || over(clientX, clientY, '[data-testid="ab-board"]'))) return 'buy';
   if ((kind === 'board' || kind === 'hand') && over(clientX, clientY, '[data-testid="ab-board"]')) return 'board';
   return hitZone(kind, point, areas);
 }

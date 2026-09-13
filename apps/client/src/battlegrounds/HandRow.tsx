@@ -27,7 +27,7 @@ export function HandRow({ me, catalog, recruit, onPlay }: Props) {
             dragKind={recruit ? 'hand' : undefined}
             dragIndex={index}
             arriveDelay={index * 40}
-            onClick={() => onPlay(card.id)} />
+            onClick={spell ? () => onPlay(card.id) : undefined} />
         );
       })}
     </section>

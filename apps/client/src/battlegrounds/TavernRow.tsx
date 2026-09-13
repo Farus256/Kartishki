@@ -60,7 +60,7 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
             disabled={!recruit || (!aimingTavern && !canBuy)}
             selected={aimingTavern}
             targetDomain="tavern"
-            dragKind={recruit && !aimingTavern ? 'shop' : undefined}
+            dragKind={recruit && !aimingTavern && canBuy ? 'shop' : undefined}
             dragIndex={index}
             arriveDelay={index * 55}
             onClick={() => onBuy(minion.id)} />
