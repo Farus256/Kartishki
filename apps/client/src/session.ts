@@ -1,6 +1,7 @@
 import { Client, type Room } from '@colyseus/sdk';
 import { MatchState, type CardDefinition, type HandCard, type Catalog, type GameEvent, type MatchRewards, type HeroDefinition, starterHeroes } from '@kartishki/shared';
 import { playerSession } from './playerSession';
+import { serverOrigin } from './serverUrl';
 export type Minion = { id: string; cardId: string; owner: string; attack: number; health: number; maxHealth: number; shield: boolean; ready: boolean };
 export type Player = { id: string; heroId: string; maxHealth: number; powerUsed: boolean; health: number; mana: number; handCount: number; deckCount: number };
 export type Snapshot = { status: string; phase: string; turn: number; revision: number; activePlayer: string; sessionId: string; error: string; winner: string; players: Player[]; minions: Minion[]; hand: HandCard[]; cards: CardDefinition[]; heroes: HeroDefinition[]; heroOffers: HeroDefinition[] };
@@ -20,7 +21,7 @@ export const session = {
     const attempt = ++generation;
     publish({ ...empty(), status: 'connecting' });
     try {
-      const joined = await new Client(import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567').joinOrCreate<MatchState>('match', playerSession.matchOptions(), MatchState);
+      const joined = await new Client(serverOrigin()).joinOrCreate<MatchState>('match', playerSession.matchOptions(), MatchState);
       if (attempt !== generation) { await joined.leave(); return; }
       room = joined;
       const sync = () => {

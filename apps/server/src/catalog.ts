@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname } from 'node:path';
 import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, validateMenuMusic, emptyMenuMusic, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic } from '@kartishki/shared';
+import { catalogFile } from './catalogFile';
 
 export class CatalogStore {
   private catalog: Catalog = { version: 1, cards: structuredClone(starterCards), heroes: structuredClone(starterHeroes), autoBattlerMinions: structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: structuredClone(starterAutoBattlerHeroes), playerLeveling: structuredClone(starterLeveling) };
-  constructor(private file = resolve('data/catalog.json')) {
+  constructor(private file = catalogFile()) {
     if (existsSync(file)) {
       const data: Catalog = JSON.parse(readFileSync(file, 'utf8'));
       if (!Number.isInteger(data.version) || data.version < 1 || !Array.isArray(data.cards) || !data.cards.length || data.cards.length > 30 || !data.cards.every(validateCard) || new Set(data.cards.map(c=>c.id)).size !== data.cards.length) throw new Error('Invalid persisted catalog');
@@ -94,4 +95,4 @@ function validAutoBattlerMinions(list: AutoBattlerMinionDef[]) {
 function validAutoBattlerHeroes(list: AutoBattlerHeroDef[]) {
   return list.length >= 2 && list.length <= 16 && list.every(validateAutoBattlerHero) && new Set(list.map(h => h.id)).size === list.length;
 }
-export const catalogStore = new CatalogStore(process.env.CATALOG_FILE);
+export const catalogStore = new CatalogStore();

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import express from 'express';
+import { catalogFile } from './catalogFile';
 
 function audioOk(mime: string | undefined, bytes: Buffer) {
   if (mime === 'audio/mpeg' || mime === 'audio/mp3') return (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) || (bytes[0] === 0xFF && (bytes[1]! & 0xE0) === 0xE0);
@@ -14,7 +15,7 @@ function audioOk(mime: string | undefined, bytes: Buffer) {
 /** Menu tracks stay on disk so catalog JSON only stores paths. */
 export function musicAssets() {
   const router = express.Router();
-  const directory = resolve(dirname(process.env.CATALOG_FILE ?? 'data/catalog.json'), 'music');
+  const directory = resolve(dirname(catalogFile()), 'music');
   router.post('/', express.raw({ type: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/webm'], limit: '8mb' }), (req, res) => {
     if (!Buffer.isBuffer(req.body)) { res.status(400).json({ error: 'invalidAudio' }); return; }
     const bytes = req.body;

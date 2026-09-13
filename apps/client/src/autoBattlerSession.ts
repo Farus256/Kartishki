@@ -14,6 +14,7 @@ import {
   type DiscoverOptionsMessage,
 } from '@kartishki/shared';
 import { playerSession } from './playerSession';
+import { serverOrigin } from './serverUrl';
 
 const RECONNECT_KEY = 'kartishki-ab-reconnect';
 
@@ -116,7 +117,7 @@ export const autoBattlerSession = {
     const attempt = ++generation;
     publish({ ...empty(), status: 'connecting' });
     try {
-      const client = new Client(import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567');
+      const client = new Client(serverOrigin());
       const name = playerSession.getSnapshot().library?.profile.username ?? 'Гость';
       let table = '';
       try { table = sessionStorage.getItem('kartishki-ab-table') ?? ''; } catch { /* optional */ }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { resolveLeveling, resolveMenuMusic, type CardDefinition, type Catalog, type MenuMusicTrack, type PlayerLeveling, starterLeveling } from '@kartishki/shared';
+import { serverOrigin } from '../serverUrl';
 
-export const apiBase = (import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567').replace(/^ws/, 'http');
+export const apiBase = serverOrigin();
 
 let pending: Promise<Catalog> | undefined;
 function loadCatalog(): Promise<Catalog> {

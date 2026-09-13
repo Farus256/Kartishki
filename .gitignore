@@ -24,6 +24,8 @@ Thumbs.db
 *.bak
 uploads/
 data/
+!apps/server/data/
+apps/server/data/players/
 artifacts/
 playwright-report/
 test-results/

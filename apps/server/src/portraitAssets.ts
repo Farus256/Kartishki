@@ -2,10 +2,11 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import express from 'express';
+import { catalogFile } from './catalogFile';
 
 /** Immutable originals live outside catalog JSON and websocket messages. */
 export function portraitAssets() {
- const router=express.Router();const directory=resolve(dirname(process.env.CATALOG_FILE??'data/catalog.json'),'portraits');
+ const router=express.Router();const directory=resolve(dirname(catalogFile()),'portraits');
  router.post('/',express.raw({type:['image/png','image/jpeg','image/webp'],limit:'8mb'}),(req,res)=>{
   if(!Buffer.isBuffer(req.body)){res.status(400).json({error:'invalidImage'});return;}
   const bytes=req.body;const mime=req.get('Content-Type')?.split(';')[0];

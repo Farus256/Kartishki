@@ -11,13 +11,20 @@ export interface Database extends Sql {
   close(): Promise<void>;
 }
 
+/** Neon and sslmode=require need explicit TLS; local postgres URLs stay plain. */
+export function postgresPoolConfig(url: string): pg.PoolConfig {
+  const requireSsl = /(?:^|[?&])sslmode=(?:require|verify-ca|verify-full)(?:&|$)/i.test(url)
+    || /(?:^|[.@/])neon\.tech(?:[:/?]|$)/i.test(url);
+  return { connectionString: url, ...(requireSsl ? { ssl: { rejectUnauthorized: true } } : {}) };
+}
+
 export async function openDatabase(url?: string, dataDir = resolve('data/players')): Promise<Database> {
   if (!url) {
     mkdirSync(dataDir, { recursive: true });
     const db = await PGlite.create(dataDir);
     return { query: (text, values) => db.query(text, values), transaction: run => db.transaction(tx => run(tx)), close: () => db.close() };
   }
-  const pool = new pg.Pool({ connectionString: url });
+  const pool = new pg.Pool(postgresPoolConfig(url));
   return {
     query: (text, values) => pool.query(text, values),
     async transaction(run) {

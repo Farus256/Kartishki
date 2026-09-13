@@ -1,7 +1,8 @@
 import { applyMatchElo, calibratedRank, isBeerRank, updateBeerRank, type BeerRank } from './beerRank';
 import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type BattlegroundsRewards, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type SavedDeck } from '@kartishki/shared';
+import { serverOrigin } from './serverUrl';
 
-const endpoint = (import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567').replace(/^ws/,'http');
+const endpoint = serverOrigin();
 const GUEST_RANK_KEY = 'kartishki-beer-rank-v1:guest';
 const GUEST_XP_KEY = 'kartishki-player-xp-v1:guest';
 export type MatchReward = { elo: number; previousElo: number; gained: number; xpGain?: number };

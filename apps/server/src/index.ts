@@ -1,4 +1,4 @@
-import { Server } from '@colyseus/core';
+import { Server, matchMaker } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { matchRoomWithPlayers } from './MatchRoom';
 import { autoBattlerRoomWithPlayers } from './autoBattler/AutoBattlerRoom';
@@ -10,15 +10,21 @@ import { openDatabase, migratePlayers } from './database';
 import { PlayerStore } from './players';
 import { playerApi } from './playerApi';
 import { portraitAssets } from './portraitAssets';
+import { corsAllowOrigin, tightenColyseusCors } from './cors';
+import { listenBind } from './listenBind';
+tightenColyseusCors(matchMaker.controller);
 const db = await openDatabase(process.env.DATABASE_URL, process.env.PLAYER_DATA_DIR);
 await migratePlayers(db);
 const players = new PlayerStore(db);
 const transport = new WebSocketTransport({ maxPayload: 4096 });
 const app = transport.getExpressApp();
-app.use('/api', (req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && ['http://127.0.0.1:5174', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://localhost:5173'].includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin');
+app.set('trust proxy', 1);
+app.get('/health', (_req, res) => { res.json({ status: 'ok' }); });
+app.use((req, res, next) => {
+  const allow = corsAllowOrigin(req.headers.origin);
+  if (allow) {
+    res.setHeader('Access-Control-Allow-Origin', allow);
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   }
@@ -68,5 +74,6 @@ const server = new Server({ transport });
 server.define('match', matchRoomWithPlayers(players));
 server.define('autoBattler', autoBattlerRoomWithPlayers(players)).filterBy(['table']);
 server.onShutdown(() => db.close());
-await server.listen(Number(process.env.PORT ?? 2567), '127.0.0.1');
-console.log('Colyseus listening on http://127.0.0.1:2567');
+const { port, host } = listenBind();
+await server.listen(port, host);
+console.log(`Colyseus listening on http://${host}:${port}`);
