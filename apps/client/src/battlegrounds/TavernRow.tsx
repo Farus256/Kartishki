@@ -2,7 +2,6 @@ import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AB_LAYOUT, tavernGap } from './battlegroundsLayout';
 import { AUTO_BATTLER, type AutoBattlerCatalog } from '@kartishki/shared';
-import { InkButton } from '../ui/InkButton';
 import { Bartender } from './Bartender';
 import { PaperTooltip } from '../ui/PaperTooltip';
 import type { AbPlayer } from '../autoBattlerSession';
@@ -22,6 +21,32 @@ type Props = {
   error?: string;
 };
 
+function RefreshIcon() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden>
+      <path fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" d="M14 30a18 18 0 1 1 4 14" />
+      <path fill="currentColor" d="m10 20 10 14-16 2z" />
+    </svg>
+  );
+}
+
+function FrostIcon() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden>
+      <path fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" d="M32 6v52M10 19l44 26M10 45l44-26" />
+      <path fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" d="m32 14 6-6M32 14l-6-6M32 50l6 6M32 50l-6 6M16 22l-8 1M16 22l2-8M48 42l8-1M48 42l-2 8M16 42l-8-1M16 42l2 8M48 22l8 1M48 22l-2-8" />
+    </svg>
+  );
+}
+
+function UpgradeIcon() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden>
+      <path fill="currentColor" d="M32 8 54 34h-12v22H22V34H10z" />
+    </svg>
+  );
+}
+
 export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll, onFreeze, onTierUp, error }: Props) {
   const { t, i18n } = useTranslation();
   const dnd = useAbDnd();
@@ -37,9 +62,14 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
       <div className="ab-tavern-head">
         <header className="ab-tier-sign">
           <PaperTooltip content={t('abTierHint')}><strong>{t('abTier', { tier: me.tavernTier })} <small>{'★'.repeat(me.tavernTier)}</small></strong></PaperTooltip>
-          <InkButton size="sm" tone="gold" disabled={!canUpgrade} onClick={onTierUp}>
-            {me.tavernTier === 6 ? 'MAX' : `${t('abTierUp')} $${me.upgradeCost}`}
-          </InkButton>
+          <PaperTooltip content={t('abTierHint')}>
+            <button type="button" className={`ab-tavern-btn is-upgrade ${canUpgrade ? 'is-ready' : ''}`}
+              disabled={!canUpgrade} onClick={onTierUp} data-testid="ab-tier-up"
+              aria-label={me.tavernTier === 6 ? 'MAX' : `${t('abTierUp')} $${me.upgradeCost}`}>
+              <UpgradeIcon />
+              {me.tavernTier < 6 && <span>{me.upgradeCost}</span>}
+            </button>
+          </PaperTooltip>
         </header>
         <div className={`ab-bartender ${dnd?.armed && (dnd.kind === 'board' || dnd.kind === 'hand') ? 'is-sell-ready' : ''} ${sellHot ? 'is-hot' : ''}`} data-testid="ab-sell-zone">
           <Bartender />
@@ -47,10 +77,16 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
           <small role="status" key={reaction}>{reaction ? lines[reaction]?.[i18n.language.startsWith('ru') ? 0 : 1] : t('abSellHint')}</small>
         </div>
         <div className="ab-tavern-ops">
-          <InkButton size="sm" disabled={!canRoll} onClick={onReroll}>{t('abReroll')}</InkButton>
-          <InkButton size="sm" tone={me.tavern.frozen ? 'gold' : 'paper'} disabled={!recruit} onClick={onFreeze}>
-            {me.tavern.frozen ? t('abFrozen') : t('abFreeze')}
-          </InkButton>
+          <button type="button" className={`ab-tavern-btn is-reroll ${canRoll ? 'is-ready' : ''}`}
+            disabled={!canRoll} onClick={onReroll} data-testid="ab-reroll" aria-label={t('abReroll')}>
+            <RefreshIcon />
+            <span>{AUTO_BATTLER.REROLL_COST}</span>
+          </button>
+          <button type="button" className={`ab-tavern-btn is-freeze ${me.tavern.frozen ? 'is-on' : ''} ${recruit ? 'is-ready' : ''}`}
+            disabled={!recruit} onClick={onFreeze} data-testid="ab-freeze"
+            aria-pressed={me.tavern.frozen} aria-label={me.tavern.frozen ? t('abFrozen') : t('abFreeze')}>
+            <FrostIcon />
+          </button>
         </div>
       </div>
       <div className="ab-tavern-row">
@@ -67,7 +103,7 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
         ))}
       </div>
       {me.tavern.frozen && <span className="ab-frozen-stamp">{t('abFrozen')}</span>}
-      {reaction==='UPGRADE'&&<span className="ab-tavern-flourish" aria-hidden>★ {'★'.repeat(me.tavernTier)} ★</span>}
+      {reaction === 'UPGRADE' && <span className="ab-tavern-flourish" data-testid="ab-tavern-flourish" data-stars={me.tavernTier} aria-hidden>{'★'.repeat(me.tavernTier)}</span>}
     </section>
   );
 }

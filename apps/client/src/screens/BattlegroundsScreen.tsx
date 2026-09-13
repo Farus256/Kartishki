@@ -17,8 +17,8 @@ import { AbDndProvider } from '../battlegrounds/abDndContext';
 import { useAbPointerDnd } from '../battlegrounds/useAbPointerDnd';
 import { intentKey, type AbIntent } from '../battlegrounds/pointerDnd';
 import { AB_LAYOUT } from '../battlegrounds/battlegroundsLayout';
+import { useCardLerp } from '../battlegrounds/useCardLerp';
 import { InkButton } from '../ui/InkButton';
-import { audioManager } from '../AudioManager';
 import '../battlegrounds/battlegrounds.css';
 
 export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
@@ -42,6 +42,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
   const [triple, setTriple] = useState(false);
   const lastTriple = useRef(0);
   const screenRef = useRef<HTMLDivElement>(null);
+  const flightFrom = useRef(new Map<string, DOMRect>());
   const me = state.players.find(p => p.sessionId === state.sessionId);
   const opponent = state.players.find(p => p.sessionId === me?.nextOpponentId);
   useEffect(() => {
@@ -67,14 +68,20 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     me,
     catalog: state.catalog,
     screenRef,
+    flightFrom,
     onIntent: (intent: AbIntent) => {
       if (intent.type === 'buy') autoBattlerSession.buy(intent.id);
-      else if (intent.type === 'play') { audioManager.playCardVoice(me?.hand.find(card => card.id === intent.id)?.cardId ?? ''); autoBattlerSession.playCard(intent.id, intent.index); }
+      else if (intent.type === 'play') autoBattlerSession.playCard(intent.id, intent.index);
       else if (intent.type === 'move') autoBattlerSession.moveBoard(intent.id, intent.index);
       else if (intent.type === 'sell') autoBattlerSession.sell(intent.id);
       else if (intent.type === 'power') { autoBattlerSession.heroPower(intent.id); setAim(null); }
     },
   });
+  useCardLerp(screenRef, [
+    me?.tavern.offers.map(card => card.id).join(','),
+    me?.hand.map(card => card.id).join(','),
+    me?.board.map(card => card.id).join(','),
+  ].join('|'), flightFrom);
 
   useEffect(() => {
     setAim(null); setSelected(null); dnd.api.cancel();
@@ -99,8 +106,9 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
 
   function send(intent: AbIntent) {
     if (!dnd.api.tryLock(intentKey(intent))) return;
+    if (intent.type === 'buy' || intent.type === 'play') rememberCard(intent.id);
     if (intent.type === 'buy') autoBattlerSession.buy(intent.id);
-    else if (intent.type === 'play') { audioManager.playCardVoice(me?.hand.find(card => card.id === intent.id)?.cardId ?? ''); autoBattlerSession.playCard(intent.id, intent.index); }
+    else if (intent.type === 'play') autoBattlerSession.playCard(intent.id, intent.index);
     else if (intent.type === 'move') autoBattlerSession.moveBoard(intent.id, intent.index);
     else if (intent.type === 'sell') autoBattlerSession.sell(intent.id);
     else if (intent.type === 'power') { autoBattlerSession.heroPower(intent.id); setAim(null); }
@@ -116,8 +124,15 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     send({ type: 'power' });
   }
 
+  function rememberCard(id: string) {
+    const el = screenRef.current?.querySelector<HTMLElement>(`[data-ab-id="${id}"]`);
+    const box = el?.getBoundingClientRect();
+    if (box && box.width > 2) flightFrom.current.set(id, box);
+  }
+
   function onTavernMinion(id: string) {
     if (aim === 'tavern') { send({ type: 'power', id }); setAim(null); return; }
+    rememberCard(id);
     send({ type: 'buy', id });
   }
 

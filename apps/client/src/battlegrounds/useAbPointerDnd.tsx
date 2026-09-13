@@ -58,6 +58,7 @@ type Opts = {
   catalog: AutoBattlerCatalog;
   screenRef: RefObject<HTMLElement | null>;
   onIntent: (intent: AbIntent) => void;
+  flightFrom?: RefObject<Map<string, DOMRect>>;
 };
 
 function localOf(el: Element | null, root: Rect, localW: number, localH: number): LocalRect | undefined {
@@ -113,7 +114,7 @@ function zoneAt(kind: AbDragKind, clientX: number, clientY: number, point: { x: 
   return hitZone(kind, point, areas);
 }
 
-export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: Opts) {
+export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, flightFrom }: Opts) {
   const [view, setView] = useState<AbDndView>(idle);
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -191,7 +192,11 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       window.setTimeout(() => { if (suppressRef.current === source) suppressRef.current = null; }, 40);
     }
     const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const ms = reduced ? 0 : snapBack ? AB_DND.RETURN_MS : AB_DND.SNAP_MS;
+    const ms = reduced || intent ? 0 : snapBack ? AB_DND.RETURN_MS : AB_DND.SNAP_MS;
+    if (intent && run?.source) {
+      const box = run.source.getBoundingClientRect();
+      if (box.width > 2) flightFrom?.current.set(run.payload.id, box);
+    }
     if (intent) intentRef.current(intent);
     setView(idle);
     const done = () => {
@@ -210,7 +215,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       }
       settleTimer.current = setTimeout(done, ms);
     } else done();
-  }, []);
+  }, [flightFrom]);
 
   const cancel = useCallback(() => {
     detachRef.current();

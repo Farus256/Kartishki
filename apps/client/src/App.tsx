@@ -13,7 +13,7 @@ import { MatchScreen } from './screens/MatchScreen';
 import { BattlegroundsScreen } from './screens/BattlegroundsScreen';
 import { SettingsModal } from './screens/SettingsModal';
 import { audioManager } from './AudioManager';
-import { builtInBackgroundTracks, cardVoiceTracks } from './gameAudioAssets';
+import { builtInBackgroundTracks } from './gameAudioAssets';
 import { menuTrackUrl, useMenuTracks } from './ui/useCatalog';
 
 type Screen = 'landing' | 'menu' | 'deck' | 'shop' | 'match' | 'battlegrounds';
@@ -42,7 +42,6 @@ export function App() {
   useEffect(() => { if (state.status === 'offline') playerSession.clearMatchReward(); }, [state.status]);
 
   useEffect(() => { const open = () => setSettings(true); window.addEventListener('open-settings', open); return () => window.removeEventListener('open-settings', open); }, []);
-  useEffect(() => { audioManager.setCardVoiceTracks(cardVoiceTracks); }, []);
   useEffect(() => { audioManager.setMenuTracks(menuTracks.length ? menuTracks.map(track => menuTrackUrl(track.url)) : builtInBackgroundTracks); }, [menuTracks]);
   useEffect(() => {
     if (screen !== 'landing') audioManager.playMenu();

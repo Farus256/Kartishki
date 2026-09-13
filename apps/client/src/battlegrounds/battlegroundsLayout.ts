@@ -19,6 +19,7 @@ export const AB_LAYOUT = {
   COMBAT_ENEMY_Y: 204,
   COMBAT_PLAYER_Y: 426,
   SLIDE_MS: 130,
+  FLY_MS: 320,
 } as const;
 
 export function lineGap(count: number): number {

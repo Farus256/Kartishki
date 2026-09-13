@@ -111,6 +111,15 @@ test('keyword visuals, final ten-second fuse and real card clicks', async ({ pag
   await expect(card.locator('.ab-wind')).toBeVisible();
   await expect(card.locator('[data-keyword=deathrattle]')).toBeVisible();
   await expect(card.locator('[data-keyword=battlecry]')).toBeVisible();
+  await expect(page.getByTestId('ab-minion-p0-m27').locator('[data-keyword=taunt]')).toBeVisible();
+  await expect(page.getByTestId('ab-minion-p0-m8').locator('[data-keyword=taunt]')).toBeVisible();
+  await expect(page.getByTestId('ab-gold').locator('.ab-coins i')).toHaveCount(8);
+  const reroll = await page.getByTestId('ab-reroll').boundingBox();
+  const freeze = await page.getByTestId('ab-freeze').boundingBox();
+  const tierUp = await page.getByTestId('ab-tier-up').boundingBox();
+  expect(Math.abs(reroll!.width - reroll!.height)).toBeLessThan(3);
+  expect(Math.abs(freeze!.width - freeze!.height)).toBeLessThan(3);
+  expect(Math.abs(tierUp!.width - tierUp!.height)).toBeLessThan(3);
   await expect(page.getByTestId('ab-rope')).toBeVisible();
   await card.click();
   await expect(page.locator('.ab-selection-tools')).toBeVisible();
@@ -123,6 +132,18 @@ test('keyword visuals, final ten-second fuse and real card clicks', async ({ pag
   state.recruitSeconds = 11;
   await setFixture(page, state);
   await expect(page.getByTestId('ab-rope')).toHaveCount(0);
+});
+
+test('tavern upgrade flourish matches the new tier', async ({ page }) => {
+  const state = abFixture();
+  state.players[0]!.tavernTier = 2;
+  await openMockAb(page, state);
+  state.players[0]!.tavernTier = 3;
+  state.players[0]!.gold = 4;
+  await setFixture(page, state);
+  const flourish = page.getByTestId('ab-tavern-flourish');
+  await expect(flourish).toHaveAttribute('data-stars', '3');
+  await expect(flourish).toHaveText('★★★');
 });
 
 test('special combat actions animate without lunging and update target stats', async ({ page }) => {

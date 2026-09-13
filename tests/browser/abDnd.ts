@@ -78,6 +78,7 @@ export const autoBattlerSession={
 }
 
 export async function openMockAb(page: Page, state: AbSnapshot) {
+  await page.route(/\/health\/?$/, route => route.fulfill({ contentType: 'application/json', body: '{"status":"ok"}' }));
   await page.route(/\/src\/autoBattlerSession\.ts(\?.*)?$/, route => route.fulfill({ contentType: 'text/javascript', body: mockSession(state) }));
   await page.goto(process.env.CLIENT_TEST_URL ?? 'http://127.0.0.1:5173');
   await page.getByRole('button', { name: 'Играть как гость' }).click();

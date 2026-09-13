@@ -254,7 +254,6 @@ export function Board() {
       const unsubscribe = session.subscribe(draw); i18n.on('languageChanged', draw);
       const stopEvents = session.onEvent(event => {
         audioManager.play(event.kind === 'attack' ? 'reel_stop' : event.kind === 'death' ? 'card_remove' : event.kind === 'draw' ? 'card_flip' : 'card_place');
-        if (event.kind === 'spawn' && event.cardId) audioManager.playCardVoice(event.cardId);
         if (event.kind === 'attack' || event.kind === 'power') {
           shake = motion.matches ? 0 : 10;
           const from = positions.get(event.source), to = positions.get(event.target ?? '');

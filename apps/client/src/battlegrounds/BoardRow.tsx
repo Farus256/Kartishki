@@ -65,6 +65,7 @@ export function BoardRow({ me, catalog, recruit, aimingBoard, onActivate }: Prop
       selected={aimingBoard}
       targetDomain="board"
       disabled={!recruit}
+      arrive={false}
       dragKind={recruit && !aimingBoard ? 'board' : undefined}
       dragIndex={me.board.findIndex(item => item.id === minion.id)}
       onClick={() => onActivate(minion.id)} />

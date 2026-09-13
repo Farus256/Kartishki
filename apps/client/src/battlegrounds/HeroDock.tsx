@@ -48,12 +48,11 @@ export function HeroDock({ me, catalog, recruit, aiming, onPower, onEnd, income,
           <span>{me.power.goldCost}</span>
         </button>}
       </HeroPowerTooltip>
-      <div className="ab-gold" data-testid="ab-gold">
-        <small>{t('abGold')}</small>
+      <div className="ab-gold" data-testid="ab-gold" aria-label={`${t('abGold')}: ${me.gold}`}>
         <div className="ab-coins" aria-hidden>
-          {Array.from({ length: 10 }, (_, i) => <i key={i} className={i < me.gold ? 'is-on' : ''} />)}
+          {Array.from({ length: Math.max(0, Math.min(10, me.gold)) }, (_, i) => <i key={i} className="is-on" />)}
         </div>
-        <strong><AnimatedNumber value={me.gold} />$<em>/{income}$</em></strong>
+        <strong><AnimatedNumber value={me.gold} /><em>/{income}</em></strong>
       </div>
       <InkButton tone={me.recruitReady ? 'ink' : 'blood'} disabled={!(canReady ?? recruit)} aria-pressed={me.recruitReady} onClick={onEnd}>{me.recruitReady ? t('abReady') : t('abEndRecruit')}</InkButton>
     </div>
