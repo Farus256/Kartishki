@@ -1,6 +1,11 @@
 ﻿import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { calibratedRank, updateBeerRank, isBeerRank } from '../apps/client/src/beerRank';
+import { applyMatchElo, calibratedRank, updateBeerRank, isBeerRank } from '../apps/client/src/beerRank';
+test('equal opponents move 16 elo', () => {
+  assert.equal(applyMatchElo(1000, 1), 1016);
+  assert.equal(applyMatchElo(1000, 0), 984);
+  assert.equal(applyMatchElo(1000, 0.5), 1000);
+});
 test('new players calibrate at 1500 regardless of initial ELO', () => {
   assert.deepEqual(calibratedRank(), { league: 'light', remainingMl: 1500, lastElo: 1000 });
   assert.equal(calibratedRank(1400).remainingMl, 1500);

@@ -1,0 +1,23 @@
+body.has-game-cursor .ab-screen,
+body.has-game-cursor .ab-screen *,
+body.has-game-cursor .battle-screen,
+body.has-game-cursor .battle-screen * { cursor: none !important; }
+.game-cursor {
+  position: fixed; z-index: 80; width: 22px; height: 25px; margin: -2px 0 0 -5px;
+  pointer-events: none; transform-origin: 6px 3px;
+}
+.game-cursor.is-tap { animation: game-cursor-tap .18s ease-out; }
+@keyframes game-cursor-tap { 40% { transform: translateY(4px) scaleY(.82); } }
+.game-tap-burst { position: fixed; z-index: 79; width: 1px; height: 1px; pointer-events: none; }
+.game-tap-burst i {
+  position: absolute; width: 9px; height: 7px; background: #efe6d2; border: 2px solid #1a1a1a;
+  clip-path: polygon(50% 0,100% 38%,78% 100%,18% 92%,0 32%);
+  animation: game-tap-speck .38s ease-out forwards;
+  transform: translate(-50%,-50%) rotate(var(--rot));
+}
+@keyframes game-tap-speck {
+  to { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(calc(var(--rot) + 50deg)) scale(.3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-cursor.is-tap, .game-tap-burst i { animation: none; }
+}

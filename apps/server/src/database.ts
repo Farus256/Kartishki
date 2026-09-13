@@ -61,5 +61,9 @@ export async function migratePlayers(db: Database) {
       await tx.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS last_daily DATE');
       await tx.query('INSERT INTO player_schema_version (version) VALUES (2)');
     }
+    if (current < 3) {
+      await tx.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0)');
+      await tx.query('INSERT INTO player_schema_version (version) VALUES (3)');
+    }
   });
 }

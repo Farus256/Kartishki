@@ -1,20 +1,18 @@
 import { motion } from 'framer-motion';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { levelFromXp } from '@kartishki/shared';
 import { useEconomy } from '../EconomyContext';
 import { playerSession } from '../playerSession';
+import { usePlayerLeveling } from './useCatalog';
 
-function CatStamp() {
+function PlayerStamp() {
   return (
     <span className="ink-edge relative grid h-[62px] w-[52px] shrink-0 place-items-center overflow-hidden border-[3px] border-ink bg-ink shadow-[3px_4px_0_rgba(26,26,26,.4)]">
       <svg viewBox="0 0 52 62" className="h-full w-full" aria-hidden>
         <rect width="52" height="62" fill="#1a1a1a" />
-        <path d="M10 28 L10 16 L18 22 L26 14 L34 22 L42 16 L42 28 C42 46 34 54 26 54 C18 54 10 46 10 28Z" fill="#0d0d0d" stroke="#efece4" strokeWidth="1.4" />
-        <circle cx="20" cy="32" r="4.2" fill="#efece4" />
-        <circle cx="32" cy="32" r="4.2" fill="#efece4" />
-        <circle cx="20" cy="32" r="1.6" fill="#1a1a1a" />
-        <circle cx="32" cy="32" r="1.6" fill="#1a1a1a" />
-        <path d="M18 44 Q26 40 34 44" fill="none" stroke="#efece4" strokeWidth="1.3" strokeDasharray="2 1.5" />
+        <circle cx="26" cy="22" r="10" fill="#d5cfc3" />
+        <path d="M8 58V48a18 18 0 0 1 36 0v10Z" fill="#8c918b" />
       </svg>
     </span>
   );
@@ -22,23 +20,31 @@ function CatStamp() {
 
 /** Avatar, nickname, ELO badge and currency counter shown on the metagame screens. */
 export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const profile = player.library?.profile;
   const name = profile?.username ?? t('guest');
+  const leveling = usePlayerLeveling();
+  const progress = levelFromXp(profile?.xp ?? player.xp, leveling);
+  const title = i18n.language.startsWith('en') ? (progress.name.en || progress.name.ru) : progress.name.ru;
   const economy = useEconomy();
-  const deck = economy.decks.find(d => d.id === economy.activeDeck);
+  const rank = player.beerRank;
+  const dark = rank.league === 'dark';
   return (
     <header className="absolute top-0 right-0 left-0 z-20 flex h-[100px] items-center gap-6 bg-paper px-10">
-      <div className="flex items-center gap-3">
-        <CatStamp />
-        <p className="font-hand text-[30px] leading-none font-bold text-ink">{name}</p>
+      <PlayerStamp />
+      <div className="level-bar" data-testid="player-level">
+        <p className="level-bar-name">{name} · {t('playerLevel', { n: progress.level })} · {title}</p>
+        <span className="level-bar-row">
+          <span className="level-bar-track"><i style={{ width: `${Math.round(progress.current / progress.need * 100)}%` }} /></span>
+          <span className="level-bar-xp">{t('xpNow', { now: progress.current, need: progress.need })} · {progress.maxed ? t('xpMax') : t('xpLeft', { n: progress.left })}</span>
+        </span>
       </div>
-
-      <div className="tape-cut max-w-[470px] truncate bg-ink px-5 py-3 font-hand text-[23px] text-paper">
-        {deck ? deck.name + ' • ' + deck.cards.length + '/30' : 'Колода не выбрана'}
-      </div>
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-5">
+        <div className="top-rank">
+          <span className={`beer-league-badge${dark ? ' is-dark' : ''}`} data-testid="beer-league">{dark ? 'II / ЛИГА «ТЁМНОЕ»' : 'I / ЛИГА «СВЕТЛОЕ»'}</span>
+          <strong data-testid="beer-volume" className="top-rank-ml">{rank.remainingMl.toLocaleString('ru-RU')}<small>мл</small></strong>
+        </div>
         <div title="Доллары • локальная демо-экономика" className="relative ink-edge flex items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
           {economy.currencyEvents.map((event, index) => <motion.span key={event.id} className={`currency-badge ${event.amount > 0 ? 'gain' : 'spend'}`} style={{ right: index * 18 }} initial={{ opacity: 1, y: 20, scale: .85 }} animate={{ opacity: [1, 1, 0], y: [20, -5, -45], scale: event.amount > 0 ? [1, 1.2, 1, 1.15, 1] : 1 }} transition={{ duration: 1.8 }} onAnimationComplete={() => economy.dismissCurrency(event.id)}>{event.amount > 0 ? '+' : '-'}${Math.abs(event.amount)}</motion.span>)}
           <b data-testid="balance" className="font-hand text-[30px]">$ {economy.dollars.toLocaleString('en-US')}</b>

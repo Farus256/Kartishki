@@ -24,6 +24,7 @@ export function playerApi(store: PlayerStore, catalog: CatalogStore) {
   router.post('/daily', async (_req,res) => { res.json(await store.claimDaily(res.locals.playerId)); });
   router.post('/packs', async (_req,res) => { res.json(await store.openPack(res.locals.playerId, catalog.snapshot().cards)); });
   router.post('/cases', async (_req,res) => { res.json(await store.openCase(res.locals.playerId, catalog.snapshot().cards)); });
+  router.post('/xp', async (req,res) => { res.json(await store.addXp(res.locals.playerId, req.body?.amount)); });
   router.put('/decks', async (req,res) => { res.json(await store.saveDeck(res.locals.playerId,req.body,catalog.snapshot().cards)); });
   router.delete('/decks/:id', async (req,res) => { await store.deleteDeck(res.locals.playerId,req.params.id,req.body?.version); res.sendStatus(204); });
   router.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

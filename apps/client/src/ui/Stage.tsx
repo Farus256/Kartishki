@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { STAGE_H, STAGE_W } from './stageCoords';
 
-export const STAGE_W = 1600;
-export const STAGE_H = 900;
-
+export { STAGE_H, STAGE_W };
 /**
  * Strict 16:9 play field. Everything inside is laid out in fixed 1600x900 design pixels and
  * scaled to the frame, so card sizes stay identical on every monitor. Leftover space is black.
@@ -21,7 +20,7 @@ export function Stage({ children }: { children: ReactNode }) {
     <div className="fixed inset-0 grid place-items-center overflow-clip bg-black">
       <div ref={frame} className="relative overflow-clip bg-paper shadow-[0_0_80px_rgba(0,0,0,.9)]"
         style={{ width: 'min(100vw, calc(100vh * 16 / 9))', aspectRatio: '16 / 9' }}>
-        <div className="absolute top-0 left-0 origin-top-left" style={{ width: STAGE_W, height: STAGE_H, zoom: scale }}>
+        <div data-stage className="absolute top-0 left-0 origin-top-left" style={{ width: STAGE_W, height: STAGE_H, zoom: scale }}>
           {children}
         </div>
       </div>

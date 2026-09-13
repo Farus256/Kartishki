@@ -1,0 +1,74 @@
+import {
+  AUTO_BATTLER,
+  AutoBattlerMinionState,
+  minionTribes,
+  printedStats,
+  type AutoBattlerMinionDef,
+} from '@kartishki/shared';
+
+export function fillMinion(m: AutoBattlerMinionState, def: AutoBattlerMinionDef, id: string, owner: string, golden = false): AutoBattlerMinionState {
+  const printed = printedStats(def, golden);
+  m.id = id;
+  m.cardId = def.id;
+  m.baseId = def.id;
+  m.kind = 'minion';
+  m.attack = printed.attack;
+  m.health = printed.health;
+  m.maxHealth = printed.health;
+  m.tavernTier = def.tavernTier;
+  m.golden = golden;
+  m.owner = owner;
+  m.bonusAttack = 0;
+  m.bonusHealth = 0;
+  m.poolCopies = 0;
+  m.tripleReward = false;
+  while (m.keywords.length) m.keywords.pop();
+  for (const keyword of printed.keywords) m.keywords.push(keyword);
+  while (m.tribes.length) m.tribes.pop();
+  for (const tribe of minionTribes(def)) m.tribes.push(tribe);
+  return m;
+}
+
+export function createMinionState(def: AutoBattlerMinionDef, id: string, owner: string, golden = false): AutoBattlerMinionState {
+  return fillMinion(new AutoBattlerMinionState(), def, id, owner, golden);
+}
+
+export function createDiscoverSpell(id: string, owner: string): AutoBattlerMinionState {
+  const card = new AutoBattlerMinionState();
+  card.id = id;
+  card.cardId = AUTO_BATTLER.DISCOVER_SPELL_ID;
+  card.baseId = AUTO_BATTLER.DISCOVER_SPELL_ID;
+  card.kind = 'spell';
+  card.owner = owner;
+  return card;
+}
+
+export function cloneMinionState(source: AutoBattlerMinionState, id: string): AutoBattlerMinionState {
+  const copy = new AutoBattlerMinionState();
+  copy.id = id;
+  copy.cardId = source.cardId;
+  copy.baseId = source.baseId;
+  copy.kind = source.kind;
+  copy.attack = source.attack;
+  copy.health = source.health;
+  copy.maxHealth = source.maxHealth;
+  copy.tavernTier = source.tavernTier;
+  copy.golden = source.golden;
+  copy.owner = source.owner;
+  copy.bonusAttack = source.bonusAttack;
+  copy.bonusHealth = source.bonusHealth;
+  copy.poolCopies = source.poolCopies;
+  copy.tripleReward = source.tripleReward;
+  for (const keyword of source.keywords) copy.keywords.push(keyword);
+  for (const tribe of source.tribes) copy.tribes.push(tribe);
+  return copy;
+}
+
+export function isShopMinion(card: { kind: string; cardId: string }): boolean {
+  return card.kind !== 'spell' && card.cardId !== AUTO_BATTLER.DISCOVER_SPELL_ID;
+}
+
+export function insertAt<T>(list: { splice: (start: number, deleteCount: number, ...items: T[]) => T[]; length: number }, index: number, item: T): void {
+  const at = Math.max(0, Math.min(index, list.length));
+  list.splice(at, 0, item);
+}

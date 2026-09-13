@@ -1,7 +1,8 @@
 import { createHash, randomBytes, randomInt, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import {
-  CASE_COST, DAILY_REWARD, DECK_SIZE, PACK_COST, PACK_SIZE, WIN_REWARD, starterCards,
+  CASE_COST, CASE_XP, DAILY_REWARD, DECK_SIZE, MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP,
+  PACK_COST, PACK_SIZE, PACK_XP, WIN_REWARD, XP_AWARDS, starterCards,
   type CardDefinition, type CaseResult, type LadderRow, type LootCard, type MatchRewards,
   type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerProfile, type SavedDeck,
 } from '@kartishki/shared';
@@ -68,12 +69,12 @@ export class PlayerStore {
   }
   async logout(token: string) { await this.db.query('DELETE FROM player_sessions WHERE token_hash = $1', [digest(token)]); }
   async library(playerId: string, tx: Sql = this.db): Promise<PlayerLibrary> {
-    const row = (await tx.query<{ id: string; username: string; elo: string | number; currency: string | number; lastDaily: string | null; today: string }>(
-      'SELECT id, username, elo, currency, last_daily::text AS "lastDaily", CURRENT_DATE::text AS today FROM players WHERE id = $1', [playerId])).rows[0];
+    const row = (await tx.query<{ id: string; username: string; elo: string | number; currency: string | number; xp: string | number; lastDaily: string | null; today: string }>(
+      'SELECT id, username, elo, currency, xp, last_daily::text AS "lastDaily", CURRENT_DATE::text AS today FROM players WHERE id = $1', [playerId])).rows[0];
     if (!row) throw new PlayerError('loginRequired', 401);
     const lastDaily = row.lastDaily ? String(row.lastDaily).slice(0, 10) : null;
     const profile: PlayerProfile = {
-      id: row.id, username: row.username, elo: Number(row.elo), currency: Number(row.currency),
+      id: row.id, username: row.username, elo: Number(row.elo), currency: Number(row.currency), xp: Number(row.xp),
       lastDaily, dailyAvailable: !lastDaily || lastDaily < String(row.today).slice(0, 10),
     };
     const collection = (await tx.query<{ cardId: string; copies: number }>('SELECT card_id AS "cardId", copies FROM player_collection WHERE player_id = $1 ORDER BY card_id', [playerId])).rows
@@ -132,14 +133,21 @@ export class PlayerStore {
       return this.library(playerId, tx);
     });
   }
-  private async grant(tx: Sql, playerId: string, cards: CardDefinition[], cost: number) {
-    const paid = (await tx.query<{ currency: string | number }>('UPDATE players SET currency = currency - $2 WHERE id = $1 AND currency >= $2 RETURNING currency', [playerId, cost])).rows[0];
+  private async grant(tx: Sql, playerId: string, cards: CardDefinition[], cost: number, xpGain: number) {
+    const paid = (await tx.query<{ currency: string | number; xp: string | number }>('UPDATE players SET currency = currency - $2, xp = xp + $3 WHERE id = $1 AND currency >= $2 RETURNING currency, xp', [playerId, cost, xpGain])).rows[0];
     if (!paid) throw new PlayerError('insufficientFunds');
     for (const card of cards) {
       await tx.query(`INSERT INTO player_collection (player_id, card_id, copies) VALUES ($1,$2,1)
         ON CONFLICT (player_id, card_id) DO UPDATE SET copies = player_collection.copies + 1`, [playerId, card.id]);
     }
-    return Number(paid.currency);
+    return { currency: Number(paid.currency), xp: Number(paid.xp) };
+  }
+  async addXp(playerId: string, amount: unknown): Promise<PlayerLibrary> {
+    if (!Number.isInteger(amount) || !XP_AWARDS.includes(amount as typeof XP_AWARDS[number])) throw new PlayerError('invalidRequest');
+    return this.db.transaction(async tx => {
+      await tx.query('UPDATE players SET xp = xp + $2 WHERE id = $1', [playerId, amount]);
+      return this.library(playerId, tx);
+    });
   }
   async openPack(playerId: string, catalog: CardDefinition[]): Promise<PackResult> {
     if (!catalog.length) throw new PlayerError('emptyCatalog');
@@ -149,8 +157,8 @@ export class PlayerStore {
       if (cards.every(card => card.rarity === 'common') && catalog.some(card => card.rarity !== 'common')) {
         cards[PACK_SIZE - 1] = pick(catalog.filter(card => card.rarity !== 'common'), packOdds);
       }
-      const currency = await this.grant(tx, playerId, cards, PACK_COST);
-      return { cards: cards.map(loot), currency };
+      const paid = await this.grant(tx, playerId, cards, PACK_COST, PACK_XP);
+      return { cards: cards.map(loot), ...paid };
     });
   }
   async openCase(playerId: string, catalog: CardDefinition[]): Promise<CaseResult> {
@@ -161,8 +169,8 @@ export class PlayerStore {
       const landing = 18;
       const reel = Array.from({ length: 24 }, () => loot(pick(catalog, caseOdds)));
       reel[landing] = loot(prize);
-      const currency = await this.grant(tx, playerId, [prize], CASE_COST);
-      return { prize: loot(prize), reel, landing, currency };
+      const paid = await this.grant(tx, playerId, [prize], CASE_COST, CASE_XP);
+      return { prize: loot(prize), reel, landing, ...paid };
     });
   }
   async settleMatch(playerA: string, playerB: string, winnerId: string): Promise<Record<string, MatchRewards>> {
@@ -170,9 +178,9 @@ export class PlayerStore {
     return this.db.transaction(async tx => {
       const [first, second] = [playerA, playerB].sort();
       await tx.query('SELECT id FROM players WHERE id IN ($1,$2) FOR UPDATE', [first, second]);
-      const rows = (await tx.query<{ id: string; elo: string | number; currency: string | number }>('SELECT id, elo, currency FROM players WHERE id IN ($1,$2)', [playerA, playerB])).rows;
+      const rows = (await tx.query<{ id: string; elo: string | number; currency: string | number; xp: string | number }>('SELECT id, elo, currency, xp FROM players WHERE id IN ($1,$2)', [playerA, playerB])).rows;
       if (rows.length !== 2) throw new PlayerError('loginRequired', 401);
-      const byId = new Map(rows.map(row => [row.id, { elo: Number(row.elo), currency: Number(row.currency) }]));
+      const byId = new Map(rows.map(row => [row.id, { elo: Number(row.elo), currency: Number(row.currency), xp: Number(row.xp) }]));
       const result: Record<string, MatchRewards> = {};
       for (const id of [playerA, playerB]) {
         const own = byId.get(id)!, other = byId.get(id === playerA ? playerB : playerA)!;
@@ -180,10 +188,26 @@ export class PlayerStore {
         const score = winnerId === '' ? 0.5 : winnerId === id ? 1 : 0;
         const elo = Math.max(0, Math.round(own.elo + 32 * (score - expected)));
         const gained = winnerId === id ? WIN_REWARD : 0;
-        await tx.query('UPDATE players SET elo = $2, currency = currency + $3 WHERE id = $1', [id, elo, gained]);
-        result[id] = { elo, currency: own.currency + gained, gained };
+        const xpGain = winnerId === '' ? MATCH_DRAW_XP : winnerId === id ? MATCH_WIN_XP : MATCH_LOSS_XP;
+        const xp = own.xp + xpGain;
+        await tx.query('UPDATE players SET elo = $2, currency = currency + $3, xp = $4 WHERE id = $1', [id, elo, gained, xp]);
+        result[id] = { elo, currency: own.currency + gained, gained, xp };
       }
       return result;
+    });
+  }
+  async settleVs(playerId: string, score: number, opponentElo = 1000): Promise<MatchRewards> {
+    return this.db.transaction(async tx => {
+      const row = (await tx.query<{ id: string; elo: string | number; currency: string | number; xp: string | number }>('SELECT id, elo, currency, xp FROM players WHERE id = $1 FOR UPDATE', [playerId])).rows[0];
+      if (!row) throw new PlayerError('loginRequired', 401);
+      const ownElo = Number(row.elo), currency = Number(row.currency);
+      const expected = 1 / (1 + 10 ** ((opponentElo - ownElo) / 400));
+      const elo = Math.max(0, Math.round(ownElo + 32 * (score - expected)));
+      const gained = score === 1 ? WIN_REWARD : 0;
+      const xpGain = score === 1 ? MATCH_WIN_XP : score === 0.5 ? MATCH_DRAW_XP : MATCH_LOSS_XP;
+      const xp = Number(row.xp) + xpGain;
+      await tx.query('UPDATE players SET elo = $2, currency = currency + $3, xp = $4 WHERE id = $1', [playerId, elo, gained, xp]);
+      return { elo, currency: currency + gained, gained, xp };
     });
   }
 }

@@ -13,7 +13,7 @@
     "dev": "concurrently -k -n server,client,editor \"npm run dev -w @kartishki/server\" \"npm run dev -w @kartishki/client\" \"npm run dev -w @kartishki/editor\"",
     "typecheck": "tsc --noEmit",
     "build": "npm run build -w @kartishki/client && npm run build -w @kartishki/editor && npm run build -w @kartishki/server",
-    "test": "tsx --test apps/server/test/*.test.ts",
+    "test": "tsx --test apps/server/test/*.test.ts tests/pointerMath.test.ts tests/pointerDnd.test.ts tests/battlegroundsLayout.test.ts tests/leveling.test.ts",
     "test:browser": "playwright test",
     "test:metagame": "tsx --test tests/economy.test.ts tests/beerRank.test.ts && playwright test --config playwright.metagame.config.ts"
   },

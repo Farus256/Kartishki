@@ -19,9 +19,11 @@ export function MatchmakingModal({ onFound, onCancel }: { onFound: () => void; o
   const [index, setIndex] = useState(0);
   const [locked, setLocked] = useState(false);
   const shake = useAnimationControls();
-  const searching = !locked && state.status !== 'active';
+  const searching = !locked && !['active', 'selecting'].includes(state.status);
   const opponent = REEL[index % REEL.length];
   const handedOff = useRef(false);
+  const onFoundRef = useRef(onFound);
+  onFoundRef.current = onFound;
 
   useEffect(() => { void session.connect(); }, []);
 
@@ -32,13 +34,21 @@ export function MatchmakingModal({ onFound, onCancel }: { onFound: () => void; o
   }, [searching]);
 
   useEffect(() => {
-    if (state.status !== 'active' || locked) return;
+    if (!['active', 'selecting'].includes(state.status)) return;
     setLocked(true);
     setIndex(n => n + 5);
+  }, [state.status]);
+
+  useEffect(() => {
+    if (!locked) return;
     const impact = setTimeout(() => void shake.start({ x: [0, -16, 13, -8, 5, 0], y: [0, 9, -7, 4, 0] }, { duration: 0.42 }), 620);
-    const leave = setTimeout(() => { if (!handedOff.current) { handedOff.current = true; onFound(); } }, 1450);
+    const leave = setTimeout(() => {
+      if (handedOff.current) return;
+      handedOff.current = true;
+      onFoundRef.current();
+    }, 1450);
     return () => { clearTimeout(impact); clearTimeout(leave); };
-  }, [state.status, locked]);
+  }, [locked]);
 
   return (
     <motion.div className="absolute inset-0 z-50 grid place-items-center bg-black/78"

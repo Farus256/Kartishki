@@ -1,6 +1,7 @@
 ﻿import { useEffect, useId, useRef } from 'react';
 import { motion, useAnimationFrame, useReducedMotion, useSpring } from 'framer-motion';
 import { BOTTLE_CAPACITY, type BeerLeague } from '../beerRank';
+import lvivske from '../assets/lvivske-logo.png';
 
 const TOP = 106, BOTTOM = 658, HEIGHT = BOTTOM - TOP;
 const SHAPE = 'M170 80 L248 81 L250 135 C249 161 270 173 287 190 Q336 227 338 276 L350 606 Q352 652 326 672 Q312 687 288 674 Q266 695 244 680 Q220 697 199 681 Q175 695 152 680 Q122 690 100 670 Q76 651 80 612 L89 279 Q89 228 131 194 C153 176 169 158 168 132Z';
@@ -72,10 +73,7 @@ export function BeerBottle({ remainingMl, league }: { remainingMl: number; leagu
     <g transform="rotate(-4 215 430)">
       <path d="M101 350 L322 344 L329 517 L303 532 L98 524 L102 484 L94 468Z" fill="#d6c7a1" stroke="#25231e" strokeWidth="4" />
       <path d="M108 357 L315 352 L320 516 L105 515Z" fill={`url(#${id}-hatch)`} stroke="#6f644b" strokeWidth="1" />
-      <text x="212" y="379" textAnchor="middle" fontFamily="var(--font-stencil)" fontSize="18" fill="#302b22">ДЕВЯТАЯ ЖИЗНЬ</text>
-      <path d="M167 460 L165 397 L190 414 Q211 403 231 413 L255 395 L251 460 Q213 491 167 460Z" fill="#2a2821" stroke="#222019" strokeWidth="3" />
-      <ellipse cx="191" cy="438" rx="13" ry="15" fill="#e3d4b2" /><ellipse cx="230" cy="436" rx="13" ry="15" fill="#e3d4b2" />
-      <path d="M192 430v15 M229 428v15 M207 451l7 1-4 6 M188 466q23-7 46-2" fill="none" stroke="#d6c7a1" strokeWidth="2" /><path d="M192 430v15 M229 428v15" stroke="#29271e" strokeWidth="4" />
+      <image href={lvivske} x="118" y="354" width="186" height="145" preserveAspectRatio="xMidYMid meet" />
       <text x="213" y="503" textAnchor="middle" fontFamily="var(--font-hand)" fontSize="21" fill="#302b22">{dark ? 'ТЁМНОЕ · ПОРТЕР' : 'СВЕТЛОЕ · НЕФИЛЬТР.'}</text>
       <path d="M105 395l23-7-11 11 M307 477l-16 15 30-10 M123 514l14-5" fill="none" stroke="#f0e5c8" strokeWidth="5" />
     </g>

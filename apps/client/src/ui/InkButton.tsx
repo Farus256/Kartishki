@@ -37,12 +37,11 @@ export function InkButton({ children, onClick, disabled, tone = 'paper', size = 
   return (
     <motion.button
       type="button" title={title} disabled={disabled} onClick={onClick}
-      className={`ink-edge group relative select-none border-[3px] font-hand tracking-wide shadow-[5px_6px_0_#1a1a1a] disabled:opacity-50 disabled:shadow-none ${tones[tone]} ${sizes[size]} ${className}`}
+      className={`ink-edge group relative select-none border-[3px] font-hand tracking-wide shadow-[5px_6px_0_#1a1a1a] disabled:opacity-50 disabled:shadow-none ${tones[tone]} ${sizes[size]} ${pulse && !disabled ? 'ink-pulse' : ''} ${className}`}
       initial={false}
       whileHover={disabled ? undefined : { scale: 1.05, rotate: -2, y: -3, boxShadow: lift }}
       whileTap={disabled ? undefined : { scale: 0.96, rotate: 1, y: 3, boxShadow: '0px 0px 0 #1a1a1a' }}
-      animate={pulse && !disabled ? { filter: ['brightness(1)', 'brightness(1.2)', 'brightness(1)'] } : { filter: 'brightness(1)' }}
-      transition={pulse && !disabled ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : spring}
+      transition={spring}
     >
       <span className="pointer-events-none absolute inset-0 opacity-[.18] transition-opacity duration-200 group-hover:opacity-40"
         style={{ backgroundImage: 'repeating-linear-gradient(-35deg,rgba(26,26,26,.14) 0 1px,transparent 1px 5px)' }} />

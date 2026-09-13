@@ -9,7 +9,7 @@ function fixture(cards: CardDefinition[] = [structuredClone(starterCards[0])]) {
   const events: GameEvent[] = []; const battle = new Battle(state,cards,event=>events.push(event)); battle.start();
   const action = () => ({ expectedRevision: state.revision });
   const play = (owner='a', cardId=cards[0].id) => { state.activePlayer=owner; state.phase='main'; state.players.get(owner)!.mana=10; battle.hands.set(owner,[{instanceId:'test',cardId}]); assert.equal(battle.play(owner,{...action(),instanceId:'test'}),true); return [...state.minions.values()].at(-1)!; };
-  const attack = (attackerId: string,targetId: string) => { state.phase='combat'; return battle.attack(state.activePlayer,{...action(),attackerId,targetId}); };
+  const attack = (attackerId: string,targetId: string) => battle.attack(state.activePlayer,{...action(),attackerId,targetId});
   return {state,battle,events,action,play,attack};
 }
 
@@ -20,12 +20,11 @@ test('hands stay private and draw events reveal no identities',()=>{
   assert.equal(JSON.stringify(state.toJSON()).includes('instanceId'),false);
   assert.ok(events.every(e=>e.kind==='draw' && e.cardId===''));
 });
-test('play rejects forged hands, wrong phase and insufficient mana without mutation',()=>{
+test('play rejects forged hands, wrong turn and insufficient mana without mutation',()=>{
   const {state,battle,action}=fixture(); const id=battle.hands.get('a')![0].instanceId;
   const before=state.toJSON(); assert.equal(battle.play('a',{...action(),instanceId:'forged'}),false); assert.deepEqual(state.toJSON(),before);
   state.players.get('a')!.mana=0; assert.equal(battle.play('a',{...action(),instanceId:id}),false);
-  state.players.get('a')!.mana=10; state.phase='combat'; assert.equal(battle.play('a',{...action(),instanceId:id}),false);
-  state.phase='main'; assert.equal(battle.play('b',{...action(),instanceId:id}),false);
+  state.players.get('a')!.mana=10; assert.equal(battle.play('b',{...action(),instanceId:id}),false);
   const revision=state.revision; assert.equal(battle.play('a',{...action(),instanceId:id}),true); assert.equal(state.players.get('a')!.mana,9);
   assert.equal(battle.play('a',{expectedRevision:revision,instanceId:id}),false);
 });
@@ -77,12 +76,12 @@ test('full board rejects plays and a new turn refreshes readiness',()=>{
   const {state,play,battle,action}=fixture(); for(let i=0;i<7;i++) play();
   const before=state.revision; battle.hands.set('a',[{instanceId:'eighth',cardId:starterCards[0].id}]);
   assert.equal(battle.play('a',{...action(),instanceId:'eighth'}),false); assert.equal(state.revision,before);
-  state.phase='end'; state.activePlayer='b'; assert.equal(battle.advance('b',action()),true); assert.ok([...state.minions.values()].every(m=>m.ready));
+  state.activePlayer='b'; assert.equal(battle.advance('b',action()),true); assert.ok([...state.minions.values()].every(m=>m.ready));
 });
 test('each player exhausts exactly thirty cards before fatigue starts',()=>{
   const {state,battle,action}=fixture();
   const drawFor = (owner: string) => {
-    state.activePlayer=owner==='a'?'b':'a'; state.phase='end';
+    state.activePlayer=owner==='a'?'b':'a';
     assert.equal(battle.advance(state.activePlayer,action()),true);
   };
   for (const owner of ['a','b']) {
@@ -97,7 +96,7 @@ test('each player exhausts exactly thirty cards before fatigue starts',()=>{
 });
 test('fatigue eventually ends a match and hands cap at ten',()=>{
   const {state,battle,action}=fixture();
-  for(let i=0;i<100 && state.status==='active';i++){ state.phase='end'; assert.equal(battle.advance(state.activePlayer,action()),true); }
+  for(let i=0;i<100 && state.status==='active';i++){ assert.equal(battle.advance(state.activePlayer,action()),true); }
   assert.equal(state.status,'finished'); assert.ok([...battle.hands.values()].every(hand=>hand.length<=10));
 });
 test('selected decks must be 30 known cards',()=>{
@@ -110,4 +109,44 @@ test('selected decks must be 30 known cards',()=>{
   assert.equal(battle.hands.get('a')!.length,4);
   assert.ok(battle.hands.get('a')!.every(card=>cards.some(item=>item.id===card.cardId)));
   assert.throws(()=>new Battle(state,cards).start(new Map([['a',['missing']],['b',deck]])));
+});
+
+
+test('summon triggers reserve board slots, deathrattles free slots, summoned cards skip battlecry', () => {
+  const token = { ...structuredClone(starterCards[0]), id:'token', abilities:[{trigger:'battlecry',effectId:'damage',params:{target:'enemyHero',amount:20}}] };
+  const source = { ...structuredClone(starterCards[0]), id:'summoner', abilities:[{name:'Подмога',trigger:'battlecry',effectId:'summon',params:{cardId:'token',amount:2}},{trigger:'deathrattle',effectId:'summon',params:{cardId:'token',amount:7}}] };
+  const f = fixture([source,token]); f.play('a',source.id);
+  assert.equal(f.state.minions.size,3); assert.equal(f.state.players.get('b')!.health,30);
+  const original = [...f.state.minions.values()].find(m => m.cardId === source.id)!;
+  const enemy = f.play('b',token.id); enemy.ready = true; assert.equal(f.attack(enemy.id,original.id),true);
+  assert.equal([...f.state.minions.values()].filter(m => m.owner === 'a').length,7);
+  assert.ok([...f.state.minions.values()].every(m => m.cardId === 'token'));
+  assert.equal(f.state.players.get('b')!.health,30);
+});
+test('rage summons once per transition into wounded state', () => {
+  const source = { ...structuredClone(starterCards[0]), id:'rage-summoner', health:8, attack:0, abilities:[{trigger:'enrage',effectId:'summon',params:{cardId:'paper-imp',amount:1}}] };
+  const f = fixture([source,structuredClone(starterCards[0])]); const m=f.play('a',source.id), enemy=f.play('b');
+  enemy.attack=1; enemy.health=20; enemy.ready=true; assert.equal(f.attack(enemy.id,m.id),true);
+  assert.equal([...f.state.minions.values()].filter(x=>x.owner==='a').length,2);
+  enemy.ready=true; assert.equal(f.attack(enemy.id,m.id),true);
+  assert.equal([...f.state.minions.values()].filter(x=>x.owner==='a').length,2);
+});
+test('creatures protect heroes from attacks and targeted hero powers', () => {
+  const f=fixture(); const attacker=f.play('a'), defender=f.play('b'); f.state.activePlayer='a'; attacker.ready=true;
+  const a=f.state.players.get('a')!; a.heroId='captain'; a.mana=10;
+  assert.equal(f.attack(attacker.id,'b'),false); assert.equal(attacker.ready,true);
+  assert.equal(f.battle.power('a',{...f.action(),targetId:'b'}),false); assert.equal(a.mana,10);
+  assert.equal(f.battle.power('a',{...f.action(),targetId:defender.id}),true); assert.equal(a.mana,8); assert.equal(a.powerUsed,true);
+  assert.equal(f.state.minions.has(defender.id),false);
+  assert.equal(f.battle.power('a',{...f.action(),targetId:'b'}),false);
+  assert.equal(f.attack(attacker.id,'b'),true);
+});
+test('healing and summoning powers are bounded and refresh only on the next own turn', () => {
+  const f=fixture(); const a=f.state.players.get('a')!; a.heroId='medic'; a.maxHealth=32; a.health=31;
+  assert.equal(f.battle.power('a',f.action()),true); assert.equal(a.health,32); assert.equal(a.mana,8);
+  assert.equal(f.battle.advance('a',f.action()),true);
+  assert.equal(a.powerUsed,true); assert.equal(f.battle.advance('b',f.action()),true); assert.equal(a.powerUsed,false);
+  a.heroId='recruiter'; a.mana=10;
+  assert.equal(f.battle.power('a',f.action()),true); assert.equal(f.state.minions.size,1); assert.equal(a.mana,7);
+  assert.equal([...f.state.minions.values()][0].ready,false);
 });

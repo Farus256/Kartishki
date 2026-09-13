@@ -1,10 +1,10 @@
 import { Client, type Room } from '@colyseus/sdk';
-import { MatchState, type CardDefinition, type HandCard, type Catalog, type GameEvent, type MatchRewards } from '@kartishki/shared';
+import { MatchState, type CardDefinition, type HandCard, type Catalog, type GameEvent, type MatchRewards, type HeroDefinition, starterHeroes } from '@kartishki/shared';
 import { playerSession } from './playerSession';
 export type Minion = { id: string; cardId: string; owner: string; attack: number; health: number; maxHealth: number; shield: boolean; ready: boolean };
-export type Player = { id: string; health: number; mana: number; handCount: number; deckCount: number };
-export type Snapshot = { status: string; phase: string; turn: number; revision: number; activePlayer: string; sessionId: string; error: string; winner: string; players: Player[]; minions: Minion[]; hand: HandCard[]; cards: CardDefinition[] };
-const empty = (): Snapshot => ({ status: 'offline', phase: 'start', turn: 0, revision: 0, activePlayer: '', sessionId: '', error: '', winner: '', players: [], minions: [], hand: [], cards: [] });
+export type Player = { id: string; heroId: string; maxHealth: number; powerUsed: boolean; health: number; mana: number; handCount: number; deckCount: number };
+export type Snapshot = { status: string; phase: string; turn: number; revision: number; activePlayer: string; sessionId: string; error: string; winner: string; players: Player[]; minions: Minion[]; hand: HandCard[]; cards: CardDefinition[]; heroes: HeroDefinition[]; heroOffers: HeroDefinition[] };
+const empty = (): Snapshot => ({ status: 'offline', phase: 'start', turn: 0, revision: 0, activePlayer: '', sessionId: '', error: '', winner: '', players: [], minions: [], hand: [], cards: [], heroes: [], heroOffers: [] });
 let snapshot = empty();
 const listeners = new Set<() => void>();
 const events = new Set<(event: GameEvent) => void>();
@@ -27,11 +27,12 @@ export const session = {
         if (room !== joined) return;
         const s = joined.state;
         publish({ status: s.status, phase: s.phase, turn: s.turn, revision: s.revision, activePlayer: s.activePlayer, sessionId: joined.sessionId, winner: s.winner,
-          players: [...s.players].map(([id,p]) => ({ id, health: p.health, mana: p.mana, handCount: p.handCount, deckCount: p.deckCount })),
+          players: [...s.players].map(([id,p]) => ({ id, heroId: p.heroId, maxHealth: p.maxHealth, powerUsed: p.powerUsed, health: p.health, mana: p.mana, handCount: p.handCount, deckCount: p.deckCount })),
           minions: [...s.minions.values()].map(m => ({ id: m.id, cardId: m.cardId, owner: m.owner, attack: m.attack, health: m.health, maxHealth: m.maxHealth, shield: m.shield, ready: m.ready })), error: '' });
       };
       joined.onStateChange(sync);
-      joined.onMessage('catalog', (catalog: Catalog) => { if (room === joined) publish({ cards: catalog.cards }); });
+      joined.onMessage('catalog', (catalog: Catalog) => { if (room === joined) publish({ cards: catalog.cards, heroes: catalog.heroes ?? starterHeroes }); });
+      joined.onMessage('heroOffers', (heroOffers: HeroDefinition[]) => { if (room === joined) publish({ heroOffers }); });
       joined.onMessage('hand', (hand: { cards: HandCard[] }) => { if (room === joined) publish({ hand: hand.cards }); });
       let eventId = 0;
       joined.onMessage('event', (event: GameEvent) => { if (room === joined && event.id > eventId) { eventId = event.id; events.forEach(fn => fn(event)); } });
@@ -42,6 +43,8 @@ export const session = {
       sync(); joined.send('ready');
     } catch (error) { if (attempt === generation) publish({ ...empty(), error: error instanceof Error && ['chooseDeck','loginRequired','invalidDeck','cardsNotOwned','alreadyInMatch'].includes(error.message) ? error.message : 'connectionError' }); }
   },
+  chooseHero(heroId: string) { room?.send('chooseHero', { heroId }); },
+  power(targetId?: string) { room?.send('power', { targetId, expectedRevision: snapshot.revision }); },
   advance() { room?.send('advance', { expectedRevision: snapshot.revision }); },
   play(instanceId: string) { room?.send('play', { instanceId, expectedRevision: snapshot.revision }); },
   attack(attackerId: string, targetId: string) { room?.send('attack', { attackerId, targetId, expectedRevision: snapshot.revision }); },

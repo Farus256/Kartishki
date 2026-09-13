@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { DECK_SIZE, MinionState, type MatchState, type CardDefinition, type HandCard, type GameEvent } from '@kartishki/shared';
+import { DECK_SIZE, MinionState, type MatchState, type CardDefinition, type HandCard, type GameEvent, starterHeroes, type HeroDefinition } from '@kartishki/shared';
 import { advancePhase } from './rules';
 
 export class Battle {
@@ -9,7 +9,7 @@ export class Battle {
   private serial = 0;
   private eventId = 0;
   readonly cards: Map<string, CardDefinition>;
-  constructor(readonly state: MatchState, definitions: CardDefinition[], private emit: (event: GameEvent) => void = () => {}) {
+  constructor(readonly state: MatchState, definitions: CardDefinition[], private emit: (event: GameEvent) => void = () => {}, private heroes: HeroDefinition[] = starterHeroes) {
     this.cards = new Map(definitions.map(c => [c.id, c]));
   }
   start(selectedDecks = new Map<string, string[]>()) {
@@ -44,12 +44,13 @@ export class Battle {
     if (!advancePhase(this.state, owner, input)) return false;
     if (before !== this.state.activePlayer) {
       for (const minion of this.state.minions.values()) if (minion.owner === this.state.activePlayer) minion.ready = true;
+      this.state.players.get(this.state.activePlayer)!.powerUsed = false;
       this.draw(this.state.activePlayer); this.settle();
     }
     return true;
   }
   play(owner: string, input: unknown) {
-    if (!this.authorized(owner, input) || this.state.phase !== 'main' || typeof input.instanceId !== 'string') return false;
+    if (!this.authorized(owner, input) || typeof input.instanceId !== 'string') return false;
     const hand = this.hands.get(owner)!; const index = hand.findIndex(c => c.instanceId === input.instanceId);
     if (index < 0 || [...this.state.minions.values()].filter(m => m.owner === owner).length >= 7) return false;
     const card = this.cards.get(hand[index].cardId)!; const player = this.state.players.get(owner)!;
@@ -62,12 +63,13 @@ export class Battle {
     this.trigger(m, 'battlecry'); this.settle(); this.state.revision++; return true;
   }
   attack(owner: string, input: unknown) {
-    if (!this.authorized(owner, input) || this.state.phase !== 'combat' || typeof input.attackerId !== 'string' || typeof input.targetId !== 'string') return false;
+    if (!this.authorized(owner, input) || typeof input.attackerId !== 'string' || typeof input.targetId !== 'string') return false;
     const attacker = this.state.minions.get(input.attackerId);
     if (!attacker || attacker.owner !== owner || !attacker.ready || attacker.attack <= 0) return false;
     const target = this.state.minions.get(input.targetId);
     const hero = this.state.players.get(input.targetId);
     if (target ? target.owner === owner : !hero || input.targetId === owner) return false;
+    if (hero && [...this.state.minions.values()].some(m => m.owner === input.targetId && m.health > 0)) return false;
     attacker.ready = false;
     this.event('attack', attacker.cardId, attacker.id, input.targetId);
     if (target) {
@@ -75,6 +77,35 @@ export class Battle {
       this.effect(target, 'damage', attacker.attack); this.effect(attacker, 'damage', retaliation);
     } else hero!.health -= attacker.attack;
     this.settle(); this.state.revision++; return true;
+  }
+  power(owner: string, input: unknown) {
+    if (!this.authorized(owner, input)) return false;
+    const player = this.state.players.get(owner)!;
+    const hero = this.heroes.find(h => h.id === player.heroId), ability = hero?.ability;
+    if (!ability || player.powerUsed || player.mana < ability.cost) return false;
+    const target = typeof input.targetId === 'string' ? input.targetId : '';
+    const minion = this.state.minions.get(target), targetHero = this.state.players.get(target);
+    if (ability.effectId === 'damage' && (minion ? minion.owner === owner : !targetHero || target === owner || [...this.state.minions.values()].some(m => m.owner === target))) return false;
+    if (ability.effectId === 'summon' && (!this.cards.has(ability.cardId!) || [...this.state.minions.values()].filter(m => m.owner === owner).length >= 7)) return false;
+    if (ability.effectId === 'heal' && player.health >= player.maxHealth) return false;
+    player.mana -= ability.cost; player.powerUsed = true;
+    this.event('power', '', owner, ability.effectId === 'heal' ? owner : target);
+    if (ability.effectId === 'summon') this.summon(owner, ability.cardId!, ability.amount);
+    else if (ability.effectId === 'heal') player.health = Math.min(player.maxHealth, player.health + ability.amount);
+    else if (minion) this.effect(minion, 'damage', ability.amount);
+    else targetHero!.health -= ability.amount;
+    this.settle(); this.state.revision++; return true;
+  }
+  private summon(owner: string, cardId: string, count: number) {
+    const card = this.cards.get(cardId); if (!card) return;
+    const space = 7 - [...this.state.minions.values()].filter(m => m.owner === owner).length;
+    for (let n = 0; n < Math.min(count, space); n++) {
+      const m = new MinionState(); m.id = `m${++this.serial}`; m.owner = owner; m.cardId = card.id;
+      m.attack = card.attack; m.health = m.maxHealth = card.health;
+      for (const property of card.properties) this.effect(m, property, 1);
+      this.state.minions.set(m.id, m); this.event('spawn', card.id, m.id);
+      // Summoning never repeats battlecries, which require playing from hand.
+    }
   }
   private effect(m: MinionState, effect: string, amount: number) {
     switch (effect) {
@@ -89,8 +120,9 @@ export class Battle {
   private trigger(source: MinionState, trigger: string) {
     for (const a of this.cards.get(source.cardId)!.abilities.filter(a => a.trigger === trigger)) {
       const amount = Number(a.params.amount);
+      if (a.effectId === 'summon') { this.summon(source.owner, String(a.params.cardId), amount); continue; }
       if (a.params.target === 'enemyHero') {
-        for (const [id, hero] of this.state.players) if (id !== source.owner) hero.health = a.effectId === 'heal' ? Math.min(30, hero.health + amount) : hero.health - amount;
+        for (const [id, hero] of this.state.players) if (id !== source.owner) hero.health = a.effectId === 'heal' ? Math.min(hero.maxHealth, hero.health + amount) : hero.health - amount;
       } else {
         const targets = a.params.target === 'self' ? [source] : [...this.state.minions.values()].filter(m => m.owner !== source.owner && m.health > 0);
         for (const m of targets) this.effect(m, a.effectId, amount);
@@ -98,17 +130,20 @@ export class Battle {
     }
   }
   private rageBonus(m: MinionState) {
-    return m.health < m.maxHealth ? this.cards.get(m.cardId)!.abilities.filter(a => a.trigger === 'enrage').reduce((sum, a) => sum + Number(a.params.amount), 0) : 0;
+    return m.health < m.maxHealth ? this.cards.get(m.cardId)!.abilities.filter(a => a.trigger === 'enrage' && a.effectId === 'attack').reduce((sum, a) => sum + Number(a.params.amount), 0) : 0;
   }
   private settle() {
-    // Remove each simultaneous death group before its deathrattles. No resurrection/summon effects yet.
+    // Free all dead slots before resolving deathrattles; summons respect the seven-slot cap.
     for (let wave = 0; wave < 15; wave++) {
       const dead = [...this.state.minions.values()].filter(m => m.health <= 0);
       if (!dead.length) break;
       for (const m of dead) { this.state.minions.delete(m.id); this.event('death', m.cardId, m.id); }
       for (const m of dead) this.trigger(m, 'deathrattle');
     }
-    for (const m of this.state.minions.values()) {
+    for (const m of [...this.state.minions.values()]) {
+      const injured = m.health < m.maxHealth;
+      if (injured && !m.enraged) for (const a of this.cards.get(m.cardId)!.abilities) if (a.trigger === 'enrage' && a.effectId === 'summon') this.summon(m.owner, String(a.params.cardId), Number(a.params.amount));
+      m.enraged = injured;
       const bonus = this.rageBonus(m);
       m.attack = Math.max(0, m.attack + bonus - m.enrageBonus); m.enrageBonus = bonus;
     }

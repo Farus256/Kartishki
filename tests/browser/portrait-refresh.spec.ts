@@ -1,0 +1,31 @@
+import { test, expect } from '@playwright/test';
+import { resolve } from 'node:path';
+
+test('real portrait keeps original colours, restores its draft and uses the shared card frame', async ({ page }) => {
+  await page.goto(process.env.EDITOR_TEST_URL ?? 'http://127.0.0.1:5174');
+  await page.getByRole('button', { name: 'Обычные карты', exact: true }).click();
+  await page.getByLabel('Название (ru)').fill('Портрет игрока');
+  await page.getByLabel('Фотография', { exact: true }).setInputFiles(resolve('Foto/image-removebg-preview.png'));
+  const portrait = page.locator('.card-detail img');
+  await expect(portrait).toBeVisible();
+  await expect(page.getByLabel('Цветовой пресет')).toHaveValue('printed');
+  await page.getByLabel('Размер кадра').fill('0.8');
+  await page.getByLabel('Кадр по вертикали').fill('0.25');
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kartishki-editor-draft-v1') ?? '{}').art?.crop?.y)).toBe(.25);
+  await page.reload();
+  await page.getByRole('button', { name: 'Обычные карты', exact: true }).click();
+  await expect(page.getByLabel('Название (ru)')).toHaveValue('Портрет игрока');
+  await expect(page.getByLabel('Размер кадра')).toHaveValue('0.8');
+  await expect(portrait).toBeVisible();
+  await page.getByRole('button', { name: 'Сбросить кадрирование' }).click();
+  await expect(page.getByLabel('Размер кадра')).toHaveValue('1');
+  await expect(page.getByLabel('Кадр по вертикали')).toHaveValue('0.5');
+  const frame = page.locator('.card-detail .game-card-face');
+  await expect(frame.locator('h3')).toBeVisible();
+  expect(await frame.evaluate(node => getComputedStyle(node).position)).toBe('absolute');
+  const bounds = (await frame.boundingBox())!;
+  expect(bounds.height / bounds.width).toBeCloseTo(300 / 216, 2);
+  await page.screenshot({ path: 'artifacts/portrait-editor.png', fullPage: true });
+  await page.getByRole('button', { name: 'Убрать фото' }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kartishki-editor-draft-v1') ?? '{}').art?.url)).toBe('');
+});

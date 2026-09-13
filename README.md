@@ -9,8 +9,6 @@ TypeScript / React / PixiJS 8 / Colyseus 0.18, npm workspaces, русский я
 ```powershell
 Set-Location D:\KARTISHKI
 npm ci
-# Выберите локальный ключ и введите то же значение в редакторе.
-$env:ADMIN_TOKEN = 'your-local-admin-key'
 npm run dev
 ```
 
@@ -18,8 +16,7 @@ npm run dev
 - Редактор: http://127.0.0.1:5174.
 - Colyseus и API: http://127.0.0.1:2567.
 
-Без ADMIN_TOKEN игра работает, публикация карт отключена. Ключ редактор хранит
-только в памяти компонента. `.env.example` показывает переменные; сервер не
+`.env.example` показывает переменные; сервер не
 подключает dotenv — переменные сервера задаются в оболочке. Vite читает
 `apps/client/.env.local` и `apps/editor/.env.local` для VITE_SERVER_URL.
 PORT меняет порт сервера. Все dev-сервисы слушают loopback.
@@ -30,10 +27,9 @@ PORT меняет порт сервера. Все dev-сервисы слуша�
 
 1. Гость играет серверной колодой. Аккаунт: регистрация, ежедневные 100 ✦,
    сохранение колоды из 30 карт коллекции, затем «Найти соперника».
-2. В основной фазе нажмите карту в руке: сервер проверит ману и место на столе.
-3. Перейдите в боевую фазу кнопкой «Следующая фаза».
-4. Нажмите своё готовое существо, затем существо врага или его героя.
-5. Завершите фазу и ход. После окончания матча выйдите и найдите новую игру.
+2. На своём ходу нажмите карту в руке: сервер проверит ману и место на столе.
+3. Существо бьёт только со следующего своего хода: потяните его на цель — карта останется на месте, появится стрелка.
+4. Кнопка «Конец хода» справа отдаёт ход сопернику. После матча выйдите и найдите новую игру.
 
 30 здоровья героя, 30 карт в колоде, до 10 карт в руке и 7 существ на столе.
 Сервер перемешивает колоду; стартовая рука — 3 карты, активный игрок берёт ещё
@@ -81,19 +77,18 @@ PORT меняет порт сервера. Все dev-сервисы слуша�
 
 Фотографии PNG/JPEG/WebP: до 8 МБ и 24 мегапикселей, нормализация до 1024px.
 Кадрирование: положение X/Y и размер квадратного кадра. Общая функция
-`packages/shared/src/photo.ts` выполняет яркость → контраст → порог с Bayer 4×4
-дизерингом → детерминированное зерно → чёрные чернила/серая бумага. Редактор
-показывает 384px Canvas-предпросмотр; Pixi использует 256px текстуру из того же
-алгоритма. Настройки сохраняются вместе с изображением; фильтр не запускается
-на каждом кадре. Изменения предпросмотра сгруппированы задержкой 60 мс, устаревшие
-результаты отбрасываются. Фото и звук пока встроены в JSON как data URL.
+`packages/shared/src/photo.ts` оставляет фото цветным и гоняет его через один из
+четырёх гротескных пресетов (CMYK-офсет, ночная вспышка, мульт-аппликация,
+ретро-гифка 64 цвета) либо оставляет оригинал. Насыщенность, контраст и
+интенсивность крутятся вживую: редактор и карта используют тот же `renderPhoto`.
+Pixi берёт текстуру из того же алгоритма. Фото и звук пока встроены в JSON как data URL.
 
 Звуки MP3/WAV/OGG/WebM до 1 МБ на событие, с прослушиванием в редакторе.
 Клиент проигрывает их по подтверждённым сервером событиям; звук можно выключить.
 Наведение, появление карт и короткая линия/тряска при атаке — начальные анимации,
 а не финальная художественная полировка. Учитывается prefers-reduced-motion.
 
-`PUT /api/catalog` требует `Authorization: Bearer <ADMIN_TOKEN>` и тело
+`PUT /api/catalog` принимает тело
 `{ card, version }`. Сервер повторно проверяет JSON и сохраняет файл атомарной
 заменой. Конфликт версии возвращает 409: обновите каталог и повторите публикацию.
 Максимум 30 определений. По умолчанию файл — `apps/server/data/catalog.json`
@@ -107,7 +102,7 @@ PORT меняет порт сервера. Все dev-сервисы слуша�
 
 ```mermaid
 flowchart LR
-  Editor[React редактор] -->|JSON + версия + ключ| API[Catalog API]
+  Editor[React редактор] -->|JSON + версия| API[Catalog API]
   API --> Disk[Версионный JSON на диске]
   Disk -->|снимок при создании| Room[Colyseus MatchRoom]
   Players[(PGlite / PostgreSQL)] --> Room
@@ -187,11 +182,11 @@ ELO, косметика в кейсах, desktop-обёртка Tauri/Electron �
 
 The guest menu now opens the deck builder and all three shop modes. `EconomyProvider` owns a local mock balance (starting at $1,500), card copies, saved/selected decks, bonus-pack inventory and pending shop reveals. Progress persists under `kartishki-demo-economy-v1` in localStorage. Purchases debit and grant rewards atomically before their animations; leaving or reloading resumes the reveal without charging or granting again. Clear that key to reset the demo.
 
-The binder has 8 cards per page, title/effect search, rarity and 0–10+ mana filters, creation of unowned cards at displayed dollar prices, a 30-card limit and a maximum of two owned copies per card. Saving validates the whole deck; clear/new/delete are separate actions. The shop offers $50 slots, three five-card pack tiers, and two direct-purchase cases with exact displayed rarity/card odds. Slot symbols are equally likely; three or more matching symbols anywhere pay the displayed reward. Bonus packs are redeemed before paid packs of the same tier.
+The binder has 8 cards per page, title/effect search, rarity and 0–10+ mana filters, a 30-card limit and a maximum of two owned copies per card. Locked cards stay locked until they drop from packs or the casino. Saving validates the whole deck; clear/new/delete are separate actions. The shop offers $50 slots, three five-card pack tiers, and two direct-purchase cases with exact displayed rarity/card odds. Slot symbols are equally likely; three or more matching symbols anywhere pay the displayed reward. Bonus packs are redeemed before paid packs of the same tier.
 
 This is the requested **mock frontend economy**. Local demo cards/decks and shop rewards are not submitted to ranked matches or the existing account APIs. Those APIs remain server-authoritative and keep their compatible `currency` field; their user-facing currency labels now use dollars. Existing server daily rewards and match payouts still belong to the account economy. The demo requires no backend; published cards supplement its local catalog when available. New shop copy is Russian; existing translated components still follow the language setting.
 
-Run `npm run test:metagame` for payout/odds unit checks and isolated Chrome browser tests covering deck persistence, crafting, insufficient funds, pack reload/flip behavior, bonus redemption, roulette alignment and 16:9 viewport containment. The test starts only a client on port 5180 and mocks the catalog. `npm run test:browser` retains the existing full server/editor/match suite. Screenshots from the focused tests are written to `artifacts/metagame-*.png`.
+Run `npm run test:metagame` for payout/odds unit checks and isolated Chrome browser tests covering deck persistence, insufficient funds, pack reload/flip behavior, bonus redemption, roulette alignment and 16:9 viewport containment. The test starts only a client on port 5180 and mocks the catalog. `npm run test:browser` retains the existing full server/editor/match suite. Screenshots from the focused tests are written to `artifacts/metagame-*.png`.
 
 ### Bottle rank in the main menu
 

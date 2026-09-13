@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import type { CardDefinition } from '@kartishki/shared';
 import { useEconomy } from '../EconomyContext';
 import { CASES, PACKS, type Product } from '../economy';
-import { CatPortrait } from '../ui/CatPortrait';
+import { PortraitPlaceholder } from '../ui/PortraitPlaceholder';
 import { Backdrop } from '../ui/Backdrop';
 import { CardBack, GameCard } from '../ui/GameCard';
 import { InkButton, spring } from '../ui/InkButton';
@@ -45,7 +45,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
       </div>)}
       {tab === 'cases' && (e.opening?.kind === 'cases' ? <CaseOpening reel={e.opening.reel} landing={e.opening.landing} prize={e.opening.prize} onDone={e.finish} /> : <div className="catalog-layout">
         <div className="catalog-shelf crates">{CASES.map((p, i) => <button key={p.id} className={`product-choice ${caseId === p.id ? 'chosen' : ''}`} onClick={() => setCaseId(p.id)} aria-pressed={caseId === p.id}>
-          <div className={`wooden-crate crate-${i}`}><span>ฅ</span><b>▣</b><small>{i ? 'IX • СЕКРЕТНО' : 'НЕ КАНТОВАТЬ'}</small></div><strong>{p.name}</strong><span>$ {p.cost} · 1 карта</span>
+          <div className={`wooden-crate crate-${i}`}><span>◆</span><b>▣</b><small>{i ? 'IX • СЕКРЕТНО' : 'НЕ КАНТОВАТЬ'}</small></div><strong>{p.name}</strong><span>$ {p.cost} · 1 карта</span>
         </button>)}</div>
         <div className="shop-receipt"><span className="eyebrow">КЛЮЧ НЕ НУЖЕН</span><h2>{crate.name}</h2><Odds product={crate} /><DropPreview product={crate} /><InkButton tone="gold" size="lg" disabled={e.dollars < crate.cost} onClick={() => e.openCase(crate.id)}>ОТКРЫТЬ КЕЙС (${crate.cost})</InkButton></div>
       </div>)}
@@ -62,7 +62,7 @@ function DropPreview({ product }: { product: Product }) {
   return <details className="drop-preview"><summary>Все возможные карты и шансы ▾</summary><div>{catalog.filter(c => product.weights[rarityOrder.indexOf(c.rarity)] > 0).map(c => <p key={c.id}><span style={{ color: rarityStyle[c.rarity].frame }}>{c.name.ru} · {t(c.rarity)}</span><b>{(product.weights[rarityOrder.indexOf(c.rarity)] / catalog.filter(d => d.rarity === c.rarity).length).toFixed(2)}%</b></p>)}</div></details>;
 }
 function Foil({ name, color = '#c1ac62', compact = false }: { name: string; color?: string; compact?: boolean }) {
-  return <div className={`foil-pack ${compact ? 'compact' : ''}`} style={{ '--foil-color': color } as React.CSSProperties}><div className="foil-crimp" /><span className="foil-brand">КАРТИШКИ</span><div className="foil-cat">ฅ</div><strong>{name}</strong><small>5 КАРТ • НЕ КОРМИТЬ ПОСЛЕ ПОЛУНОЧИ</small><div className="foil-crimp bottom" /></div>;
+  return <div className={`foil-pack ${compact ? 'compact' : ''}`} style={{ '--foil-color': color } as React.CSSProperties}><div className="foil-crimp" /><span className="foil-brand">КАРТИШКИ</span><div className="foil-emblem">◆</div><strong>{name}</strong><small>5 КАРТ • ОДНА НОВАЯ ИСТОРИЯ</small><div className="foil-crimp bottom" /></div>;
 }
 export function PackOpening({ cards, name, onDone }: { cards: CardDefinition[]; name: string; onDone: () => void }) {
   const [ripped, setRipped] = useState(false);
@@ -102,5 +102,5 @@ function CaseOpening({ reel, landing, prize, onDone }: { reel: CardDefinition[];
 }
 function ReelTile({ card }: { card: CardDefinition }) {
   const art = useCardArt(card.art, 512);
-  return <div className="reel-tile"><div>{art ? <img src={art} alt="" /> : <CatPortrait seed={card.id} />}</div><strong>{card.name.ru}</strong><i style={{ background: rarityStyle[card.rarity].frame }} /></div>;
+  return <div className="reel-tile"><div>{art ? <img src={art} alt="" /> : <PortraitPlaceholder seed={card.id} />}</div><strong>{card.name.ru}</strong><i style={{ background: rarityStyle[card.rarity].frame }} /></div>;
 }

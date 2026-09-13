@@ -1,9 +1,20 @@
-import { calibratedRank, isBeerRank, updateBeerRank, type BeerRank } from './beerRank';
-import type { CaseResult, MatchRewards, PackResult, PlayerLibrary, PlayerLogin, SavedDeck } from '@kartishki/shared';
+import { applyMatchElo, calibratedRank, isBeerRank, updateBeerRank, type BeerRank } from './beerRank';
+import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type SavedDeck } from '@kartishki/shared';
 
 const endpoint = (import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567').replace(/^ws/,'http');
+const GUEST_RANK_KEY = 'kartishki-beer-rank-v1:guest';
+const GUEST_XP_KEY = 'kartishki-player-xp-v1:guest';
+export type MatchReward = { elo: number; previousElo: number; gained: number };
+function loadGuestRank(): BeerRank {
+  try { const stored: unknown = JSON.parse(localStorage.getItem(GUEST_RANK_KEY) ?? 'null'); if (isBeerRank(stored)) return stored; } catch { /* keep the calibrated guest bottle */ }
+  return calibratedRank();
+}
 let token = localStorage.getItem('playerToken') ?? '';
-let snapshot: { beerRank: BeerRank; library?: PlayerLibrary; selectedDeck: string; loading: boolean; error: string } = { beerRank: calibratedRank(), selectedDeck: '', loading: !!token, error: '' };
+function loadGuestXp(): number {
+  try { const n = Number(localStorage.getItem(GUEST_XP_KEY)); if (Number.isInteger(n) && n >= 0) return n; } catch { /* keep zero until a write succeeds */ }
+  return 0;
+}
+let snapshot: { beerRank: BeerRank; xp: number; library?: PlayerLibrary; selectedDeck: string; loading: boolean; error: string; lastReward?: MatchReward } = { beerRank: token ? calibratedRank() : loadGuestRank(), xp: token ? 0 : loadGuestXp(), selectedDeck: '', loading: !!token, error: '' };
 const listeners = new Set<() => void>();
 const publish = (patch: Partial<typeof snapshot>) => { snapshot = { ...snapshot,...patch }; listeners.forEach(fn => fn()); };
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -24,8 +35,10 @@ function rankFor(profile: PlayerLibrary['profile']) {
   return rank;
 }
 function setLibrary(library: PlayerLibrary) {
-  const selectedDeck = library.decks.some(d=>d.id===snapshot.selectedDeck) ? snapshot.selectedDeck : library.decks[0]?.id ?? '';
-  publish({ library, selectedDeck, beerRank: rankFor(library.profile) });
+  const xp = Number(library.profile.xp ?? 0);
+  const next = { ...library, profile: { ...library.profile, xp } };
+  const selectedDeck = next.decks.some(d=>d.id===snapshot.selectedDeck) ? snapshot.selectedDeck : next.decks[0]?.id ?? '';
+  publish({ library: next, selectedDeck, beerRank: rankFor(next.profile), xp });
 }
 function addCopies(library: PlayerLibrary, ids: string[], currency: number): PlayerLibrary {
   const collection = library.collection.map(row => ({ ...row }));
@@ -47,22 +60,46 @@ export const playerSession = {
   selectDeck(id: string) { publish({ selectedDeck:id }); },
   patchProfile(rewards: MatchRewards) {
     if (!snapshot.library) return;
-    setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency } });
+    const previousElo = snapshot.library.profile.elo;
+    setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp ?? snapshot.library.profile.xp } });
+    publish({ lastReward: { elo: rewards.elo, previousElo, gained: rewards.gained } });
   },
+  addXp(amount: number) {
+    if (!(XP_AWARDS as readonly number[]).includes(amount)) return;
+    if (snapshot.library) {
+      const xp = (snapshot.library.profile.xp ?? 0) + amount;
+      setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, xp } });
+      if (token) void request<PlayerLibrary>('/xp', 'POST', { amount }).then(setLibrary).catch(() => {});
+      return;
+    }
+    const xp = snapshot.xp + amount;
+    try { localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* keep session xp in memory */ }
+    publish({ xp });
+  },
+  finishMatch(result: 'win' | 'loss' | 'draw') {
+    if (snapshot.library || snapshot.lastReward) return;
+    const previousElo = snapshot.beerRank.lastElo;
+    const elo = applyMatchElo(previousElo, result === 'win' ? 1 : result === 'draw' ? 0.5 : 0);
+    const beerRank = updateBeerRank(snapshot.beerRank, elo);
+    const xp = snapshot.xp + (result === 'win' ? MATCH_WIN_XP : result === 'draw' ? MATCH_DRAW_XP : MATCH_LOSS_XP);
+    try { localStorage.setItem(GUEST_RANK_KEY, JSON.stringify(beerRank)); localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* memory rank still updates */ }
+    publish({ beerRank, xp, lastReward: { elo, previousElo, gained: 0 } });
+  },
+  clearMatchReward() { publish({ lastReward: undefined }); },
   async authenticate(action: 'register'|'login', username: string, password: string) {
     await run(async()=>{ const result = await request<PlayerLogin>(`/${action}`,'POST',{username,password}); token=result.token; localStorage.setItem('playerToken',token); setLibrary(result.library); });
   },
   async refresh() { await run(async()=>setLibrary(await request<PlayerLibrary>('/me'))); },
-  async logout() { await run(async()=>{ await request('/logout','POST'); token=''; localStorage.removeItem('playerToken'); publish({library:undefined,selectedDeck:'',beerRank:calibratedRank()}); }); },
+  async logout() { await run(async()=>{ await request('/logout','POST'); token=''; localStorage.removeItem('playerToken'); publish({library:undefined,selectedDeck:'',beerRank:loadGuestRank(), xp: loadGuestXp(), lastReward: undefined}); }); },
   async claimDaily() { await run(async()=>setLibrary(await request<PlayerLibrary>('/daily','POST',{}))); },
   async openPack() {
     let result: PackResult | undefined;
-    await run(async()=>{ result = await request<PackResult>('/packs','POST',{}); setLibrary(addCopies(snapshot.library!, result.cards.map(card => card.id), result.currency)); });
+    await run(async()=>{ result = await request<PackResult>('/packs','POST',{}); setLibrary({ ...addCopies(snapshot.library!, result.cards.map(card => card.id), result.currency), profile: { ...snapshot.library!.profile, currency: result.currency, xp: result.xp } }); });
     return result;
   },
   async openCase() {
     let result: CaseResult | undefined;
-    await run(async()=>{ result = await request<CaseResult>('/cases','POST',{}); setLibrary(addCopies(snapshot.library!, [result.prize.id], result.currency)); });
+    await run(async()=>{ result = await request<CaseResult>('/cases','POST',{}); setLibrary({ ...addCopies(snapshot.library!, [result.prize.id], result.currency), profile: { ...snapshot.library!.profile, currency: result.currency, xp: result.xp } }); });
     return result;
   },
   async saveDeck(deck: { id?: string; name: string; cards: string[]; version?: number }) {

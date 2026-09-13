@@ -3,9 +3,27 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { starterCards, validateCard } from '@kartishki/shared';
-import { inkPixels } from '@kartishki/shared/photo';
+import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, resolveAutoBattlerCatalog, type CardDefinition } from '@kartishki/shared';
+import { processPhoto } from '@kartishki/shared/photo';
 import { CatalogStore } from '../src/catalog';
+
+function art(preset: CardDefinition['art']['preset'], extra: Partial<CardDefinition['art']> = {}): CardDefinition['art'] {
+  return { url: '', crop: { x: 0, y: 0, size: 1 }, threshold: .5, contrast: 1, preset, saturation: 1, intensity: .55, ...extra };
+}
+function colorBlock(width: number, height: number) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const i = (y * width + x) * 4;
+    data[i] = x < width / 2 ? 220 : 40; data[i + 1] = y < height / 2 ? 50 : 200; data[i + 2] = 110; data[i + 3] = 255;
+  }
+  return data;
+}
+function chroma(data: Uint8ClampedArray) {
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 4) sum += Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
+  return sum / (data.length / 4);
+}
+
 test('catalog validates, persists and isolates already pinned snapshots',()=>{
   const dir=mkdtempSync(join(tmpdir(),'kartishki-test-')); const file=join(dir,'catalog.json');
   try { const store=new CatalogStore(file), pinned=store.snapshot(), card=structuredClone(starterCards[0]); card.name.ru='Обновлено';
@@ -15,35 +33,128 @@ test('catalog validates, persists and isolates already pinned snapshots',()=>{
     for(const patch of [{cost:NaN},{attack:-1},{health:0},{id:'../bad'},{properties:['unknown']},{abilities:[{trigger:'battlecry',effectId:'eval',params:{target:'self',amount:1}}]}]) assert.equal(validateCard({...card,...patch}),false);
   } finally { rmSync(file,{force:true}); rmdirSync(dir); }
 });
-test('ink filter is deterministic, opaque and preserves dark/light ordering',()=>{
-  const input=new Uint8ClampedArray([0,0,0,255,255,255,255,255,0,0,0,0]); const copy=input.slice();
-  inkPixels(input,3,1.5,.5); inkPixels(copy,3,1.5,.5); assert.deepEqual(input,copy);
-  assert.deepEqual([...input],[26,26,26,255,239,236,228,255,239,236,228,255]);
-});
 
-test('photo presets keep the paper palette, three comic tones and adjustable raster', () => {
-  const source = new Uint8ClampedArray(Array.from({ length: 64 }, (_, p) => [p * 4, p * 4, p * 4, 255]).flat());
-  for (const preset of ['xerox', 'comic', 'stencil'] as const) {
-    const data = source.slice(); inkPixels(data, 8, 1, .5, preset, 0, .8);
-    const colors = new Set(Array.from({ length: 64 }, (_, p) => [...data.slice(p*4,p*4+4)].join(',')));
-    assert.equal(colors.size, preset === 'comic' ? 3 : 2);
-    assert.ok(colors.has('26,26,26,255')); assert.ok(colors.has('239,236,228,255'));
+test('color photo presets stay chromatic, skip none, and stay deterministic', () => {
+  const source = colorBlock(16, 16);
+  const none = source.slice(); processPhoto(none, 16, art('none')); assert.deepEqual(none, source);
+  for (const preset of ['offset', 'flash', 'toon', 'gif', 'xerox'] as const) {
+    const data = source.slice(), copy = source.slice();
+    processPhoto(data, 16, art(preset)); processPhoto(copy, 16, art(preset));
+    assert.deepEqual(data, copy);
+    assert.ok(chroma(data) > 12, preset);
+    assert.equal(data[3], 255);
   }
-  const raster = source.slice(), plain = source.slice();
-  inkPixels(raster, 8, 1, .5, 'xerox', 1, 1); inkPixels(plain, 8, 1, .5, 'xerox', 1, 0);
-  assert.notDeepEqual(raster, plain);
-  const edgeSource = new Uint8ClampedArray(Array.from({ length: 512 * 8 }, (_, p) => p%512<256 ? [90,90,90,255] : [240,240,240,255]).flat());
-  const thin = edgeSource.slice(), thick = edgeSource.slice();
-  inkPixels(thin,512,1,.3,'comic',1); inkPixels(thick,512,1,.3,'comic',4);
-  const dark = (data: Uint8ClampedArray) => data.filter((v,i) => i%4===0 && v===26).length;
-  assert.ok(dark(thick) > dark(thin));
+  const gif = source.slice(); processPhoto(gif, 16, art('gif', { intensity: 1 }));
+  const colors = new Set(Array.from({ length: 256 }, (_, p) => `${gif[p*4]},${gif[p*4+1]},${gif[p*4+2]}`));
+  assert.ok(colors.size <= 64);
+  const loud = source.slice(), quiet = source.slice();
+  processPhoto(loud, 16, art('offset', { intensity: 1 })); processPhoto(quiet, 16, art('offset', { intensity: 0.1 }));
+  assert.notDeepEqual(loud, quiet);
+  const hot = source.slice(), mild = source.slice();
+  processPhoto(hot, 16, art('flash', { saturation: 2 })); processPhoto(mild, 16, art('flash', { saturation: 0.2 }));
+  assert.notDeepEqual(hot, mild);
 });
 
 test('photo settings survive validation and reject invalid controls', () => {
   const card = structuredClone(starterCards[0]);
+  card.art = { ...card.art, preset: 'toon', saturation: 1.2, intensity: .7 };
+  assert.ok(validateCard(JSON.parse(JSON.stringify(card))));
   card.art = { ...card.art, preset: 'comic', edgeWidth: 3, rasterIntensity: .7 };
   assert.ok(validateCard(JSON.parse(JSON.stringify(card))));
-  for (const patch of [{ preset: 'unknown' }, { edgeWidth: 5 }, { rasterIntensity: NaN }]) {
+  for (const patch of [{ preset: 'unknown' }, { saturation: 3 }, { intensity: NaN }, { edgeWidth: 5 }, { rasterIntensity: NaN }]) {
     assert.equal(validateCard({ ...card, art: { ...card.art, ...patch } }), false);
   }
+});
+
+test('heroes and summon settings validate, persist and leave pinned matches unchanged', () => {
+  const dir=mkdtempSync(join(tmpdir(),'kartishki-heroes-')), file=join(dir,'catalog.json');
+  try {
+    const store=new CatalogStore(file), pinned=store.snapshot(), hero=structuredClone(starterHeroes[0]);
+    hero.health=42; hero.ability={name:'Подмога',cost:2,effectId:'summon',amount:2,cardId:'paper-imp'};
+    assert.ok(validateHero(hero)); const next=store.publishHero(hero,pinned.version); assert.equal(next.version,pinned.version+1);
+    assert.equal(new CatalogStore(file).snapshot().heroes!.find(h=>h.id===hero.id)!.health,42);
+    assert.equal(pinned.heroes!.find(h=>h.id===hero.id)!.health,30);
+    assert.throws(()=>store.publishHero(hero,pinned.version),/catalogConflict/);
+    assert.equal(validateHero({...hero,health:0}),false); assert.equal(validateHero({...hero,ability:{...hero.ability,amount:8}}),false);
+    assert.throws(()=>store.publishHero({...hero,ability:{...hero.ability,cardId:'missing'}},next.version),/invalidHero/);
+    const card=structuredClone(starterCards[0]); card.abilities=[{name:'Позови друзей',trigger:'deathrattle',effectId:'summon',params:{cardId:card.id,amount:2}}];
+    assert.ok(validateCard(card)); assert.ok(store.publish(card,next.version));
+    assert.equal(validateCard({...card,abilities:[{...card.abilities[0],params:{cardId:'../bad',amount:2}}]}),false);
+  } finally { rmSync(file,{force:true}); rmdirSync(dir); }
+});
+
+test('auto-battler minions validate, persist and reach new rooms', () => {
+  const dir=mkdtempSync(join(tmpdir(),'kartishki-ab-')), file=join(dir,'catalog.json');
+  try {
+    const store=new CatalogStore(file), pinned=store.snapshot(), minion=structuredClone(starterAutoBattlerMinions.find(m=>m.id==='ab-whelp')!);
+    minion.attack=7; minion.health=4;
+    assert.ok(validateAutoBattlerMinion(minion));
+    const next=store.publishAutoBattlerMinion(minion,pinned.version);
+    assert.equal(next.version,pinned.version+1);
+    assert.equal(next.autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,7);
+    assert.equal(pinned.autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,2);
+    assert.equal(new CatalogStore(file).snapshot().autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,7);
+    assert.throws(()=>store.publishAutoBattlerMinion(minion,pinned.version),/catalogConflict/);
+    assert.equal(validateAutoBattlerMinion({...minion,tavernTier:8}),false);
+    assert.throws(()=>store.publishAutoBattlerMinion({...minion,deathrattle:{summonId:'missing',count:1}},next.version),/invalidCard/);
+    const resolved=resolveAutoBattlerCatalog(next);
+    assert.equal(resolved.minions.find(m=>m.id==='ab-whelp')!.attack,7);
+    assert.equal(resolved.minions.find(m=>m.id==='ab-whelp')!.health,4);
+  } finally { rmSync(file,{force:true}); rmdirSync(dir); }
+});
+
+test('auto-battler heroes validate, persist and reach new rooms', () => {
+  const dir=mkdtempSync(join(tmpdir(),'kartishki-abh-')), file=join(dir,'catalog.json');
+  try {
+    const store=new CatalogStore(file), pinned=store.snapshot(), hero=structuredClone(starterAutoBattlerHeroes.find(h=>h.id==='ab-hero-captain')!);
+    hero.health=35; hero.name={ru:'Капитан',en:'Skipper'};
+    assert.ok(validateAutoBattlerHero(hero));
+    const next=store.publishAutoBattlerHero(hero,pinned.version);
+    assert.equal(next.version,pinned.version+1);
+    assert.equal(next.autoBattlerHeroes!.find(h=>h.id==='ab-hero-captain')!.health,35);
+    assert.equal(pinned.autoBattlerHeroes!.find(h=>h.id==='ab-hero-captain')!.health,40);
+    assert.equal(new CatalogStore(file).snapshot().autoBattlerHeroes!.find(h=>h.id==='ab-hero-captain')!.health,35);
+    assert.throws(()=>store.publishAutoBattlerHero(hero,pinned.version),/catalogConflict/);
+    assert.equal(validateAutoBattlerHero({...hero,health:0}),false);
+    assert.equal(validateAutoBattlerHero({...hero,power:{...hero.power,id:'ab-power-missing'}}),false);
+    assert.equal(validateAutoBattlerHero({...hero,power:{...hero.power,targeted:true,targetDomain:'board'}}),false);
+    const resolved=resolveAutoBattlerCatalog(next);
+    assert.equal(resolved.heroes.find(h=>h.id==='ab-hero-captain')!.health,35);
+    assert.equal(resolved.heroes.find(h=>h.id==='ab-hero-captain')!.name.en,'Skipper');
+  } finally { rmSync(file,{force:true}); rmdirSync(dir); }
+});
+
+test('auto-battler copy and minion descriptions persist', () => {
+  const dir=mkdtempSync(join(tmpdir(),'kartishki-abc-')), file=join(dir,'catalog.json');
+  try {
+    const store=new CatalogStore(file), pinned=store.snapshot();
+    const minion=structuredClone(starterAutoBattlerMinions.find(m=>m.id==='ab-whelp')!);
+    minion.description={ru:'Маленький зверёк с огнём.',en:'A tiny fire beast.'};
+    const afterMinion=store.publishAutoBattlerMinion(minion,pinned.version);
+    assert.equal(afterMinion.autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.description?.ru,'Маленький зверёк с огнём.');
+    const copy={tribes:{beast:{name:{ru:'Зверьки',en:'Critters'},description:{ru:'Мохнатые.',en:'Furred.'}}}};
+    const next=store.publishAutoBattlerCopy(copy,afterMinion.version);
+    assert.equal(next.autoBattlerCopy!.tribes!.beast!.name.ru,'Зверьки');
+    assert.equal(new CatalogStore(file).snapshot().autoBattlerCopy!.tribes!.beast!.name.ru,'Зверьки');
+    assert.equal(resolveAutoBattlerCatalog(next).copy!.tribes!.beast!.name.ru,'Зверьки');
+    assert.equal(validateAutoBattlerCopy({keywords:{taunt:{name:{ru:'',en:''}}}}),false);
+  } finally { rmSync(file,{force:true}); rmdirSync(dir); }
+});
+
+test('player leveling names and xp persist for new clients', () => {
+  const dir=mkdtempSync(join(tmpdir(),'kartishki-lvl-')), file=join(dir,'catalog.json');
+  try {
+    const store=new CatalogStore(file), pinned=store.snapshot();
+    assert.equal(pinned.playerLeveling!.levels.length,30);
+    const leveling=structuredClone(starterLeveling);
+    leveling.levels[0] = { ru: 'Чернильный птенец', en: 'Ink chick', xp: 12 };
+    const next=store.publishPlayerLeveling(leveling,pinned.version);
+    assert.equal(next.version,pinned.version+1);
+    assert.equal(next.playerLeveling!.levels[0]!.ru,'Чернильный птенец');
+    assert.equal(next.playerLeveling!.levels[0]!.xp,12);
+    assert.equal(pinned.playerLeveling!.levels[0]!.xp,starterLeveling.levels[0]!.xp);
+    assert.equal(new CatalogStore(file).snapshot().playerLeveling!.levels[0]!.ru,'Чернильный птенец');
+    assert.throws(()=>store.publishPlayerLeveling(leveling,pinned.version),/catalogConflict/);
+    assert.throws(()=>store.publishPlayerLeveling({levels:leveling.levels.slice(0,10)},next.version),/invalidLeveling/);
+  } finally { rmSync(file,{force:true}); rmdirSync(dir); }
 });

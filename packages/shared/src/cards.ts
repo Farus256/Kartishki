@@ -2,7 +2,7 @@ import type { CardDefinition } from './index';
 
 export const properties = ['contraceptive', 'offense', 'humiliation'] as const;
 export const triggers = ['battlecry', 'deathrattle', 'enrage'] as const;
-export const effects = ['damage', 'heal', 'attack', ...properties] as const;
+export const effects = ['damage', 'heal', 'attack', 'summon', ...properties] as const;
 export const starterCards: CardDefinition[] = [
   ['paper-imp', 'Бумажный бес', 'Paper imp', 1, 2, 2, [], 'common'],
   ['rubber-knight', 'Резиновый рыцарь', 'Rubber knight', 2, 2, 3, ['contraceptive'], 'common'],
@@ -10,12 +10,12 @@ export const starterCards: CardDefinition[] = [
   ['shame', 'Униженный', 'The humiliated', 2, 4, 5, ['humiliation'], 'rare'],
   ['screamer', 'Крикун', 'Screamer', 3, 3, 3, [], 'epic'],
   ['rager', 'Злюка', 'Rager', 2, 2, 4, [], 'legendary'],
-  ['prism-cat', 'Призматический кот', 'Prismatic cat', 6, 6, 6, [], 'ultimate'],
+  ['prism-cat', 'Призматический странник', 'Prismatic wanderer', 6, 6, 6, [], 'ultimate'],
 ].map(([id, ru, en, cost, attack, health, props, rarity]) => ({
   schemaVersion: 1, id: id as string, name: { ru: ru as string, en: en as string }, description: { ru: '', en: '' },
   rarity: rarity as CardDefinition['rarity'], cost: cost as number, attack: attack as number, health: health as number,
   minionTypes: ['imp'], properties: props as string[], abilities: [],
-  art: { url: '', crop: { x: 0, y: 0, size: 1 }, threshold: .5, contrast: 1.5 }, audio: {},
+  art: { url: '', crop: { x: .5, y: .5, size: 1 }, preset: 'none', threshold: .5, contrast: 1 }, audio: {},
 }));
 starterCards[4].abilities = [{ trigger: 'battlecry', effectId: 'damage', params: { target: 'enemyHero', amount: 2 } }, { trigger: 'deathrattle', effectId: 'damage', params: { target: 'enemyHero', amount: 1 } }];
 starterCards[5].abilities = [{ trigger: 'enrage', effectId: 'attack', params: { target: 'self', amount: 2 } }];
@@ -38,13 +38,22 @@ export function validateCard(v: unknown): v is CardDefinition {
   if (!strings(v.minionTypes, 10) || !strings(v.properties, 3) || !v.properties.every((p: string) => properties.includes(p as any))) return false;
   if (!Array.isArray(v.abilities) || v.abilities.length > 8 || !v.abilities.every((a: unknown) => {
     if (!object(a) || !triggers.includes(a.trigger) || !effects.includes(a.effectId) || !object(a.params)) return false;
+    if (a.name !== undefined && (typeof a.name !== 'string' || a.name.length > 100)) return false;
+    if (a.effectId === 'summon') return typeof a.params.cardId === 'string' && /^[a-z0-9][a-z0-9-]{0,59}$/.test(a.params.cardId) && Number.isInteger(a.params.amount) && bounded(a.params.amount, 1, 7);
     if (!['self','enemyHero','allEnemies'].includes(a.params.target) || !Number.isInteger(a.params.amount) || !bounded(a.params.amount, 1, 20)) return false;
     if (a.trigger === 'enrage' && (a.effectId !== 'attack' || a.params.target !== 'self')) return false;
     return a.params.target !== 'enemyHero' || ['damage', 'heal'].includes(a.effectId);
   })) return false;
   const a = v.art;
   if (!object(a) || !asset(a.url, 'image') || !object(a.crop) || !bounded(a.threshold, 0, 1) || !bounded(a.contrast, .1, 4)) return false;
-  if (a.preset !== undefined && !['xerox', 'comic', 'stencil'].includes(a.preset as string)) return false;
+  if (a.preset !== undefined && !['printed', 'dirty', 'noir', 'faded', 'sepia', 'harsh', 'cyan', 'bleach', 'offset', 'flash', 'toon', 'gif', 'none', 'xerox', 'comic', 'stencil'].includes(a.preset as string)) return false;
+  if (v.autoBattlerId !== undefined && (typeof v.autoBattlerId !== 'string' || !/^ab-[a-z0-9-]{1,55}$/.test(v.autoBattlerId))) return false;
+  if (a.originalUrl !== undefined && (typeof a.originalUrl !== 'string' || a.originalUrl.length > 2048 || !/^https?:\/\/[^/?#]+\/api\/portraits\/[a-f0-9]{64}\.(png|jpeg|webp)$/.test(a.originalUrl))) return false;
+  for (const [key,min,max] of [['brightness',.5,1.5],['warmth',-1,1],['grain',0,1],['paper',0,1],['vignette',0,1],['inkEdge',0,1],['rotation',-30,30]] as const) {
+    if (a[key] !== undefined && !bounded(a[key],min,max)) return false;
+  }
+  if (a.saturation !== undefined && !bounded(a.saturation, 0, 2)) return false;
+  if (a.intensity !== undefined && !bounded(a.intensity, 0, 1)) return false;
   if (a.edgeWidth !== undefined && !bounded(a.edgeWidth, 0, 4)) return false;
   if (a.rasterIntensity !== undefined && !bounded(a.rasterIntensity, 0, 1)) return false;
   if (!bounded(a.crop.x, 0, 1) || !bounded(a.crop.y, 0, 1) || !bounded(a.crop.size, .1, 1)) return false;

@@ -21,18 +21,17 @@ test('invalid, stale and out-of-turn inputs cannot mutate state', () => {
   assert.deepEqual(state.toJSON(), before);
 });
 
-test('phases follow strict order, rotate players and cap mana', () => {
+test('end turn rotates players and caps mana', () => {
   const state = match();
   for (let turn = 1; turn <= 24; turn++) {
     const active = turn % 2 ? 'a' : 'b';
     assert.equal(state.activePlayer, active);
     assert.equal(state.turn, turn);
-    for (const phase of ['main', 'combat', 'end', 'start']) {
-      const revision = state.revision;
-      assert.equal(advancePhase(state, active, { expectedRevision: revision }), true);
-      assert.equal(state.phase, phase);
-      assert.equal(advancePhase(state, active, { expectedRevision: revision }), false);
-    }
+    const revision = state.revision;
+    assert.equal(advancePhase(state, active, { expectedRevision: revision }), true);
+    assert.equal(state.phase, 'main');
+    assert.equal(state.activePlayer, active === 'a' ? 'b' : 'a');
+    assert.equal(advancePhase(state, active, { expectedRevision: revision }), false);
     assert.equal(state.players.get(state.activePlayer)!.mana, Math.min(10, Math.ceil((turn + 1) / 2)));
   }
 });

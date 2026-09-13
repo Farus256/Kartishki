@@ -10,26 +10,33 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/catalog', route => route.fulfill({ json: { cards: [] } }));
   await page.addInitScript(() => localStorage.setItem('sound', 'off'));
 });
-test('deck editing, limits, search, crafting and persistence', async ({ page }) => {
+test('deck editing, limits, search and persistence', async ({ page }) => {
   await enter(page, 'deck');
   await expect(page.getByTestId('balance')).toHaveText('$ 1,500');
   await expect(page.locator('section .grid-cols-4 > div')).toHaveCount(8);
-  await page.getByRole('button', { name: 'Убрать Кот из подвала', exact: true }).click();
+  await page.getByRole('button', { name: 'Убрать Завсегдатай', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Сохранить колоду' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Кот из подвала', exact: true }).click();
+  await page.getByRole('button', { name: 'Завсегдатай', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Карта: Завсегдатай' })).toBeVisible();
+  await expect(page.locator('.full-card-text')).toContainText('За этим столом');
+  await page.screenshot({ path: 'artifacts/card-detail.png' });
+  await page.getByRole('button', { name: 'Добавить в колоду', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Добавить в колоду', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Закрыть ×', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Сохранить колоду' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Кот из подвала', exact: true }).first().click();
-  await expect(page.getByRole('status')).toContainText('Максимум');
   await page.locator('aside > input').fill('Ночная смена');
   await page.getByRole('button', { name: 'Сохранить колоду' }).click();
   expect((await state(page)).decks[0].name).toBe('Ночная смена');
   await page.locator('section input').fill('Выживает');
   await expect(page.locator('section [role="button"]')).toHaveCount(8);
   await page.locator('section input').fill('Грязный фокусник');
-  await expect(page.locator('section [role="button"]')).toHaveCount(1);
+  await expect(page.getByText('Грязный фокусник')).toBeVisible();
+  // Unowned cards remain inspectable, but cannot be added to a deck.
   await page.locator('section [role="button"]').click();
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,460');
-  expect((await state(page)).owned['demo-cat-20']).toBe(1);
+  await expect(page.getByRole('button', { name: 'Добавить в колоду', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Закрыть ×', exact: true }).click();
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,500');
+  expect((await state(page)).owned['demo-cat-20']).toBeUndefined();
   await page.locator('section input').fill('нет-такой-карты');
   await expect(page.locator('section [role="button"]')).toHaveCount(0);
   await page.locator('section input').fill('');
@@ -37,7 +44,10 @@ test('deck editing, limits, search, crafting and persistence', async ({ page }) 
   await page.locator('section input').blur();
   await page.screenshot({ path: 'artifacts/metagame-deck.png', animations: 'disabled' });
   await page.reload(); await page.getByRole('button', { name: 'Играть как гость' }).click();
-  await expect(page.locator('header')).toContainText('Ночная смена');
+  await expect(page.getByTestId('player-level')).toBeVisible();
+  await expect(page.locator('header')).not.toContainText('Ночная смена');
+  await page.getByRole('button', { name: /МОЯ КОЛОДА/i }).last().click();
+  await expect(page.locator('aside > input')).toHaveValue('Ночная смена');
 });
 test('pack purchase is charged once, resumes, flips five cards', async ({ page }) => {
   await enter(page, 'shop');
@@ -46,6 +56,8 @@ test('pack purchase is charged once, resumes, flips five cards', async ({ page }
   const before = await state(page);
   await page.getByRole('button', { name: 'Купить пак ($100)', exact: true }).click();
   await expect(page.getByTestId('balance')).toHaveText('$ 1,400');
+  await expect(page.getByTestId('player-level')).toContainText('25 / 40');
+  await expect(page.getByTestId('player-level')).toContainText('осталось 15');
   await page.reload(); await page.getByRole('button', { name: 'Играть как гость' }).click();
   await page.getByRole('button', { name: /МАГАЗИН/i }).last().click();
   await page.getByRole('button', { name: 'Порвать пак' }).click();
@@ -70,25 +82,24 @@ test('case lands on awarded card and stays within 16:9', async ({ page }) => {
   await page.getByRole('button', { name: 'Ура, в коллекцию!' }).click();
   for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }, { width: 2560, height: 1080 }]) {
     await page.setViewportSize(viewport);
-    const bounds = await page.locator('header').boundingBox();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
+    await expect.poll(async () => { const bounds = await page.locator('header').boundingBox(); return !!bounds && bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1; }).toBe(true);
     const button = await page.getByRole('button', { name: 'ОТКРЫТЬ КЕЙС ($150)', exact: true }).boundingBox();
     expect(button!.y + button!.height).toBeLessThanOrEqual(viewport.height + 1);
   }
 });
 test('slot bonus pack is redeemable and no second charge while spinning', async ({ page }) => {
-  await page.addInitScript(() => { Math.random = () => .8; });
+  await page.addInitScript(() => { Math.random = () => .9; });
   await enter(page, 'shop');
   await page.screenshot({ path: 'artifacts/metagame-slots.png' });
   await page.getByRole('button', { name: 'Потянуть рычаг ($50)', exact: true }).click();
   await expect(page.locator('.slot-lever')).toBeDisabled();
   await expect(page.locator('.reel-window')).toHaveCount(3);
   await expect(page.locator('.slot-lever')).toBeEnabled({ timeout: 10000 });
-  expect((await state(page)).inventory.basement).toBe(1);
+  expect((await state(page)).inventory.basement).toBe(3);
   await expect(page.getByTestId('balance')).toHaveText('$ 1,450');
   await page.getByRole('button', { name: 'Паки карт', exact: true }).click();
   await page.getByRole('button', { name: 'Открыть бонусный пак' }).click();
-  expect((await state(page)).inventory.basement).toBe(0);
+  expect((await state(page)).inventory.basement).toBe(2);
   await expect(page.getByTestId('balance')).toHaveText('$ 1,450');
 });
 
@@ -117,9 +128,9 @@ test('lever drag charges once and a resumed cash reward settles once', async ({ 
   await expect(lever).toBeDisabled();
   await page.reload(); await page.getByRole('button', { name: 'Играть как гость' }).click();
   await page.getByRole('button', { name: /МАГАЗИН/i }).last().click();
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,550', { timeout: 10000 });
-  await expect(page.locator('.currency-badge.gain')).toHaveText('+$100');
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,700', { timeout: 10000 });
+  await expect(page.locator('.currency-badge.gain')).toHaveText('+$250');
   expect((await state(page)).opening).toBeUndefined();
   await page.reload(); await page.getByRole('button', { name: 'Играть как гость' }).click();
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,550');
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,700');
 });

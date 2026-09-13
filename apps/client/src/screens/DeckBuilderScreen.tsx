@@ -1,3 +1,4 @@
+import { CardDetailModal } from '../ui/CardDetailModal';
 import { audioManager } from '../AudioManager';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -6,7 +7,7 @@ import i18n from '@kartishki/i18n';
 import { DECK_SIZE, type CardDefinition } from '@kartishki/shared';
 import { useEconomy } from '../EconomyContext';
 import { cardRules } from '../ui/cardText';
-import { CatPortrait } from '../ui/CatPortrait';
+import { PortraitPlaceholder } from '../ui/PortraitPlaceholder';
 import { Backdrop } from '../ui/Backdrop';
 import { GameCard, LockedSlot } from '../ui/GameCard';
 import { InkButton, spring } from '../ui/InkButton';
@@ -23,6 +24,7 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
   const { t } = useTranslation();
   const economy = useEconomy();
   const catalog = economy.catalog;
+  const [detail, setDetail] = useState<CardDefinition>();
   const [rarity, setRarity] = useState<'all' | string>('all');
   const [mana, setMana] = useState<number | 'all'>('all');
   const [search, setSearch] = useState('');
@@ -72,10 +74,7 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
       <TopBar onPlus={onShop} right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
 
       <section className="absolute top-[100px] bottom-0 left-0 w-[1070px] binder-board overflow-visible border-r-[8px] border-ink px-[28px] pt-[8px]">
-        <div className="flex items-center gap-3">
-          <h2 className="font-hand text-[28px] text-ink">{t('binder')}</h2>
-
-        </div>
+        <h2 className="sr-only">{t('binder')}</h2>
 
         <div className="mt-2 flex h-[32px] items-center gap-2">
           {(['all', ...rarityOrder] as const).map(key => (
@@ -103,15 +102,15 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
 
         <AnimatePresence mode="wait">
           <motion.div key={`${safePage}-${rarity}-${mana}-${search}`}
-            className="mt-2 mb-[52px] grid grid-cols-4 justify-items-center gap-x-6 gap-y-10 overflow-visible px-1 pt-2"
+            className="mt-2 mb-[52px] grid grid-cols-4 justify-items-center gap-x-6 gap-y-5 overflow-visible px-1 pt-2"
             initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.18 }}>
             {Array.from({ length: PER_PAGE }, (_, index) => {
               const card = slice[index];
               if (!card) return <LockedSlot key={`empty-${index}`} scale={CARD_SCALE} />;
               const copies = owned.get(card.id) ?? 0;
-              return <GameCard key={card.id} card={card} scale={CARD_SCALE} owned={copies > 0}
+              return <GameCard key={card.id} card={card} catalog={catalog} scale={CARD_SCALE} owned={copies > 0}
                 selected={hovered === card.id} dim={copies > 0 && used(card.id) >= Math.min(2, copies)}
-                onClick={copies > 0 ? () => add(card, index) : () => economy.craft(card)} />;
+                onClick={() => setDetail(card)} />;
             })}
           </motion.div>
         </AnimatePresence>
@@ -120,7 +119,7 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
           <InkButton size="sm" disabled={safePage === 0} onClick={() => { audioManager.play('page_turn'); setPage(safePage - 1); }}>◄ Предыдущая</InkButton>
           <span className="font-hand text-[18px]">{t('page')} {safePage + 1} / {pages}</span>
           <InkButton size="sm" disabled={safePage >= pages - 1} onClick={() => { audioManager.play('page_turn'); setPage(safePage + 1); }}>Следующая ►</InkButton>
-          <span className="ml-4 font-mono text-[11px] text-ink/50">Добавить • тёмная карта: создать за $</span>
+          <span className="ml-4 font-mono text-[11px] text-ink/50">{t('binderHint')}</span>
         </div>
       </section>
 
@@ -172,6 +171,7 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
           {editingId && <InkButton size="sm" tone="rose" onClick={() => economy.deleteDeck(editingId)}>Удалить колоду</InkButton>}
         </div>
       </aside>
+      {detail && <CardDetailModal card={detail} catalog={catalog} onClose={() => setDetail(undefined)} canAdd={(owned.get(detail.id) ?? 0) > used(detail.id) && used(detail.id) < 2 && draft.length < 30} onAdd={() => add(detail, Math.max(0, slice.findIndex(c => c.id === detail.id)))} />}
       <AnimatePresence>{flight && <motion.div key={flight.key} className="pointer-events-none absolute z-50" initial={{ x: flight.x, y: flight.y, scale: .9, opacity: 1 }} animate={{ x: 1210, y: 330, scale: .15, opacity: 0 }} transition={{ type: 'spring', stiffness: 140, damping: 22 }} onAnimationComplete={() => setFlight(undefined)}><GameCard card={flight.card} hoverable={false} /></motion.div>}</AnimatePresence>
     </div>
   );
@@ -183,7 +183,7 @@ function DeckTile({ card, count, onDrop, onHover }: { card?: CardDefinition; cou
   return (
     <li onMouseEnter={() => onHover(card?.id ?? '')} onMouseLeave={() => onHover('')} className="relative mb-[6px] flex h-[44px] items-center overflow-hidden border-[2px] border-ink bg-paper">
       {art && <img src={art} alt="" className="absolute top-[-20%] right-0 h-[150%] w-[44%] object-cover object-[70%_12%]" draggable={false} />}
-      {!art && <div className="absolute right-0 top-[-16px] h-[88px] w-[44%]"><CatPortrait seed={card?.id} /></div>}
+      {!art && <div className="absolute right-0 top-[-16px] h-[88px] w-[44%]"><PortraitPlaceholder seed={card?.id} /></div>}
       <div className="absolute inset-y-0 left-0 w-[72%] bg-gradient-to-r from-ink from-[62%] to-transparent" />
       <span className="relative z-10 grid h-full w-[32px] shrink-0 place-items-center bg-toxic font-stencil text-[13px] text-paper">{card?.cost ?? '?'}</span>
       <span className="relative z-10 min-w-0 flex-1 truncate px-2 font-hand text-[17px] leading-none text-paper"

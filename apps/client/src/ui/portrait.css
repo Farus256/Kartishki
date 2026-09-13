@@ -1,0 +1,8 @@
+.portrait-crop-guides { position:relative; }
+.portrait-safe-area { position:absolute; inset:9% 18% 12%; border:1px dashed #efece4dd; outline:1px dashed #1a1a1a66; border-radius:40% 40% 34% 34%; pointer-events:none; }
+.portrait-crop-guides small { position:absolute; bottom:5px; left:5px; right:5px; background:#efece4e0; color:#1a1a1a; font:10px var(--font-mono); text-align:center; padding:3px; }
+.portrait-advanced { border-block:1px dashed var(--ink); padding:10px 0; margin:8px 0; }
+.portrait-advanced summary { cursor:pointer; font:18px var(--font-hand); }
+.photo-controls a { display:block; font:12px var(--font-mono); margin:12px 0; }
+.photo-card-frame { box-shadow:5px 6px #1a1a1a45!important; }
+.photo-card-frame img { clip-path:polygon(0 1%,99% 0,100% 99%,1% 100%); }

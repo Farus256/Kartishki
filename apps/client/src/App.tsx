@@ -10,17 +10,18 @@ import { MatchmakingModal } from './screens/MatchmakingModal';
 import { DeckBuilderScreen } from './screens/DeckBuilderScreen';
 import { ShopScreen } from './screens/ShopScreen';
 import { MatchScreen } from './screens/MatchScreen';
+import { BattlegroundsScreen } from './screens/BattlegroundsScreen';
 import { SettingsModal } from './screens/SettingsModal';
 
-type Screen = 'landing' | 'menu' | 'deck' | 'shop' | 'match';
+type Screen = 'landing' | 'menu' | 'deck' | 'shop' | 'match' | 'battlegrounds';
 
 i18n.on('languageChanged', language => { document.documentElement.lang = language; });
 
 export function App() {
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const [screen, setScreen] = useState<Screen>(() => playerSession.getSnapshot().library ? 'menu' : 'landing');
-  const [guest, setGuest] = useState(false);
+  const [screen, setScreen] = useState<Screen>(() => sessionStorage.getItem('kartishki-ab-reconnect') ? 'battlegrounds' : playerSession.getSnapshot().library ? 'menu' : 'landing');
+  const [guest, setGuest] = useState(() => !!sessionStorage.getItem('kartishki-ab-reconnect'));
   const [queue, setQueue] = useState(false);
   const [settings, setSettings] = useState(false);
   const signedIn = !!player.library;
@@ -30,7 +31,7 @@ export function App() {
   useEffect(() => { if (signedIn && screen === 'landing') setScreen('menu'); }, [signedIn, screen]);
   useEffect(() => { if (!signedIn && !guest && screen !== 'landing') setScreen('landing'); }, [signedIn, guest, screen]);
   useEffect(() => { if (screen === 'match' && state.status === 'offline') setScreen('menu'); }, [screen, state.status]);
-  useEffect(() => { if (state.status === 'finished') void playerSession.refresh(); }, [state.status]);
+  useEffect(() => { if (state.status === 'offline') playerSession.clearMatchReward(); }, [state.status]);
 
   useEffect(() => { const open = () => setSettings(true); window.addEventListener('open-settings', open); return () => window.removeEventListener('open-settings', open); }, []);
 
@@ -48,12 +49,14 @@ export function App() {
           transition={{ duration: 0.26, ease: 'easeOut' }}>
           {screen === 'landing' && <LandingScreen onGuest={() => { setGuest(true); setScreen('menu'); }} />}
           {screen === 'menu' && (
-            <MainMenuScreen onPlay={() => setQueue(true)} onDeck={() => setScreen('deck')} onShop={() => setScreen('shop')}
+            <MainMenuScreen onPlay={() => setQueue(true)} onBattlegrounds={() => setScreen('battlegrounds')}
+              onDeck={() => setScreen('deck')} onShop={() => setScreen('shop')}
               onSettings={() => setSettings(true)} onExit={exit} />
           )}
           {screen === 'deck' && <DeckBuilderScreen onBack={toMenu} onShop={() => setScreen('shop')} />}
           {screen === 'shop' && <ShopScreen onBack={toMenu} />}
           {screen === 'match' && <MatchScreen onLeave={toMenu} />}
+          {screen === 'battlegrounds' && <BattlegroundsScreen onLeave={toMenu} />}
         </motion.div>
       </AnimatePresence>
 

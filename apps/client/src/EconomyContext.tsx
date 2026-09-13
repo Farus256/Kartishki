@@ -1,9 +1,9 @@
 import { audioManager } from './AudioManager';
 ﻿import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { CardDefinition } from '@kartishki/shared';
+import { CASE_XP, CASINO_XP, PACK_XP, type CardDefinition } from '@kartishki/shared';
+import { playerSession } from './playerSession';
 import { useCatalog } from './ui/useCatalog';
-import { CASES, PACKS, demoCards, drawCard, slotReward } from './economy';
-import { craftCost } from './ui/rarity';
+import { CASES, PACKS, demoCards, drawCard, pickSlotSymbol, slotReward } from './economy';
 
 export type LocalDeck = { id: string; name: string; cards: string[] };
 type Opening = { kind: 'packs'; cards: CardDefinition[]; name: string } | { kind: 'cases'; reel: CardDefinition[]; landing: number; prize: CardDefinition } | { kind: 'slots'; reels: number[]; label: string; cards: CardDefinition[]; pendingReward?: { dollars: number; packs: number } };
@@ -47,16 +47,17 @@ function useEconomyState() {
       commit({ ...s, decks: [...s.decks.filter(d => d.id !== deck.id), { ...deck, name: deck.name.trim() }], activeDeck: deck.id }); setMessage('Колода сохранена.'); return true;
     },
     deleteDeck(id: string) { const s = current.current; const decks = s.decks.filter(d => d.id !== id); commit({ ...s, decks, activeDeck: s.activeDeck === id ? decks[0]?.id ?? '' : s.activeDeck }); setMessage('Колода удалена.'); },
-    craft(card: CardDefinition) { if (transaction(craftCost[card.rarity], [card])) setMessage(`${card.name.ru} — в коллекции!`); },
-    openPack(id: string) { const p = PACKS.find(p => p.id === id); if (!p) return; const s = current.current; const free = (s.inventory[id] ?? 0) > 0; const cards = Array.from({ length: 5 }, () => drawCard(catalog, p.weights)); transaction(free ? 0 : p.cost, cards, { inventory: { ...s.inventory, [id]: Math.max(0, (s.inventory[id] ?? 0) - 1) }, opening: { kind: 'packs', cards, name: p.name } }); },
-    openCase(id: string) { const p = CASES.find(p => p.id === id); if (!p) return; const prize = drawCard(catalog, p.weights); const reel = Array.from({ length: 48 }, () => drawCard(catalog, p.weights)); reel[40] = prize; transaction(p.cost, [prize], { opening: { kind: 'cases', reel, landing: 40, prize } }); },
+    openPack(id: string) { const p = PACKS.find(p => p.id === id); if (!p) return; const s = current.current; const free = (s.inventory[id] ?? 0) > 0; const cards = Array.from({ length: 5 }, () => drawCard(catalog, p.weights)); if (transaction(free ? 0 : p.cost, cards, { inventory: { ...s.inventory, [id]: Math.max(0, (s.inventory[id] ?? 0) - 1) }, opening: { kind: 'packs', cards, name: p.name } })) playerSession.addXp(PACK_XP); },
+    openCase(id: string) { const p = CASES.find(p => p.id === id); if (!p) return; const prize = drawCard(catalog, p.weights); const reel = Array.from({ length: 48 }, () => drawCard(catalog, p.weights)); reel[40] = prize; if (transaction(p.cost, [prize], { opening: { kind: 'cases', reel, landing: 40, prize } })) playerSession.addXp(CASE_XP); },
     spin() {
       const s = current.current;
       if (s.opening || s.dollars < 50) return false;
-      const reels = Array.from({ length: 3 }, () => Math.floor(Math.random() * 8));
+      const reels = Array.from({ length: 3 }, () => pickSlotSymbol());
       const reward = slotReward(reels);
       const cards = Array.from({ length: reward.cards }, () => drawCard(catalog, PACKS[1].weights));
-      return transaction(50, [], { opening: { kind: 'slots', reels, label: reward.label, cards, pendingReward: { dollars: reward.dollars, packs: reward.packs } } });
+      const ok = transaction(50, [], { opening: { kind: 'slots', reels, label: reward.label, cards, pendingReward: { dollars: reward.dollars, packs: reward.packs } } });
+      if (ok) playerSession.addXp(CASINO_XP);
+      return ok;
     },
     settleSlot() {
       const s = current.current;

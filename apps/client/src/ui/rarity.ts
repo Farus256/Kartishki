@@ -12,6 +12,3 @@ export const rarityStyle: Record<Rarity, { frame: string; deep: string; gem: str
 };
 
 export const rarityOrder: Rarity[] = ['common', 'rare', 'epic', 'legendary', 'ultimate'];
-
-/** Display-only crafting price for cards the player does not own yet. */
-export const craftCost: Record<Rarity, number> = { common: 40, rare: 100, epic: 400, legendary: 1600, ultimate: 3200 };

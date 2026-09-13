@@ -7,6 +7,10 @@ export type BeerRank = { league: BeerLeague; remainingMl: number; lastElo: numbe
 export function calibratedRank(elo = 1000): BeerRank {
   return { league: 'light', remainingMl: CALIBRATION_ML, lastElo: elo };
 }
+export function applyMatchElo(elo: number, score: number, opponentElo = 1000) {
+  const expected = 1 / (1 + 10 ** ((opponentElo - elo) / 400));
+  return Math.max(0, Math.round(elo + 32 * (score - expected)));
+}
 export function updateBeerRank(rank: BeerRank, elo: number): BeerRank {
   if (!Number.isFinite(elo) || elo === rank.lastElo) return rank;
   const remainingMl = Math.max(0, Math.min(BOTTLE_CAPACITY, rank.remainingMl - (elo - rank.lastElo) * ML_PER_ELO));
