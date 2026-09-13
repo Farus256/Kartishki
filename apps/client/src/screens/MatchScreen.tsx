@@ -32,6 +32,7 @@ export function MatchScreen({ onLeave }: { onLeave: () => void }) {
         <span className="font-hand text-[28px]">{t('turn', { turn: state.turn })}</span>
         {state.status === 'active' && <span className="font-hand text-[22px] text-blood">{t(yours ? 'yours' : 'theirs')}</span>}
         <div className="ml-auto flex gap-3">
+          <InkButton size="sm" aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))}>⚙</InkButton>
           <InkButton size="sm" onClick={() => { session.leave(); onLeave(); }}>{t('leave')}</InkButton>
         </div>
       </header>

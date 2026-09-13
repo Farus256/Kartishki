@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 /** One paper tooltip for mouse and keyboard; coordinates are browser pixels, outside Stage zoom. */
@@ -16,7 +16,23 @@ export function PaperTooltip({ children, content, className = '', style, placeme
   const anchor = useRef<HTMLSpanElement>(null);
   const timer = useRef(0);
   const [point, setPoint] = useState<{ left: number; top: number } | null>(null);
-  const hide = () => { window.clearTimeout(timer.current); setPoint(null); };
+  const hide = useCallback(() => { window.clearTimeout(timer.current); setPoint(null); }, []);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') hide(); };
+    window.addEventListener('blur', hide);
+    window.addEventListener('resize', hide);
+    window.addEventListener('scroll', hide, true);
+    document.addEventListener('pointerdown', hide, true);
+    document.addEventListener('keydown', escape);
+    return () => {
+      window.clearTimeout(timer.current);
+      window.removeEventListener('blur', hide);
+      window.removeEventListener('resize', hide);
+      window.removeEventListener('scroll', hide, true);
+      document.removeEventListener('pointerdown', hide, true);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [hide]);
   const show = () => {
     window.clearTimeout(timer.current);
     const place = () => {

@@ -88,7 +88,9 @@ export function trySell(deps: RecruitDeps, minionId: string): ActionResult {
     if (card) pile.splice(index, 0, card);
     return fail('INVALID_TARGET');
   }
-  player.gold = Math.min(AUTO_BATTLER.GOLD_CAP, player.gold + AUTO_BATTLER.SELL_REWARD);
+  // GOLD_CAP limits turn income. Sale proceeds must not erase the Merchant's
+  // extra dollar when the player starts a sale at 9 or 10.
+  player.gold += AUTO_BATTLER.SELL_REWARD;
   for (let n = 0; n < card.poolCopies; n++) pool.returnCopy(card.baseId);
   deps.registry.heroPowers.get(player.hero.power.id)?.onSell?.(ctxOf(deps));
   resolveTriples(player, deps.nextId, deps.defFor);

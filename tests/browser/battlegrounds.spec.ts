@@ -26,6 +26,11 @@ test('hero power tooltips and roster clear the frame without blinking or overlap
   await expect(page.getByRole('tooltip')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await page.mouse.move(2, 2);
+  await power.hover();
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  await page.mouse.click(2, 2);
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
   for (const width of [1366, 1920, 2560]) {
     await page.setViewportSize({ width, height: Math.round(width * 9 / 16) });
     const boxes = await page.evaluate(() => {
@@ -40,6 +45,29 @@ test('hero power tooltips and roster clear the frame without blinking or overlap
   }
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.screenshot({ path: 'artifacts/ab-layout-fixed.png' });
+});
+
+test('combat hides future leaderboard health and settings open over the table', async ({ page }) => {
+  const recruit = abFixture();
+  await openMockAb(page, recruit);
+  const settings = page.getByRole('button', { name: 'Настройки', exact: true });
+  await settings.click();
+  await expect(page.getByRole('dialog', { name: 'Настройки' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Настройки' })).toHaveCount(0);
+
+  const combat = abFixture();
+  combat.phase = 'COMBAT_PHASE';
+  combat.players[1]!.health = 1;
+  combat.players[1]!.eliminated = true;
+  combat.players[1]!.placement = 2;
+  combat.combatBoards = { playerA: 'p0', playerB: 'p1', a: [], b: [] };
+  combat.combat = { turn: 8, pairIndex: 0, seed: 1, playerA: 'p0', playerB: 'p1', ghost: false,
+    durationMs: 20000, boards: { a: [], b: [] }, events: [], summary: { winnerId: 'p0', loserId: 'p1', damage: 35, tie: false } };
+  await setFixture(page, combat);
+  const opponent = page.getByTestId('ab-leaderboard').locator('li').filter({ hasText: 'Костя' });
+  await expect(opponent).toContainText('♥ 36');
+  await expect(opponent).not.toContainText('#2');
 });
 
 test('keyword visuals, final ten-second fuse and real card clicks', async ({ page }) => {

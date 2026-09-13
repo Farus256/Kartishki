@@ -88,10 +88,10 @@ export const playerSession = {
   },
   finishBattlegrounds(rewards: BattlegroundsRewards) {
     if (snapshot.lastReward) return;
-    if (snapshot.library && (rewards.xp > 0 || rewards.elo > 0 || rewards.beerMl > 0)) {
+    if (snapshot.library && (rewards.xp > 0 || rewards.elo > 0 || rewards.beerMl > 0 || rewards.currency > 0 || rewards.gained > 0)) {
       const previousElo = snapshot.library.profile.elo;
-      setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, xp: rewards.xp, beerMl: rewards.beerMl ?? snapshot.library.profile.beerMl } });
-      publish({ lastReward: { elo: rewards.elo, previousElo, gained: 0, xpGain: rewards.xpGain } });
+      setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp, beerMl: rewards.beerMl ?? snapshot.library.profile.beerMl } });
+      publish({ lastReward: { elo: rewards.elo, previousElo, gained: rewards.gained, xpGain: rewards.xpGain } });
       return;
     }
     if (snapshot.library) return;
@@ -100,7 +100,7 @@ export const playerSession = {
     const beerRank = { ...addBeerMl(snapshot.beerRank, rewards.beerMlGain ?? beerMlForPlace(rewards.place, 8)), lastElo: elo };
     const xp = snapshot.xp + rewards.xpGain;
     try { localStorage.setItem(GUEST_RANK_KEY, JSON.stringify(beerRank)); localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* memory rank still updates */ }
-    publish({ beerRank, xp, lastReward: { elo, previousElo, gained: 0, xpGain: rewards.xpGain } });
+    publish({ beerRank, xp, lastReward: { elo, previousElo, gained: rewards.gained, xpGain: rewards.xpGain } });
   },
   authOptions() { return token ? { playerToken: token } : {}; },
   clearMatchReward() { publish({ lastReward: undefined }); },

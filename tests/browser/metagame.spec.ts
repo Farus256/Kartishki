@@ -7,6 +7,7 @@ async function enter(page: Page, screen: 'deck' | 'shop') {
   await expect(screen === 'shop' ? page.getByRole('navigation', { name: 'Режим магазина' }) : page.locator('section input')).toBeVisible();
 }
 test.beforeEach(async ({ page }) => {
+  await page.route('**/health', route => route.fulfill({ json: { status: 'ok' } }));
   await page.route('**/api/catalog', route => route.fulfill({ json: { cards: [] } }));
   await page.addInitScript(() => localStorage.setItem('sound', 'off'));
 });
@@ -101,6 +102,26 @@ test('slot bonus pack is redeemable and no second charge while spinning', async 
   await page.getByRole('button', { name: 'Открыть бонусный пак' }).click();
   expect((await state(page)).inventory.basement).toBe(2);
   await expect(page.getByTestId('balance')).toHaveText('$ 1,450');
+});
+
+test('casino wheel, money case and money pack reveal and settle prizes once', async ({ page }) => {
+  await page.addInitScript(() => { Math.random = () => .01; });
+  await enter(page, 'shop');
+  await page.getByRole('button', { name: 'Колесо и деньги', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Колесо фортуны/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Денежный кейс/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Пак с наличными/ })).toBeVisible();
+  await expect(page.locator('.casino-rules')).toContainText('ДЕНЬГИ · ОПЫТ · КАРТЫ');
+  await page.screenshot({ path: 'artifacts/metagame-casino.png' });
+
+  await page.getByRole('button', { name: 'Играть за $75', exact: true }).click();
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,425');
+  await expect(page.getByText('$25', { exact: true })).toBeVisible({ timeout: 5000 });
+  await page.getByRole('button', { name: 'Забрать награду', exact: true }).click();
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,450');
+  const settled = await state(page);
+  expect(settled.opening).toBeUndefined();
+  expect(settled.dollars).toBe(1450);
 });
 
 test('insufficient balance disables purchases without modifying ownership', async ({ page }) => {

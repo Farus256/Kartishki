@@ -45,7 +45,9 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    if(rate.current>=100){step?.(1);resolve();return;}
    let elapsed=0,last=performance.now();const frame=()=>{if(cancelled){resolve();return;}const now=performance.now();elapsed+=(now-last)*rate.current;last=now;const u=Math.min(1,elapsed/Math.max(1,ms));step?.(u);if(u<1)requestAnimationFrame(frame);else resolve();};frame();
   });
-  const paint=()=>rate.current>=100?Promise.resolve():new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));
+  // Even Skip yields one frame per authoritative state commit. Without it,
+  // React can batch the whole event queue and onDone may read the old board.
+  const paint=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>rate.current>=100?resolve():requestAnimationFrame(()=>resolve())));
   const commit=(next:Piece[])=>{piecesRef.current=next;setPieces(next);return paint();};
   const home=(list:Piece[],id:string)=>{
    const piece=list.find(p=>p.minion.id===id);if(!piece)return {x:0,y:0};
@@ -108,7 +110,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     const ours=(mineA?boards.a:boards.b).map(minion=>({minion:{...minion},side:1 as const}));
     const start=[...enemy,...ours];
     piecesRef.current=start;setPieces(start);setFacedown(new Set(enemy.map(p=>p.minion.id)));
-    const budget=Math.max(.65,Math.min(1,(combat.durationMs-5200)/Math.max(1,combat.events.reduce((n,e)=>n+weight(e),0))));
+     const budget=Math.max(.25,Math.min(1,(combat.durationMs-4200)/Math.max(1,combat.events.reduce((n,e)=>n+weight(e),0))));
     await paint();
     if(cancelled)return;
     restack(start);
@@ -221,29 +223,29 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
        const victim=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me':'.ab-combat-foe');
        const amount=event.amount??0;
        if(winnerId&&amount>0){
-        await pause(reduced?8:480);
+         await pause(reduced?8:480*budget);
         setTally({id:winnerId,amount:0});
-        await pause(reduced?8:2100,u=>setTally({id:winnerId,amount:Math.round(amount*u)}));
-        await pause(reduced?8:820);
+         await pause(reduced?8:1500*budget,u=>setTally({id:winnerId,amount:Math.round(amount*u)}));
+         await pause(reduced?8:500*budget);
         if(striker&&victim&&!reduced){
          const a=striker.getBoundingClientRect(),b=victim.getBoundingClientRect();
          const scale=field.current!.getBoundingClientRect().height/field.current!.offsetHeight;
          const dy=(b.y+b.height/2-a.y-a.height/2)/scale;
          striker.style.zIndex='20';
-         await pause(360,u=>{striker.style.translate=`0 ${dy*u*u}px`;});
+          await pause(360*budget,u=>{striker.style.translate=`0 ${dy*u*u}px`;});
         }
        }
        if(cancelled)return;
        setHeroVitals(prev=>({...prev,[id]:{health:event.remainingHealth??prev[id]?.health??0,damage:event.amount??0}}));
        const heroEl=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me':'.ab-combat-foe');
        if(heroEl&&!reduced)heroEl.animate([{translate:'0 0'},{translate:'0 10px',rotate:'3deg'},{translate:'0 0'}],{duration:260/rate.current});
-       audioManager.play('reel_stop');if(heroEl)burst(heroEl,amount);await pause(reduced?8:combatImpact(amount).duration);
+        audioManager.play('reel_stop');if(heroEl)burst(heroEl,amount);await pause(reduced?8:combatImpact(amount).duration*budget);
        if(striker){
         const y=parseFloat(striker.style.translate.split(' ')[1]??'0')||0;
-        await pause(reduced?8:320,u=>{striker.style.translate=`0 ${y*(1-u)}px`;});
+         await pause(reduced?8:320*budget,u=>{striker.style.translate=`0 ${y*(1-u)}px`;});
         striker.style.translate='';striker.style.zIndex='';
        }
-       setTally(null);await pause(reduced?8:550);
+        setTally(null);await pause(reduced?8:300*budget);
       }
      }else if(event.kind==='DEATHRATTLE'||event.kind==='REBORN'){
       setBanner(event.kind==='DEATHRATTLE'?t('abDeathrattle'):t('abReborn',{defaultValue:i18n.language.startsWith('ru')?'Возрождение':'Reborn'}));await pause(ms);setBanner('');

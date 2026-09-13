@@ -29,12 +29,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     persist.current = setTimeout(flush, 350);
   }
   useEffect(() => () => flush(), []);
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') { flush(); onClose(); } };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [onClose]);
   return (
     <motion.div className="absolute inset-0 z-50 grid place-items-center bg-black/70"
+      role="presentation" onPointerDown={event => { if (event.target === event.currentTarget) { flush(); onClose(); } }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div className="ink-edge w-[560px] border-[4px] border-ink bg-paper p-8 shadow-[10px_12px_0_rgba(0,0,0,.6)]"
+      <motion.div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="ink-edge max-h-[calc(100%-32px)] w-[min(560px,calc(100%-32px))] overflow-auto border-[4px] border-ink bg-paper p-8 shadow-[10px_12px_0_rgba(0,0,0,.6)]"
         initial={{ scale: 0.85, rotate: -3 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0.9, opacity: 0 }} transition={spring}>
-        <h2 className="font-hand text-[40px] text-ink">{t('settings')}</h2>
+        <h2 id="settings-title" className="font-hand text-[40px] text-ink">{t('settings')}</h2>
 
         <label className="mt-6 block font-mono text-[13px] text-ink/70">
           {t('language')}

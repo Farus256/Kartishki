@@ -267,10 +267,14 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
   const onMove = useCallback((event: PointerEvent) => {
     const run = runRef.current;
     if (!run || event.pointerId !== run.pointerId) return;
+    // Real mouse events expose a lost button even when pointerup happened
+    // outside the window. Synthetic accessibility/test pointers may omit it.
+    if (event.isTrusted && event.pointerType === 'mouse' && event.buttons === 0) { cancel(); return; }
     if (!enabledRef.current) { cancel(); return; }
     const dx = event.clientX - run.startClient.x;
     const dy = event.clientY - run.startClient.y;
     if (!run.armed && !passedDragThreshold(dx, dy)) return;
+    event.preventDefault();
     if (!run.armed && run.payload.kind === 'power') {
       const powerEl = screenRef.current?.querySelector('[data-testid="ab-hero-power"]');
       const under = document.elementFromPoint(event.clientX, event.clientY);

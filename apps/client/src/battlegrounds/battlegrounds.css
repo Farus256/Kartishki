@@ -84,7 +84,9 @@
 .ab-minion.is-dim { opacity:.38; }
 .ab-minion.is-golden { background:repeating-linear-gradient(115deg,#c4a35c 0 15px,#ded097 17px,#af8c44 22px,#d3b973 28px); border:4px double var(--ink); box-shadow:5px 6px var(--ink); }
 .ab-minion.is-golden::after { content:'★'; position:absolute; right:-9px; top:-12px; color:var(--ink); font-size:27px; }
-.ab-reward-mark { display:block; font:40px/1.2 var(--font-stencil); padding-top:14px; color:#67532b; }
+.ab-reward-mark { display:grid; place-items:center; align-content:center; height:100%; color:#513d19; background:radial-gradient(circle,#f8e7a6,#bd9240); border:3px double #513d19; }
+.ab-reward-mark b { font:48px/1 var(--font-stencil); }
+.ab-reward-mark small { max-width:90%; font:10px/1.2 var(--font-mono); text-transform:uppercase; }
 .ab-round-band { display:flex; align-items:center; gap:22px; justify-content:space-between; font:12px var(--font-mono); padding:0 4px; }
 .ab-round-band b { background:var(--blood); color:var(--paper); padding:3px 9px; margin-left:6px; font:17px var(--font-hand); }
 .ab-board { display:flex; align-items:center; justify-content:center; gap:var(--ab-line-gap,12px); position:relative; width:100%; --ab-card:148px; min-height:186px; }
@@ -198,9 +200,14 @@
 .ab-combat-speed { position:absolute; top:12px; right:12px; z-index:2; display:flex; gap:8px; }
 .ab-combat-speed button[aria-pressed=true] { background:var(--gold); }
 .ab-combat-fallback { text-align:center; padding:160px 40px; }
-.ab-triple-stamp { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%) rotate(-6deg); z-index:35; pointer-events:none; padding:20px 34px; background:#cfb570; border:7px double var(--ink); box-shadow:9px 10px #1a1a1a70; font:55px var(--font-stencil); text-align:center; animation:ab-stamp .25s ease-out; }
+.ab-triple-stamp { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%) rotate(-3deg); z-index:35; pointer-events:none; min-width:390px; padding:22px 34px; background:linear-gradient(135deg,#ead88d,#ad7d31); border:7px double var(--ink); box-shadow:9px 10px #1a1a1a70,0 0 50px #f3ca64; text-align:center; animation:ab-stamp .25s ease-out; }
 .ab-triple-stamp strong { display:block; font:32px var(--font-hand); }
 .ab-triple-stamp small { display:block; font:12px var(--font-mono); }
+.ab-triple-cards { position:relative; display:block; height:78px; margin-bottom:4px; }
+.ab-triple-cards i { position:absolute; left:50%; top:0; width:50px; height:68px; border:3px solid var(--ink); border-radius:5px; background:var(--paper); transform:translateX(-50%); }
+.ab-triple-cards i:first-child { transform:translateX(-92%) rotate(-15deg); }
+.ab-triple-cards i:nth-child(3) { transform:translateX(-8%) rotate(15deg); }
+.ab-triple-cards b { position:absolute; left:50%; top:14px; transform:translateX(-50%); color:#9b681e; font:43px/1 var(--font-stencil); text-shadow:1px 1px var(--paper); }
 .ab-empty { margin:auto; font:27px var(--font-hand); }
 .ab-screen .battle-error { z-index:55; bottom:165px; padding:13px 24px; border:3px solid var(--blood); background:var(--paper); color:var(--blood); box-shadow:4px 5px var(--ink); font:21px var(--font-hand); animation:ab-stamp .2s ease-out; }
 .ab-screen .hero-selection { top:var(--ab-header,52px); background:#26241de0; }

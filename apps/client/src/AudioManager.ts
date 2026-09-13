@@ -27,10 +27,13 @@ export class AudioManager {
   private sfxVol = readUnit('sfxVolume', 1);
   private musicVol = readUnit('musicVolume', 0.5);
   private playlist: string[] = [];
+  private cardVoices: string[] = [];
   private track = 0;
   private currentUrl = '';
   private menuWanted = false;
   private music?: HTMLAudioElement;
+  private voiceNodes = new Set<HTMLAudioElement>();
+  private lastVoice = 0;
   private get enabled() { try { return localStorage.getItem('sound') !== 'off'; } catch { return true; } }
   get sfxVolume() { return this.sfxVol; }
   get musicVolume() { return this.musicVol; }
@@ -74,9 +77,25 @@ export class AudioManager {
     })();
     return stop;
   }
+  playCardVoice(cardId: string) {
+    const urls = this.cardVoices;
+    const hash = [...cardId].reduce((value, char) => ((value * 31) + char.charCodeAt(0)) | 0, 7);
+    if (!this.enabled || !urls.length || Math.abs(hash) % 3 !== 0 || performance.now() - this.lastVoice < 900) return;
+    this.lastVoice = performance.now();
+    const node = new Audio(urls[Math.floor(Math.random() * urls.length)]!);
+    node.volume = .5 * this.sfxVol;
+    this.voiceNodes.add(node);
+    node.addEventListener('ended', () => this.voiceNodes.delete(node), { once: true });
+    void node.play().catch(() => this.voiceNodes.delete(node));
+  }
+  setCardVoiceTracks(urls: string[]) { this.cardVoices = urls; }
   setEnabled(enabled: boolean) {
     try { localStorage.setItem('sound', enabled ? 'on' : 'off'); } catch { /* optional storage */ }
-    if (!enabled) { for (const voice of this.voices) voice.stop(); this.voices.clear(); this.pauseMusic(); }
+    if (!enabled) {
+      for (const voice of this.voices) voice.stop(); this.voices.clear();
+      for (const voice of this.voiceNodes) { voice.pause(); voice.removeAttribute('src'); }
+      this.voiceNodes.clear(); this.pauseMusic();
+    }
     else if (this.menuWanted) this.playMenu();
   }
   setSfxVolume(value: number) {

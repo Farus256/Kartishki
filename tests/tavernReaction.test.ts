@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectTavernReaction } from '../apps/client/src/battlegrounds/tavernReaction.ts';
+import { detectTavernReaction } from '../apps/client/src/battlegrounds/tavernReaction';
 
 const base = {
   sessionId: 'p0', gold: 5, tavernTier: 1, tripleSerial: 0, lastCombatResult: '',

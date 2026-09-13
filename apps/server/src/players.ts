@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 import {
   BATTLEGROUNDS_ELO_MAX, CASE_COST, CASE_XP, DAILY_REWARD, DECK_SIZE, DEFAULT_BATTLEGROUNDS_ELO,
   MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_SIZE, PACK_XP, WIN_REWARD, XP_AWARDS,
-  applyBeerMl, battlegroundsEloDelta, battlegroundsXp, beerMlForPlace, beerMlForResult, starterCards,
+  applyBeerMl, battlegroundsCurrencyReward, battlegroundsEloDelta, battlegroundsXp, beerMlForPlace, beerMlForResult, starterCards,
   type CardDefinition, type CaseResult, type LadderRow, type LootCard, type MatchRewards,
   type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerProfile, type SavedDeck,
   resolveSettings, validateSettingsPatch,
@@ -250,11 +250,13 @@ export class PlayerStore {
         const place = unique.get(id)!;
         const eloDelta = battlegroundsEloDelta(place, field, eloAmount);
         const xpGain = battlegroundsXp(place, field);
+        const gained = battlegroundsCurrencyReward(place);
         const elo = Math.max(0, Number(row.elo) + eloDelta);
         const xp = Number(row.xp) + xpGain;
         const beerMl = applyBeerMl(Number(row.beerMl), beerMlForPlace(place, field));
-        await tx.query('UPDATE players SET elo = $2, xp = $3, beer_ml = $4 WHERE id = $1', [id, elo, xp, beerMl]);
-        result[id] = { elo, currency: Number(row.currency), gained: 0, xp, beerMl };
+        const currency = Number(row.currency) + gained;
+        await tx.query('UPDATE players SET elo = $2, currency = $3, xp = $4, beer_ml = $5 WHERE id = $1', [id, elo, currency, xp, beerMl]);
+        result[id] = { elo, currency, gained, xp, beerMl };
       }
       return result;
     });

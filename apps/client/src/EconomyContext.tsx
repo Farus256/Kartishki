@@ -3,10 +3,13 @@ import { audioManager } from './AudioManager';
 import { CASE_XP, CASINO_XP, PACK_XP, type CardDefinition } from '@kartishki/shared';
 import { playerSession } from './playerSession';
 import { useCatalog } from './ui/useCatalog';
-import { CASES, PACKS, demoCards, drawCard, pickSlotSymbol, slotReward } from './economy';
+import { CASES, CASINO_GAMES, PACKS, demoCards, drawCard, pickCasinoPrize, pickSlotSymbol, slotReward } from './economy';
 
 export type LocalDeck = { id: string; name: string; cards: string[] };
-type Opening = { kind: 'packs'; cards: CardDefinition[]; name: string } | { kind: 'cases'; reel: CardDefinition[]; landing: number; prize: CardDefinition } | { kind: 'slots'; reels: number[]; label: string; cards: CardDefinition[]; pendingReward?: { dollars: number; packs: number } };
+type Opening = { kind: 'packs'; cards: CardDefinition[]; name: string }
+  | { kind: 'cases'; reel: CardDefinition[]; landing: number; prize: CardDefinition }
+  | { kind: 'slots'; reels: number[]; label: string; cards: CardDefinition[]; pendingReward?: { dollars: number; packs: number } }
+  | { kind: 'casino'; gameId: string; label: string; cards: CardDefinition[]; pendingReward: { dollars: number; xp: number } };
 type State = { dollars: number; owned: Record<string, number>; decks: LocalDeck[]; activeDeck: string; inventory: Record<string, number>; opening?: Opening };
 const KEY = 'kartishki-demo-economy-v1';
 function initial(): State {
@@ -27,12 +30,22 @@ function useEconomyState() {
   const [message, setMessage] = useState('');
   const [currencyEvents, setCurrencyEvents] = useState<{ id: number; amount: number }[]>([]);
   const eventId = useRef(0);
+  const appliedReward = useRef(account.lastReward);
   function currency(amount: number) {
     if (!amount) return;
     setCurrencyEvents(events => [...events.slice(-5), { id: ++eventId.current, amount }]);
     audioManager.play(amount < 0 ? 'coins_spend' : 'coins_win');
   }
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { setMessage('Хранилище недоступно: прогресс сохранён только до закрытия страницы.'); } }, [state]);
+  useEffect(() => {
+    const reward = account.lastReward;
+    if (!reward || reward === appliedReward.current) return;
+    appliedReward.current = reward;
+    if (reward.gained > 0) {
+      if (!account.library) commit({ ...current.current, dollars: current.current.dollars + reward.gained });
+      currency(reward.gained);
+    }
+  }, [account.lastReward]);
   function commit(next: State) { current.current = next; setState(next); }
   async function transaction(cost: number, cards: CardDefinition[], patch: Partial<State> = {}) {
     const s = current.current;
@@ -76,6 +89,30 @@ function useEconomyState() {
       if (reward) cards.forEach(c => { owned[c.id] = (owned[c.id] ?? 0) + 1; });
       commit({ ...s, opening: undefined, owned, dollars: cash() === undefined ? s.dollars + win : s.dollars, inventory: { ...s.inventory, basement: (s.inventory.basement ?? 0) + (reward?.packs ?? 0) } });
       currency(win);
+    },
+    async playCasino(id: string) {
+      const game = CASINO_GAMES.find(item => item.id === id);
+      const s = current.current;
+      if (!game || s.opening || (cash() ?? s.dollars) < game.cost) return false;
+      const prize = pickCasinoPrize(game);
+      const cards = Array.from({ length: prize.cards ?? 0 }, () => drawCard(catalog, game.kind === 'case' ? CASES[1].weights : PACKS[1].weights));
+      const ok = await transaction(game.cost, [], {
+        opening: { kind: 'casino', gameId: game.id, label: prize.label, cards, pendingReward: { dollars: prize.dollars ?? 0, xp: prize.xp ?? 0 } },
+      });
+      if (ok) playerSession.addXp(CASINO_XP);
+      return ok;
+    },
+    async settleCasino() {
+      const s = current.current;
+      if (s.opening?.kind !== 'casino') return;
+      const { cards, pendingReward } = s.opening;
+      if (cash() !== undefined && pendingReward.dollars && !await playerSession.changeCurrency(pendingReward.dollars)) return;
+      if (pendingReward.xp) playerSession.addXp(pendingReward.xp);
+      const owned = { ...s.owned };
+      cards.forEach(card => { owned[card.id] = (owned[card.id] ?? 0) + 1; });
+      commit({ ...s, opening: undefined, owned, dollars: cash() === undefined ? s.dollars + pendingReward.dollars : s.dollars });
+      currency(pendingReward.dollars);
+      if (cards.length || pendingReward.xp) audioManager.play('case_win');
     },
     finish() { commit({ ...current.current, opening: undefined }); },
   };

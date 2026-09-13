@@ -50,6 +50,7 @@ export {
   defaultSettings, resolveSettings, validateSettingsPatch,
 } from './players';
 export type { PlayerProfile, PlayerSettings, SavedDeck, PlayerLibrary, PlayerLogin, LootCard, PackResult, CaseResult, LadderRow, MatchRewards, BattlegroundsRewards } from './players';
+export { BATTLEGROUNDS_CURRENCY_REWARDS, battlegroundsCurrencyReward } from './players';
 export * from './autoBattler';
 export * from './leveling';
 export * from './menuMusic';

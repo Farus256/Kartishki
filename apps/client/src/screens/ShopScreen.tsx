@@ -1,4 +1,5 @@
 import { SlotMachine } from './SlotMachine';
+import { CasinoGames } from './CasinoGames';
 import { audioManager } from '../AudioManager';
 ﻿import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -15,7 +16,7 @@ import { rarityOrder, rarityStyle } from '../ui/rarity';
 import { useCardArt } from '../ui/cardArt';
 import { chime, tick } from '../ui/sfx';
 
-const tabs = { slots: 'Слот-Машина', packs: 'Паки карт', cases: 'Кейсы' };
+const tabs = { slots: 'Слот-машина', casino: 'Колесо и деньги', packs: 'Паки карт', cases: 'Кейсы' };
 type Tab = keyof typeof tabs;
 export function ShopScreen({ onBack }: { onBack: () => void }) {
   const e = useEconomy();
@@ -34,6 +35,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
     <p role="status" className="absolute right-12 top-[161px] max-w-[620px] text-right font-mono text-[13px] text-blood">{e.message}</p>
     <main className="absolute inset-x-[55px] top-[222px] bottom-[24px]">
       {tab === 'slots' && <SlotMachine />}
+      {tab === 'casino' && <CasinoGames />}
       {tab === 'packs' && (e.opening?.kind === 'packs' ? <PackOpening key={e.opening.name} cards={e.opening.cards} name={e.opening.name} onDone={e.finish} /> : <div className="catalog-layout">
         <div className="catalog-shelf">{PACKS.map((p, i) => <button key={p.id} className={`product-choice ${p.id === packId ? 'chosen' : ''}`} onClick={() => setPackId(p.id)} aria-pressed={p.id === packId}>
           <Foil name={p.name} color={['#7f9868', '#b395cc', '#d3b655'][i]} compact />

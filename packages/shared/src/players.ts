@@ -4,6 +4,10 @@ export const PACK_COST = 100;
 export const CASE_COST = 200;
 export const PACK_SIZE = 5;
 export const BOTTLE_CAPACITY = 2000;
+export const BATTLEGROUNDS_CURRENCY_REWARDS = [400, 200, 100, 50] as const;
+export function battlegroundsCurrencyReward(place: number) {
+  return Number.isInteger(place) && place >= 1 ? BATTLEGROUNDS_CURRENCY_REWARDS[place - 1] ?? 0 : 0;
+}
 export const BEER_WIN_MIN = 40;
 export const BEER_WIN_MAX = 80;
 export const BEER_DRAW_MIN = -5;

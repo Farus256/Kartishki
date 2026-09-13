@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, type HTMLMotionProps } from 'framer-motion';
 import type { ReactNode } from 'react';
 
 export const spring = { type: 'spring', stiffness: 300, damping: 20 } as const;
@@ -19,24 +19,22 @@ const sizes = {
   xl: 'px-12 py-6 text-[32px]',
 } as const;
 
-type Props = {
+type Props = Omit<HTMLMotionProps<'button'>, 'children' | 'onClick'> & {
   children: ReactNode;
   onClick?: () => void;
-  disabled?: boolean;
   tone?: keyof typeof tones;
   size?: keyof typeof sizes;
   pulse?: boolean;
   glow?: boolean;
-  title?: string;
-  className?: string;
 };
 
 /** Hand-inked banner button: tilts and lifts on hover, presses into the paper on click. */
-export function InkButton({ children, onClick, disabled, tone = 'paper', size = 'md', pulse, glow, title, className = '' }: Props) {
+export function InkButton({ children, onClick, disabled, tone = 'paper', size = 'md', pulse, glow, className = '', ...buttonProps }: Props) {
   const lift = glow ? '8px 10px 0 #1a1a1a, 0 0 22px 4px rgba(217,37,37,.7)' : '8px 10px 0 #1a1a1a';
   return (
     <motion.button
-      type="button" title={title} disabled={disabled} onClick={onClick}
+      {...buttonProps}
+      type="button" disabled={disabled} onClick={onClick}
       className={`ink-edge group relative select-none border-[3px] font-hand tracking-wide shadow-[5px_6px_0_#1a1a1a] disabled:opacity-50 disabled:shadow-none ${tones[tone]} ${sizes[size]} ${pulse && !disabled ? 'ink-pulse' : ''} ${className}`}
       initial={false}
       whileHover={disabled ? undefined : { scale: 1.05, rotate: -2, y: -3, boxShadow: lift }}

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BEER_WIN_MAX, BEER_WIN_MIN, CASE_COST, CASE_XP, CASINO_XP, DAILY_REWARD, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_XP, WIN_REWARD, battlegroundsEloDelta, starterCards } from '@kartishki/shared';
+import { BEER_WIN_MAX, BEER_WIN_MIN, CASE_COST, CASE_XP, CASINO_XP, DAILY_REWARD, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_XP, WIN_REWARD, battlegroundsCurrencyReward, battlegroundsEloDelta, starterCards } from '@kartishki/shared';
 import { migratePlayers, openDatabase } from '../src/database';
 import { PlayerError, PlayerStore } from '../src/players';
 
@@ -84,6 +84,9 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
       { playerId: bob.library.profile.id, place: 2 },
     ], 40, 2);
     assert.equal(bg[playerId]!.elo, beforeBg.profile.elo + battlegroundsEloDelta(1, 2, 40));
+    assert.equal(bg[playerId]!.gained, 400);
+    assert.equal(bg[playerId]!.currency, beforeBg.profile.currency + battlegroundsCurrencyReward(1));
+    assert.equal(bg[bob.library.profile.id]!.gained, 200);
     assert.equal(bg[playerId]!.xp, beforeBg.profile.xp + MATCH_WIN_XP);
     assert.ok(bg[playerId]!.beerMl >= beforeBg.profile.beerMl + BEER_WIN_MIN && bg[playerId]!.beerMl <= beforeBg.profile.beerMl + BEER_WIN_MAX);
     assert.equal(bg[bob.library.profile.id]!.xp, MATCH_LOSS_XP + MATCH_LOSS_XP);

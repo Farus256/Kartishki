@@ -18,6 +18,7 @@ import { useAbPointerDnd } from '../battlegrounds/useAbPointerDnd';
 import { intentKey, type AbIntent } from '../battlegrounds/pointerDnd';
 import { AB_LAYOUT } from '../battlegrounds/battlegroundsLayout';
 import { InkButton } from '../ui/InkButton';
+import { audioManager } from '../AudioManager';
 import '../battlegrounds/battlegrounds.css';
 
 export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
@@ -32,6 +33,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
   const lastCombat = useRef<{ combat: NonNullable<typeof state.combat>; boards: NonNullable<typeof state.combatBoards> } | null>(null);
   if (state.combat && state.combatBoards) lastCombat.current = { combat: state.combat, boards: state.combatBoards };
   const combatTable = playing || state.phase === 'COMBAT_PHASE';
+  const leaderboardPlayers = combatTable ? recruitHeroes.current : state.players;
   if (!combatTable && !state.combat) lastCombat.current = null;
   const [selected, setSelected] = useState<string | null>(null);
   const [triple, setTriple] = useState(false);
@@ -67,7 +69,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     screenRef,
     onIntent: (intent: AbIntent) => {
       if (intent.type === 'buy') autoBattlerSession.buy(intent.id);
-      else if (intent.type === 'play') autoBattlerSession.playCard(intent.id, intent.index);
+      else if (intent.type === 'play') { audioManager.playCardVoice(me?.hand.find(card => card.id === intent.id)?.cardId ?? ''); autoBattlerSession.playCard(intent.id, intent.index); }
       else if (intent.type === 'move') autoBattlerSession.moveBoard(intent.id, intent.index);
       else if (intent.type === 'sell') autoBattlerSession.sell(intent.id);
       else if (intent.type === 'power') { autoBattlerSession.heroPower(intent.id); setAim(null); }
@@ -98,7 +100,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
   function send(intent: AbIntent) {
     if (!dnd.api.tryLock(intentKey(intent))) return;
     if (intent.type === 'buy') autoBattlerSession.buy(intent.id);
-    else if (intent.type === 'play') autoBattlerSession.playCard(intent.id, intent.index);
+    else if (intent.type === 'play') { audioManager.playCardVoice(me?.hand.find(card => card.id === intent.id)?.cardId ?? ''); autoBattlerSession.playCard(intent.id, intent.index); }
     else if (intent.type === 'move') autoBattlerSession.moveBoard(intent.id, intent.index);
     else if (intent.type === 'sell') autoBattlerSession.sell(intent.id);
     else if (intent.type === 'power') { autoBattlerSession.heroPower(intent.id); setAim(null); }
@@ -147,13 +149,14 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
           {state.turn > 0 && <span>{t('turn', { turn: state.turn })}</span>}
           <span className={`ab-timer ${state.phase === 'RECRUIT_PHASE' && state.recruitSeconds <= 5 ? 'is-critical' : state.phase === 'RECRUIT_PHASE' && state.recruitSeconds <= 10 ? 'is-urgent' : ''}`} data-testid="ab-timer">{timer}</span>
           <span className="ab-header-count">{state.players.length}/{AUTO_BATTLER.MAX_PLAYERS}</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
+            <InkButton size="sm" aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))}>⚙</InkButton>
             <InkButton size="sm" onClick={leave}>{t('leave')}</InkButton>
           </div>
         </header>
 
         <div className="ab-layout">
-          <Leaderboard players={state.players} meId={state.sessionId} catalog={state.catalog} />
+          <Leaderboard players={leaderboardPlayers} meId={state.sessionId} catalog={state.catalog} />
           <div className="ab-stage">
             {!combatTable && state.phase === 'RECRUIT_PHASE' && state.recruitSeconds > 0 && state.recruitSeconds <= 10 && (
               <div className="ab-rope" data-testid="ab-rope" aria-label={timer}>
@@ -183,7 +186,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
                   <HandRow me={me} catalog={state.catalog} recruit={recruit} onPlay={id => send({ type: 'play', id, index: me.board.length })} />
                 </>
               )}
-              {triple && <div className="ab-triple-stamp" role="status">Ⅲ → ★<strong>{t('abTriple')}</strong><small>{t('abGoldenHint')}</small></div>}
+              {triple && <div className="ab-triple-stamp" role="status"><span className="ab-triple-cards"><i /><i /><i /><b>★</b></span><strong>{t('abTriple')}</strong><small>{t('abGoldenHint')}</small></div>}
               {!me && state.status === 'online' && <p className="ab-empty">{t('abWaiting', { count: state.players.length })}</p>}
               {state.status === 'connecting' && <p className="ab-empty">{t('connecting')}</p>}
             </section>
@@ -220,7 +223,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
               <h2>{t(state.phase === 'GAME_OVER' ? 'abGameOver' : 'abEliminated')}</h2>
               <p className="result">{t(state.winnerId === state.sessionId ? 'win' : state.winnerId ? 'loss' : 'draw')}</p>
               {me?.placement ? <p>{t('abPlace', { n: me.placement })}</p> : null}
-              {reward && <p>{t('abRewardElo', { n: `${reward.elo - reward.previousElo > 0 ? '+' : ''}${reward.elo - reward.previousElo}` })} · {t('abRewardXp', { n: reward.xpGain ?? 0 })}</p>}
+              {reward && <p>{t('abRewardElo', { n: `${reward.elo - reward.previousElo > 0 ? '+' : ''}${reward.elo - reward.previousElo}` })} · {t('abRewardXp', { n: reward.xpGain ?? 0 })} · +${reward.gained}</p>}
               <div className="ab-gameover-actions">
                 <InkButton tone="blood" onClick={playAgain}>{t('abPlayAgain')}</InkButton>
                 <InkButton tone="ink" onClick={leave}>{t('backToMenu')}</InkButton>

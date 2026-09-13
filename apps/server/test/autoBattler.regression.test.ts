@@ -27,6 +27,13 @@ test('purchase is not play: full board still allows buying and Battlecry waits f
  assert.equal(tryPlayCard(d,m.id).ok,false);p.board.pop();
  assert.ok(tryPlayCard(d,m.id).ok);assert.equal(p.gold,8);
 });
+test('Merchant receives both sale dollars even at the normal turn cap',()=>{
+ const {player:p,d,own}=setup();
+ p.hero.power.id='ab-power-sell-gold';p.hero.power.isPassive=true;p.gold=9;
+ const minion=own('ab-whelp');p.board.push(minion);
+ assert.ok(trySell(d,minion.id).ok);
+ assert.equal(p.gold,11);
+});
 for(const boardCount of [0,1,2,3]) test(`Triple ${boardCount} board / ${3-boardCount} hand conserves copies and rewards only on play`,()=>{
  const {player:p,d,own,pool}=setup();const initial=pool.count('ab-whelp');
  const copies=Array.from({length:3},()=>own('ab-whelp')); copies[0]!.attack+=2;copies[0]!.maxHealth+=3;copies[0]!.health+=3;

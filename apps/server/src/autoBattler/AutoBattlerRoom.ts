@@ -9,6 +9,7 @@ import {
   AutoBattlerPlayerState,
   AutoBattlerRoomState,
   CombatPairState,
+  battlegroundsCurrencyReward,
   HeroState,
   battlegroundsEloDelta,
   battlegroundsXp,
@@ -519,7 +520,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         seed,
         events: result.events,
         boards: { a: snapA.board, b: snapB.board },
-        durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 11000 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 3000 + result.events.length * 400),
+        durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 4_500 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 1_100 + result.events.length * 220),
         summary: { winnerId: result.winnerId, loserId: result.loserId, damage: result.damage, tie: result.tie },
       };
 
@@ -687,7 +688,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       const xpGain = battlegroundsXp(player.placement, count);
       const payload: BattlegroundsRewards = {
         place: player.placement, eloDelta, xpGain, beerMlGain: beerMlForPlace(player.placement, count),
-        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? 0, xp: row?.xp ?? 0, beerMl: row?.beerMl ?? 0,
+        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? battlegroundsCurrencyReward(player.placement), xp: row?.xp ?? 0, beerMl: row?.beerMl ?? 0,
       };
       client.send(EV.rewards, payload);
     }

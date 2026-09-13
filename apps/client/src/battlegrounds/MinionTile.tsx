@@ -72,7 +72,7 @@ function MinionDossier({ minion, catalog }: { minion: AbMinion; catalog: AutoBat
   return (
     <article className={`ab-dossier ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''}`} data-testid="ab-dossier">
       <span className="ab-dossier-stars">{'★'.repeat(minion.tavernTier)}</span>
-      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark">Ⅲ<br />★</span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" />}</div>
+      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark"><b>★</b><small>{t('abDiscover')}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" />}</div>
       <h3 className="ab-dossier-name">{name}</h3>
       <div className="ab-dossier-text">
         {lines.map(line => <p key={line}>{line}</p>)}
@@ -133,7 +133,7 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
         }}
         onClick={event => { if (!disabled && !dnd?.didDrag(event.currentTarget)) onClick?.(); }}
         data-testid={`ab-minion-${minion.id}`}>
-        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark">Ⅲ<br />★</span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" draggable={false} />}</span>
+        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark"><b>★</b><small>{t('abDiscover')}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" draggable={false} />}</span>
         <span className="ab-minion-tier">{spell ? '★' : minion.tavernTier}</span>
         {minion.keywords.includes('divineShield') && <span className="ab-shield-bubble" aria-hidden="true" />}
         {minion.keywords.includes('windfury') && <span className="ab-wind" aria-hidden="true"><i /><i /><i /></span>}

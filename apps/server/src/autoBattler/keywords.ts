@@ -176,7 +176,7 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
   registry.registerHeroPower({
     id: 'ab-power-sell-gold',
     onSell(ctx) {
-      ctx.player.gold = Math.min(AUTO_BATTLER.GOLD_CAP, ctx.player.gold + 1);
+      ctx.player.gold += 1;
     },
   });
 
