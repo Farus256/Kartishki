@@ -6,6 +6,7 @@ import {
   battlegroundsEloDelta, battlegroundsXp, remainingMlFromElo, starterCards,
   type CardDefinition, type CaseResult, type LadderRow, type LootCard, type MatchRewards,
   type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerProfile, type SavedDeck,
+  resolveSettings, validateSettingsPatch,
 } from '@kartishki/shared';
 import { type Database, type Sql } from './database';
 
@@ -70,13 +71,14 @@ export class PlayerStore {
   }
   async logout(token: string) { await this.db.query('DELETE FROM player_sessions WHERE token_hash = $1', [digest(token)]); }
   async library(playerId: string, tx: Sql = this.db): Promise<PlayerLibrary> {
-    const row = (await tx.query<{ id: string; username: string; elo: string | number; currency: string | number; xp: string | number; lastDaily: string | null; today: string }>(
-      'SELECT id, username, elo, currency, xp, last_daily::text AS "lastDaily", CURRENT_DATE::text AS today FROM players WHERE id = $1', [playerId])).rows[0];
+    const row = (await tx.query<{ id: string; username: string; elo: string | number; currency: string | number; xp: string | number; lastDaily: string | null; today: string; settings: unknown }>(
+      'SELECT id, username, elo, currency, xp, last_daily::text AS "lastDaily", CURRENT_DATE::text AS today, settings FROM players WHERE id = $1', [playerId])).rows[0];
     if (!row) throw new PlayerError('loginRequired', 401);
     const lastDaily = row.lastDaily ? String(row.lastDaily).slice(0, 10) : null;
     const profile: PlayerProfile = {
       id: row.id, username: row.username, elo: Number(row.elo), currency: Number(row.currency), xp: Number(row.xp),
       lastDaily, dailyAvailable: !lastDaily || lastDaily < String(row.today).slice(0, 10),
+      settings: resolveSettings(row.settings),
     };
     const collection = (await tx.query<{ cardId: string; copies: number }>('SELECT card_id AS "cardId", copies FROM player_collection WHERE player_id = $1 ORDER BY card_id', [playerId])).rows
       .map(row => ({ cardId: row.cardId, copies: Number(row.copies) }));
@@ -135,6 +137,26 @@ export class PlayerStore {
       // ponytail: server local date; switch to UTC day if the game goes global
       const row = (await tx.query<{ id: string }>('UPDATE players SET currency = currency + $2, last_daily = CURRENT_DATE WHERE id = $1 AND (last_daily IS NULL OR last_daily < CURRENT_DATE) RETURNING id', [playerId, DAILY_REWARD])).rows[0];
       if (!row) throw new PlayerError('alreadyClaimed', 409);
+      return this.library(playerId, tx);
+    });
+  }
+  async saveSettings(playerId: string, patch: unknown): Promise<PlayerLibrary> {
+    const update = validateSettingsPatch(patch);
+    if (!update || !Object.keys(update).length) throw new PlayerError('invalidRequest');
+    return this.db.transaction(async tx => {
+      const row = (await tx.query<{ settings: unknown }>('SELECT settings FROM players WHERE id = $1 FOR UPDATE', [playerId])).rows[0];
+      if (!row) throw new PlayerError('loginRequired', 401);
+      const settings = { ...resolveSettings(row.settings), ...update };
+      await tx.query('UPDATE players SET settings = $2::jsonb WHERE id = $1', [playerId, JSON.stringify(settings)]);
+      return this.library(playerId, tx);
+    });
+  }
+  async changeCurrency(playerId: string, delta: unknown): Promise<PlayerLibrary> {
+    if (!Number.isInteger(delta) || Math.abs(delta as number) > 2500) throw new PlayerError('invalidRequest');
+    if (delta === 0) return this.library(playerId);
+    return this.db.transaction(async tx => {
+      const row = (await tx.query<{ id: string }>('UPDATE players SET currency = currency + $2 WHERE id = $1 AND currency + $2 >= 0 RETURNING id', [playerId, delta])).rows[0];
+      if (!row) throw new PlayerError('insufficientFunds');
       return this.library(playerId, tx);
     });
   }

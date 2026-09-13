@@ -46,8 +46,9 @@ export { starterCards, validateCard, effects, triggers, properties } from './car
 export {
   DAILY_REWARD, WIN_REWARD, PACK_COST, CASE_COST, PACK_SIZE,
   BOTTLE_CAPACITY, CALIBRATION_ML, ML_PER_ELO, remainingMlFromElo,
+  defaultSettings, resolveSettings, validateSettingsPatch,
 } from './players';
-export type { PlayerProfile, SavedDeck, PlayerLibrary, PlayerLogin, LootCard, PackResult, CaseResult, LadderRow, MatchRewards, BattlegroundsRewards } from './players';
+export type { PlayerProfile, PlayerSettings, SavedDeck, PlayerLibrary, PlayerLogin, LootCard, PackResult, CaseResult, LadderRow, MatchRewards, BattlegroundsRewards } from './players';
 export * from './autoBattler';
 export * from './leveling';
 export * from './menuMusic';

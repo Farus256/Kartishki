@@ -1,5 +1,6 @@
 import { applyMatchElo, calibratedRank, isBeerRank, updateBeerRank, type BeerRank } from './beerRank';
-import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type BattlegroundsRewards, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type SavedDeck } from '@kartishki/shared';
+import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type BattlegroundsRewards, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerSettings, type SavedDeck } from '@kartishki/shared';
+import { applyPlayerSettings, currentLocalSettings } from './applySettings';
 import { serverOrigin } from './serverUrl';
 
 const endpoint = serverOrigin();
@@ -35,10 +36,12 @@ function rankFor(profile: PlayerLibrary['profile']) {
   try { localStorage.setItem(key, JSON.stringify(rank)); } catch { /* keep session progress in memory */ }
   return rank;
 }
-function setLibrary(library: PlayerLibrary) {
+function setLibrary(library: PlayerLibrary, syncSettings = false) {
   const xp = Number(library.profile.xp ?? 0);
   const next = { ...library, profile: { ...library.profile, xp } };
-  const selectedDeck = next.decks.some(d=>d.id===snapshot.selectedDeck) ? snapshot.selectedDeck : next.decks[0]?.id ?? '';
+  if (syncSettings && next.profile.settings) applyPlayerSettings(next.profile.settings);
+  const preferred = snapshot.selectedDeck || next.profile.settings?.selectedDeck || '';
+  const selectedDeck = next.decks.some(d=>d.id===preferred) ? preferred : next.decks[0]?.id ?? '';
   publish({ library: next, selectedDeck, beerRank: rankFor(next.profile), xp });
 }
 function addCopies(library: PlayerLibrary, ids: string[], currency: number): PlayerLibrary {
@@ -58,7 +61,12 @@ async function run(action: () => Promise<void>) {
 export const playerSession = {
   subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
   getSnapshot: () => snapshot,
-  selectDeck(id: string) { publish({ selectedDeck:id }); },
+  selectDeck(id: string) { publish({ selectedDeck:id }); if (token) void playerSession.saveSettings({ selectedDeck: id }); },
+  async saveSettings(patch: Partial<PlayerSettings>) {
+    if (!token || !snapshot.library) return false;
+    try { setLibrary(await request<PlayerLibrary>('/settings', 'POST', patch), true); return true; }
+    catch (error) { publish({ error: error instanceof Error ? error.message : 'playerServerError' }); return false; }
+  },
   patchProfile(rewards: MatchRewards) {
     if (!snapshot.library) return;
     const previousElo = snapshot.library.profile.elo;
@@ -105,11 +113,24 @@ export const playerSession = {
   authOptions() { return token ? { playerToken: token } : {}; },
   clearMatchReward() { publish({ lastReward: undefined }); },
   async authenticate(action: 'register'|'login', username: string, password: string) {
-    await run(async()=>{ const result = await request<PlayerLogin>(`/${action}`,'POST',{username,password}); token=result.token; localStorage.setItem('playerToken',token); setLibrary(result.library); });
+    await run(async()=>{
+      const result = await request<PlayerLogin>(`/${action}`,'POST',{username,password});
+      token=result.token; localStorage.setItem('playerToken',token);
+      if (action === 'register') {
+        setLibrary(result.library);
+        await playerSession.saveSettings(currentLocalSettings());
+      } else setLibrary(result.library, true);
+    });
   },
-  async refresh() { await run(async()=>setLibrary(await request<PlayerLibrary>('/me'))); },
+  async refresh() { await run(async()=>setLibrary(await request<PlayerLibrary>('/me'), true)); },
   async logout() { await run(async()=>{ await request('/logout','POST'); token=''; localStorage.removeItem('playerToken'); publish({library:undefined,selectedDeck:'',beerRank:loadGuestRank(), xp: loadGuestXp(), lastReward: undefined}); }); },
   async claimDaily() { await run(async()=>setLibrary(await request<PlayerLibrary>('/daily','POST',{}))); },
+  async changeCurrency(delta: number) {
+    if (!token || !snapshot.library || !Number.isInteger(delta)) return false;
+    if (!delta) return true;
+    try { setLibrary(await request<PlayerLibrary>('/wallet', 'POST', { delta })); return true; }
+    catch (error) { publish({ error: error instanceof Error ? error.message : 'playerServerError' }); return false; }
+  },
   async openPack() {
     let result: PackResult | undefined;
     await run(async()=>{ result = await request<PackResult>('/packs','POST',{}); setLibrary({ ...addCopies(snapshot.library!, result.cards.map(card => card.id), result.currency), profile: { ...snapshot.library!.profile, currency: result.currency, xp: result.xp } }); });
@@ -126,9 +147,16 @@ export const playerSession = {
       const library=snapshot.library!;
       setLibrary({...library,decks:[...library.decks.filter(d=>d.id!==saved.id),saved]});
       publish({selectedDeck:saved.id});
+      void playerSession.saveSettings({ selectedDeck: saved.id });
     });
   },
-  async deleteDeck(deck: SavedDeck) { await run(async()=>{ await request(`/decks/${deck.id}`,'DELETE',{version:deck.version}); setLibrary({...snapshot.library!,decks:snapshot.library!.decks.filter(d=>d.id!==deck.id)}); }); },
+  async deleteDeck(deck: SavedDeck) {
+    await run(async()=>{
+      await request(`/decks/${deck.id}`,'DELETE',{version:deck.version});
+      setLibrary({...snapshot.library!,decks:snapshot.library!.decks.filter(d=>d.id!==deck.id)});
+      if (snapshot.selectedDeck) void playerSession.saveSettings({ selectedDeck: snapshot.selectedDeck });
+    });
+  },
   matchOptions() {
     if (!token) return {};
     if (!snapshot.library || !snapshot.selectedDeck) throw new Error('chooseDeck');
@@ -136,7 +164,7 @@ export const playerSession = {
   },
 };
 if (token) {
-  void request<PlayerLibrary>('/me').then(setLibrary).catch(error=>{
+  void request<PlayerLibrary>('/me').then(library => setLibrary(library, true)).catch(error=>{
     if (error.message === 'loginRequired') { token=''; localStorage.removeItem('playerToken'); }
     publish({error:error.message});
   }).finally(()=>publish({loading:false}));

@@ -22,6 +22,8 @@ export function playerApi(store: PlayerStore, catalog: CatalogStore) {
   router.get('/me', async (_req,res) => { res.json(await store.library(res.locals.playerId)); });
   router.post('/logout', async (_req,res) => { await store.logout(res.locals.token); res.sendStatus(204); });
   router.post('/daily', async (_req,res) => { res.json(await store.claimDaily(res.locals.playerId)); });
+  router.post('/wallet', async (req,res) => { res.json(await store.changeCurrency(res.locals.playerId, req.body?.delta)); });
+  router.post('/settings', async (req,res) => { res.json(await store.saveSettings(res.locals.playerId, req.body)); });
   router.post('/packs', async (_req,res) => { res.json(await store.openPack(res.locals.playerId, catalog.snapshot().cards)); });
   router.post('/cases', async (_req,res) => { res.json(await store.openCase(res.locals.playerId, catalog.snapshot().cards)); });
   router.post('/xp', async (req,res) => { res.json(await store.addXp(res.locals.playerId, req.body?.amount)); });

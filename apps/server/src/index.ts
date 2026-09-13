@@ -19,7 +19,6 @@ const players = new PlayerStore(db);
 const transport = new WebSocketTransport({ maxPayload: 4096 });
 const app = transport.getExpressApp();
 app.set('trust proxy', 1);
-app.get('/health', (_req, res) => { res.json({ status: 'ok' }); });
 app.use((req, res, next) => {
   const allow = corsAllowOrigin(req.headers.origin);
   if (allow) {
@@ -31,6 +30,7 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
   next();
 });
+app.get('/health', (_req, res) => { res.json({ status: 'ok' }); });
 app.use('/api/players', playerApi(players,catalogStore));
 app.use('/api/portraits', portraitAssets());
 app.use('/api/music', musicAssets());

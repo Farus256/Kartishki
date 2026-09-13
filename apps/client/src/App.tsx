@@ -33,7 +33,11 @@ export function App() {
   useEffect(() => { firstPaint.current = false; }, []);
   useEffect(() => { if (signedIn && screen === 'landing') setScreen('menu'); }, [signedIn, screen]);
   useEffect(() => { if (!signedIn && !guest && screen !== 'landing') setScreen('landing'); }, [signedIn, guest, screen]);
-  useEffect(() => { if (screen === 'match' && state.status === 'offline') setScreen('menu'); }, [screen, state.status]);
+  useEffect(() => {
+    if (screen !== 'match' || state.status !== 'offline') return;
+    setScreen('menu');
+    if (playerSession.getSnapshot().library) void playerSession.refresh();
+  }, [screen, state.status]);
   useEffect(() => { if (state.status === 'offline') playerSession.clearMatchReward(); }, [state.status]);
 
   useEffect(() => { const open = () => setSettings(true); window.addEventListener('open-settings', open); return () => window.removeEventListener('open-settings', open); }, []);

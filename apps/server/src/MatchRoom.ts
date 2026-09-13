@@ -101,7 +101,10 @@ export class MatchRoom extends Room<{ state: MatchState }> {
         const client = this.clients.find(item => item.sessionId === sessionId);
         if (client) client.send('rewards', row);
       }
-    } catch (error) { console.error('Failed to persist match result', error); }
+    } catch (error) {
+      this.settled = false;
+      console.error('Failed to persist match result', error);
+    }
   }
 }
 

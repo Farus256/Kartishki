@@ -114,6 +114,9 @@ const ru = {
   levelXpNeed: 'Опыт уровня', invalidLeveling: 'Нужны 30 названий и целое число опыта от 1 до 10000 на каждый уровень.',
   battlegroundsElo: 'Рейтинг за 1 место в поле сражений',
   battlegroundsEloNote: 'Победитель получает это число, последний — столько же в минус. Остальные места считаются пропорционально.',
+  serverConnecting: 'Подключение к серверу...',
+  serverWaking: 'Сервер запускается. Это может занять до минуты.',
+  retry: 'Повторить',
 };
 const en: Record<keyof typeof ru, string> = {
   selecting: 'Choose a hero', summon: 'Summon', invalidHero: 'Check the hero settings and summon card.',
@@ -226,6 +229,19 @@ const en: Record<keyof typeof ru, string> = {
   levelXpNeed: 'Level XP', invalidLeveling: 'Need 30 names and an integer XP from 1 to 10000 for each level.',
   battlegroundsElo: 'Battlegrounds 1st-place rating',
   battlegroundsEloNote: 'First place gets this many points, last place loses the same. Other places scale in between.',
+  serverConnecting: 'Connecting to the server...',
+  serverWaking: 'The server is starting. This can take up to a minute.',
+  retry: 'Retry',
 };
-void i18n.use(initReactI18next).init({ resources: { ru: { translation: ru }, en: { translation: en } }, lng: 'ru', fallbackLng: 'ru', interpolation: { escapeValue: false } });
+function storedLanguage() {
+  try {
+    const language = localStorage.getItem('kartishki-language');
+    if (language === 'en' || language === 'ru') return language;
+  } catch { /* default Russian until storage works */ }
+  return 'ru';
+}
+void i18n.use(initReactI18next).init({ resources: { ru: { translation: ru }, en: { translation: en } }, lng: storedLanguage(), fallbackLng: 'ru', interpolation: { escapeValue: false } });
+i18n.on('languageChanged', language => {
+  try { localStorage.setItem('kartishki-language', language.startsWith('en') ? 'en' : 'ru'); } catch { /* optional */ }
+});
 export default i18n;

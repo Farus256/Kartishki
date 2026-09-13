@@ -72,5 +72,9 @@ export async function migratePlayers(db: Database) {
       await tx.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0)');
       await tx.query('INSERT INTO player_schema_version (version) VALUES (3)');
     }
+    if (current < 4) {
+      await tx.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb`);
+      await tx.query('INSERT INTO player_schema_version (version) VALUES (4)');
+    }
   });
 }

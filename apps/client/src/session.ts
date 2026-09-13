@@ -40,7 +40,12 @@ export const session = {
       joined.onMessage('rewards', (rewards: MatchRewards) => { if (room === joined) playerSession.patchProfile(rewards); });
       joined.onMessage('actionError', () => { if (room === joined) publish({ error: 'rejected' }); });
       joined.onError(() => { if (room === joined) publish({ error: 'connectionError' }); });
-      joined.onLeave(() => { if (room === joined) { room = undefined; publish(empty()); } });
+      joined.onLeave(() => {
+        if (room !== joined) return;
+        room = undefined;
+        if (snapshot.status === 'finished') return;
+        publish(empty());
+      });
       sync(); joined.send('ready');
     } catch (error) { if (attempt === generation) publish({ ...empty(), error: error instanceof Error && ['chooseDeck','loginRequired','invalidDeck','cardsNotOwned','alreadyInMatch'].includes(error.message) ? error.message : 'connectionError' }); }
   },

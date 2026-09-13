@@ -269,6 +269,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     if (this.state.phase === 'LOBBY') {
       this.heroOffers.delete(client.sessionId);
       this.state.players.delete(client.sessionId);
+      this.playerIds.delete(client.sessionId);
       const order = [...this.state.playerOrder].filter(id => id !== client.sessionId);
       while (this.state.playerOrder.length) this.state.playerOrder.pop();
       for (const id of order) this.state.playerOrder.push(id);

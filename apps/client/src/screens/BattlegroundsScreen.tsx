@@ -86,7 +86,12 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  function leave() { autoBattlerSession.leave(); playerSession.clearMatchReward(); onLeave(); }
+  function leave() {
+    autoBattlerSession.leave();
+    playerSession.clearMatchReward();
+    if (player.library) void playerSession.refresh();
+    onLeave();
+  }
   function playAgain() { lastTriple.current = 0; setTriple(false); setPlaying(false); playerSession.clearMatchReward(); autoBattlerSession.leave(); void autoBattlerSession.connect(); }
 
   function send(intent: AbIntent) {

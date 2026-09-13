@@ -38,10 +38,10 @@ export function SlotMachine() {
     stopSpin.current = audioManager.play('reels_spin', true);
     return () => stopSpin.current();
   }, [spinning]);
-  function spin() {
+  async function spin() {
     if (locked.current || economy.opening || economy.dollars < 50) return;
     locked.current = true;
-    if (!economy.spin()) { locked.current = false; return; }
+    if (!await economy.spin()) { locked.current = false; return; }
     setRound(n => n + 1);
     audioManager.play('lever_pull');
     void lever.start({ y: 80, transition: { duration: .16, ease: 'easeIn' } }).then(() =>
@@ -55,7 +55,7 @@ export function SlotMachine() {
     stopSpin.current();
     setResult([opening.label, ...opening.cards.map(c => c.name.ru)].join(' • '));
     setReels(opening.reels.slice(0, 3));
-    economy.settleSlot();
+    void economy.settleSlot();
     locked.current = false;
   }
   return <div className="slot-layout">

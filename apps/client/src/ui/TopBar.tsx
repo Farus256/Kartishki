@@ -45,7 +45,7 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
           <span className={`beer-league-badge${dark ? ' is-dark' : ''}`} data-testid="beer-league">{dark ? 'II / ЛИГА «ТЁМНОЕ»' : 'I / ЛИГА «СВЕТЛОЕ»'}</span>
           <strong data-testid="beer-volume" className="top-rank-ml">{rank.remainingMl.toLocaleString('ru-RU')}<small>мл</small></strong>
         </div>
-        <div title="Доллары • локальная демо-экономика" className="relative ink-edge flex items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
+        <div title={profile ? 'Доллары аккаунта' : 'Доллары • локальная демо-экономика'} className="relative ink-edge flex items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
           {economy.currencyEvents.map((event, index) => <motion.span key={event.id} className={`currency-badge ${event.amount > 0 ? 'gain' : 'spend'}`} style={{ right: index * 18 }} initial={{ opacity: 1, y: 20, scale: .85 }} animate={{ opacity: [1, 1, 0], y: [20, -5, -45], scale: event.amount > 0 ? [1, 1.2, 1, 1.15, 1] : 1 }} transition={{ duration: 1.8 }} onAnimationComplete={() => economy.dismissCurrency(event.id)}>{event.amount > 0 ? '+' : '-'}${Math.abs(event.amount)}</motion.span>)}
           <b data-testid="balance" className="font-hand text-[30px]">$ {economy.dollars.toLocaleString('en-US')}</b>
           <button aria-label="Магазин" onClick={onPlus} disabled={!onPlus} className="border-2 border-ink px-2 text-[24px] disabled:opacity-30">+</button>

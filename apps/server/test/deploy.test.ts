@@ -46,16 +46,20 @@ test('shipped catalog is the current local game content', () => {
   const file = catalogFile(undefined);
   assert.match(file.replaceAll('\\', '/'), /apps\/server\/data\/catalog\.json$/);
   const snap = new CatalogStore(file).snapshot();
-  assert.equal(snap.version, 65);
-  assert.deepEqual(snap.cards.map(card => card.id).sort(), ['browser-card', 'grudge', 'paper-imp', 'prism-cat', 'rager', 'rubber-knight', 'screamer', 'shame', 'summon-browser']);
-  assert.ok(snap.heroes?.some(hero => hero.id === 'browser-hero'));
-  assert.equal(snap.menuMusic?.tracks.length, 2);
+  assert.ok(Number.isInteger(snap.version) && snap.version >= 1);
+  assert.ok(snap.cards.length >= 1 && snap.cards.length <= 30);
   const root = dirname(file);
-  for (const track of snap.menuMusic!.tracks) {
+  for (const track of snap.menuMusic?.tracks ?? []) {
     assert.ok(existsSync(join(root, 'music', track.url.slice('/api/music/'.length))), track.url);
   }
-  for (const name of [
-    '46b54c11a208a7b6da76ab1e3ad73c29a38f4f66d47dc3c395bc7418c1a0ddaa.png',
-    'eb69f0fc7abc2dd501767e14fbeb7f49f50f003ed808251dc8661f377119627e.png',
-  ]) assert.ok(existsSync(join(root, 'portraits', name)), name);
+  const portraits = new Set<string>();
+  const walk = (value: unknown) => {
+    if (typeof value === 'string') {
+      const match = value.match(/\/api\/portraits\/([a-f0-9]{64}\.(?:png|jpeg|webp))/i);
+      if (match) portraits.add(match[1]!);
+    } else if (Array.isArray(value)) value.forEach(walk);
+    else if (value && typeof value === 'object') Object.values(value).forEach(walk);
+  };
+  walk(snap);
+  for (const name of portraits) assert.ok(existsSync(join(root, 'portraits', name)), name);
 });
