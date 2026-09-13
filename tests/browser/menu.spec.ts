@@ -1,48 +1,44 @@
 ﻿import { test, expect, type Page } from '@playwright/test';
 const LADDER = [
-  { username: 'Алиса', elo: 1200, xp: 80, remainingMl: 0 },
-  { username: 'Борис', elo: 1100, xp: 40, remainingMl: 500 },
-  { username: 'Вера', elo: 1050, xp: 20, remainingMl: 1000 },
+  { username: 'Алиса', elo: 1200, xp: 80, remainingMl: 980 },
+  { username: 'Борис', elo: 1100, xp: 40, remainingMl: 540 },
+  { username: 'Вера', elo: 1050, xp: 20, remainingMl: 210 },
 ];
 async function stubMenuApis(page: Page) {
+  await page.route('**/health', route => route.fulfill({ json: { status: 'ok' } }));
   await page.route('**/api/catalog', route => route.fulfill({ json: { cards: [] } }));
   await page.route('**/api/players/ladder', route => route.fulfill({ json: LADDER }));
 }
-async function patchElo(page: Page, elo: number) {
-  await page.evaluate(`import('/src/playerSession.ts').then(m => m.playerSession.patchProfile({ elo: ${elo}, currency: 0, gained: 0 }))`);
+async function patchBeer(page: Page, beerMl: number) {
+  await page.evaluate(`import('/src/playerSession.ts').then(m => m.playerSession.patchProfile({ elo: 1000, currency: 0, gained: 0, xp: 0, beerMl: ${beerMl} }))`);
 }
-test('bottle rank calibrates, drains, caps, promotes and persists without double rewards', async ({ page }) => {
-  let elo = 1000;
+test('bottle rank starts empty, only fills, promotes and persists without double rewards', async ({ page }) => {
+  let beerMl = 0;
   await page.addInitScript(() => { localStorage.setItem('playerToken', 'menu-test'); localStorage.setItem('sound', 'off'); });
   await stubMenuApis(page);
-  await page.route('**/api/players/me', route => route.fulfill({ json: { profile: { id: 'beer-player', username: 'Барсик', elo, currency: 0, xp: 0, dailyAvailable: true, lastDaily: null }, collection: [], decks: [] } }));
+  await page.route('**/api/players/me', route => route.fulfill({ json: { profile: { id: 'beer-player', username: 'Барсик', elo: 1000, currency: 0, xp: 0, beerMl, dailyAvailable: true, lastDaily: null }, collection: [], decks: [] } }));
   await page.goto('/');
   const bottle = page.getByTestId('beer-bottle');
-  await expect(bottle).toHaveAttribute('data-ml', '1500');
+  await expect(bottle).toHaveAttribute('data-ml', '0');
   await expect(page.getByText('Стол игрока')).toHaveCount(0);
   await expect(page.getByTestId('player-level')).toContainText('Барсик');
   await expect(page.getByRole('button', { name: 'Ежедневная награда', exact: true })).toBeEnabled();
-  await expect.poll(async () => page.getByTestId('beer-liquid').getAttribute('d')).toMatch(/^M65 244/);
+  await expect(page.getByTestId('beer-liquid')).toHaveAttribute('opacity', '0');
   await page.screenshot({ path: 'artifacts/menu-beer-light.png', animations: 'disabled' });
-  elo = 1016; await patchElo(page, elo); await expect(bottle).toHaveAttribute('data-ml', '1340');
-  await patchElo(page, elo); await expect(bottle).toHaveAttribute('data-ml', '1340');
-  elo = 900; await patchElo(page, elo); await expect(bottle).toHaveAttribute('data-ml', '2000');
-  await expect(bottle).toHaveAttribute('data-league', 'light');
-  elo = 1100; await patchElo(page, elo); await expect(bottle).toHaveAttribute('data-league', 'dark');
-  await expect(bottle).toHaveAttribute('data-ml', '1500');
+  await patchBeer(page, 80); await expect(bottle).toHaveAttribute('data-ml', '80');
+  await patchBeer(page, 80); await expect(bottle).toHaveAttribute('data-ml', '80');
+  await patchBeer(page, 1600); await expect(bottle).toHaveAttribute('data-league', 'light');
+  beerMl = 2000; await patchBeer(page, beerMl); await expect(bottle).toHaveAttribute('data-league', 'dark');
+  await expect(bottle).toHaveAttribute('data-ml', '2000');
   await page.screenshot({ path: 'artifacts/menu-beer-dark.png', animations: 'disabled' });
-  elo = 1000; await patchElo(page, elo); await expect(bottle).toHaveAttribute('data-ml', '2000');
-  await expect(bottle).toHaveAttribute('data-league', 'dark');
-  elo = 1200; await patchElo(page, elo); await expect(bottle).toHaveAttribute('data-ml', '0');
-  await expect(page.getByTestId('beer-liquid')).toHaveAttribute('opacity', '0', { timeout: 8000 });
-  await page.reload(); await expect(bottle).toHaveAttribute('data-ml', '0');
+  await page.reload(); await expect(bottle).toHaveAttribute('data-ml', '2000');
   await expect(bottle).toHaveAttribute('data-league', 'dark');
 });
 test('guest menu keeps bottle, daily reward and actions inside the 16:9 stage', async ({ page }) => {
   await stubMenuApis(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/'); await page.getByRole('button', { name: 'Играть как гость' }).click();
-  await expect(page.getByTestId('beer-bottle')).toHaveAttribute('data-ml', '1500');
+  await expect(page.getByTestId('beer-bottle')).toHaveAttribute('data-ml', '0');
   await expect(page.getByTestId('player-level')).toContainText('Ур. 1');
   await expect(page.getByTestId('player-level')).toContainText('Новичок');
   await expect(page.getByTestId('player-level')).toContainText('0 / 40');
@@ -55,7 +51,7 @@ test('guest menu keeps bottle, daily reward and actions inside the 16:9 stage', 
   const board = page.getByTestId('menu-ladder');
   await expect(board.locator('tbody tr').nth(0)).toContainText('Алиса');
   await expect(board.locator('tbody tr').nth(0).locator('.lvl')).toHaveText('2');
-  await expect(board.locator('tbody tr').nth(0).locator('.ml')).toHaveText('0');
+  await expect(board.locator('tbody tr').nth(0).locator('.ml')).toHaveText('980');
   await expect(board.locator('tbody tr')).toHaveCount(10);
   await expect(board.locator('.is-gold')).toContainText('Алиса');
   await expect(board.locator('.is-silver')).toContainText('Борис');

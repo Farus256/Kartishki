@@ -76,5 +76,9 @@ export async function migratePlayers(db: Database) {
       await tx.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb`);
       await tx.query('INSERT INTO player_schema_version (version) VALUES (4)');
     }
+    if (current < 5) {
+      await tx.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS beer_ml INTEGER NOT NULL DEFAULT 0 CHECK (beer_ml >= 0)');
+      await tx.query('INSERT INTO player_schema_version (version) VALUES (5)');
+    }
   });
 }

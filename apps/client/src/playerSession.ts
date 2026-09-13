@@ -1,10 +1,10 @@
-import { applyMatchElo, calibratedRank, isBeerRank, updateBeerRank, type BeerRank } from './beerRank';
+import { addBeerMl, applyMatchElo, beerMlForPlace, beerMlForResult, calibratedRank, isBeerRank, rankFromMl, type BeerRank } from './beerRank';
 import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type BattlegroundsRewards, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerSettings, type SavedDeck } from '@kartishki/shared';
 import { applyPlayerSettings, currentLocalSettings } from './applySettings';
 import { serverOrigin } from './serverUrl';
 
 const endpoint = serverOrigin();
-const GUEST_RANK_KEY = 'kartishki-beer-rank-v1:guest';
+const GUEST_RANK_KEY = 'kartishki-beer-rank-v2:guest';
 const GUEST_XP_KEY = 'kartishki-player-xp-v1:guest';
 export type MatchReward = { elo: number; previousElo: number; gained: number; xpGain?: number };
 function loadGuestRank(): BeerRank {
@@ -24,17 +24,8 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
   if (!response.ok) { const data = await response.json().catch(()=>({})); throw new Error(data.error ?? 'playerServerError'); }
   return response.status === 204 ? undefined as T : response.json();
 }
-const rankCache = new Map<string, BeerRank>();
 function rankFor(profile: PlayerLibrary['profile']) {
-  const key = 'kartishki-beer-rank-v1:' + profile.id;
-  let previous = rankCache.get(profile.id);
-  if (!previous) {
-    try { const stored: unknown = JSON.parse(localStorage.getItem(key) ?? 'null'); if (isBeerRank(stored)) previous = stored; } catch { /* optional local persistence */ }
-  }
-  const rank = updateBeerRank(previous ?? calibratedRank(profile.elo), profile.elo);
-  rankCache.set(profile.id, rank);
-  try { localStorage.setItem(key, JSON.stringify(rank)); } catch { /* keep session progress in memory */ }
-  return rank;
+  return rankFromMl(profile.beerMl ?? 0, profile.elo);
 }
 function setLibrary(library: PlayerLibrary, syncSettings = false) {
   const xp = Number(library.profile.xp ?? 0);
@@ -70,7 +61,7 @@ export const playerSession = {
   patchProfile(rewards: MatchRewards) {
     if (!snapshot.library) return;
     const previousElo = snapshot.library.profile.elo;
-    setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp ?? snapshot.library.profile.xp } });
+    setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp ?? snapshot.library.profile.xp, beerMl: rewards.beerMl ?? snapshot.library.profile.beerMl } });
     publish({ lastReward: { elo: rewards.elo, previousElo, gained: rewards.gained } });
   },
   addXp(amount: number) {
@@ -88,24 +79,25 @@ export const playerSession = {
   finishMatch(result: 'win' | 'loss' | 'draw') {
     if (snapshot.library || snapshot.lastReward) return;
     const previousElo = snapshot.beerRank.lastElo;
-    const elo = applyMatchElo(previousElo, result === 'win' ? 1 : result === 'draw' ? 0.5 : 0);
-    const beerRank = updateBeerRank(snapshot.beerRank, elo);
+    const score = result === 'win' ? 1 : result === 'draw' ? 0.5 : 0;
+    const elo = applyMatchElo(previousElo, score);
+    const beerRank = { ...addBeerMl(snapshot.beerRank, beerMlForResult(score)), lastElo: elo };
     const xp = snapshot.xp + (result === 'win' ? MATCH_WIN_XP : result === 'draw' ? MATCH_DRAW_XP : MATCH_LOSS_XP);
     try { localStorage.setItem(GUEST_RANK_KEY, JSON.stringify(beerRank)); localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* memory rank still updates */ }
     publish({ beerRank, xp, lastReward: { elo, previousElo, gained: 0 } });
   },
   finishBattlegrounds(rewards: BattlegroundsRewards) {
     if (snapshot.lastReward) return;
-    if (snapshot.library && (rewards.xp > 0 || rewards.elo > 0)) {
+    if (snapshot.library && (rewards.xp > 0 || rewards.elo > 0 || rewards.beerMl > 0)) {
       const previousElo = snapshot.library.profile.elo;
-      setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, xp: rewards.xp } });
+      setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, xp: rewards.xp, beerMl: rewards.beerMl ?? snapshot.library.profile.beerMl } });
       publish({ lastReward: { elo: rewards.elo, previousElo, gained: 0, xpGain: rewards.xpGain } });
       return;
     }
     if (snapshot.library) return;
     const previousElo = snapshot.beerRank.lastElo;
     const elo = Math.max(0, previousElo + rewards.eloDelta);
-    const beerRank = updateBeerRank(snapshot.beerRank, elo);
+    const beerRank = { ...addBeerMl(snapshot.beerRank, rewards.beerMlGain ?? beerMlForPlace(rewards.place, 8)), lastElo: elo };
     const xp = snapshot.xp + rewards.xpGain;
     try { localStorage.setItem(GUEST_RANK_KEY, JSON.stringify(beerRank)); localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* memory rank still updates */ }
     publish({ beerRank, xp, lastReward: { elo, previousElo, gained: 0, xpGain: rewards.xpGain } });

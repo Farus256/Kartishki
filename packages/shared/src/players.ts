@@ -4,11 +4,28 @@ export const PACK_COST = 100;
 export const CASE_COST = 200;
 export const PACK_SIZE = 5;
 export const BOTTLE_CAPACITY = 2000;
-export const CALIBRATION_ML = 1500;
-export const ML_PER_ELO = 10;
-export function remainingMlFromElo(elo: number) {
-  const n = Number.isFinite(elo) ? elo : 1000;
-  return Math.max(0, Math.min(BOTTLE_CAPACITY, CALIBRATION_ML - (n - 1000) * ML_PER_ELO));
+export const BEER_WIN_MIN = 40;
+export const BEER_WIN_MAX = 80;
+export const BEER_DRAW_MIN = -5;
+export const BEER_DRAW_MAX = 5;
+export const BEER_LOSS_MIN = -80;
+export const BEER_LOSS_MAX = -40;
+export function beerMlBetween(min: number, max: number, random = Math.random) {
+  const lo = Math.min(min, max), hi = Math.max(min, max);
+  return lo + Math.floor(random() * (hi - lo + 1));
+}
+export function beerMlForResult(score: number, random = Math.random) {
+  if (score === 1) return beerMlBetween(BEER_WIN_MIN, BEER_WIN_MAX, random);
+  if (score === 0.5) return beerMlBetween(BEER_DRAW_MIN, BEER_DRAW_MAX, random);
+  return beerMlBetween(BEER_LOSS_MIN, BEER_LOSS_MAX, random);
+}
+export function beerMlForPlace(place: number, field: number, random = Math.random) {
+  if (field <= 1 || place <= 1) return beerMlForResult(1, random);
+  if (place >= field) return beerMlForResult(0, random);
+  return beerMlForResult(0.5, random);
+}
+export function applyBeerMl(current: number, delta: number) {
+  return Math.max(0, (Number.isFinite(current) ? current : 0) + (Number.isFinite(delta) ? Math.trunc(delta) : 0));
 }
 export type PlayerSettings = {
   language: 'ru' | 'en';
@@ -62,7 +79,7 @@ export function validateSettingsPatch(value: unknown): Partial<PlayerSettings> |
   return patch;
 }
 export type PlayerProfile = {
-  id: string; username: string; elo: number; currency: number; xp: number;
+  id: string; username: string; elo: number; currency: number; xp: number; beerMl: number;
   lastDaily: string | null; dailyAvailable: boolean; settings: PlayerSettings;
 };
 export type SavedDeck = { id: string; name: string; cards: string[]; version: number };
@@ -72,5 +89,5 @@ export type LootCard = { id: string; rarity: string; name: Record<string, string
 export type PackResult = { cards: LootCard[]; currency: number; xp: number };
 export type CaseResult = { prize: LootCard; reel: LootCard[]; landing: number; currency: number; xp: number };
 export type LadderRow = { username: string; elo: number; xp: number; remainingMl: number };
-export type MatchRewards = { elo: number; currency: number; gained: number; xp: number };
-export type BattlegroundsRewards = MatchRewards & { place: number; eloDelta: number; xpGain: number };
+export type MatchRewards = { elo: number; currency: number; gained: number; xp: number; beerMl: number };
+export type BattlegroundsRewards = MatchRewards & { place: number; eloDelta: number; xpGain: number; beerMlGain: number };

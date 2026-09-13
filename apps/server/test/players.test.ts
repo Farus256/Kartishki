@@ -3,7 +3,7 @@ import test from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CASE_COST, CASE_XP, CASINO_XP, DAILY_REWARD, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_XP, WIN_REWARD, battlegroundsEloDelta, remainingMlFromElo, starterCards } from '@kartishki/shared';
+import { BEER_WIN_MAX, BEER_WIN_MIN, CASE_COST, CASE_XP, CASINO_XP, DAILY_REWARD, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_XP, WIN_REWARD, battlegroundsEloDelta, starterCards } from '@kartishki/shared';
 import { migratePlayers, openDatabase } from '../src/database';
 import { PlayerError, PlayerStore } from '../src/players';
 
@@ -19,6 +19,7 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     const again = await store.login('Алиса', 'password1');
     assert.equal(again.library.profile.elo, 1000);
     assert.equal(again.library.profile.xp, 0);
+    assert.equal(again.library.profile.beerMl, 0);
     assert.equal(again.library.profile.currency, 0);
     assert.equal(again.library.profile.dailyAvailable, true);
     assert.equal(again.library.profile.lastDaily, null);
@@ -55,8 +56,11 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     assert.equal(rewards[bob.library.profile.id]!.xp, MATCH_LOSS_XP);
     assert.ok(rewards[playerId]!.elo > 1000);
     assert.ok(rewards[bob.library.profile.id]!.elo < 1000);
+    assert.ok(rewards[playerId]!.beerMl >= BEER_WIN_MIN && rewards[playerId]!.beerMl <= BEER_WIN_MAX);
+    assert.equal(rewards[bob.library.profile.id]!.beerMl, 0);
     const vsGuest = await store.settleVs(playerId, 1);
     assert.ok(vsGuest.elo > rewards[playerId]!.elo);
+    assert.ok(vsGuest.beerMl >= rewards[playerId]!.beerMl + BEER_WIN_MIN && vsGuest.beerMl <= rewards[playerId]!.beerMl + BEER_WIN_MAX);
     assert.equal(vsGuest.xp, PACK_XP + CASE_XP + MATCH_WIN_XP + MATCH_WIN_XP);
     const stored = await store.saveSettings(playerId, { language: 'en', sound: false, sfxVolume: 0.25, musicVolume: 0.1 });
     assert.equal(stored.profile.settings.language, 'en');
@@ -81,11 +85,12 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     ], 40, 2);
     assert.equal(bg[playerId]!.elo, beforeBg.profile.elo + battlegroundsEloDelta(1, 2, 40));
     assert.equal(bg[playerId]!.xp, beforeBg.profile.xp + MATCH_WIN_XP);
+    assert.ok(bg[playerId]!.beerMl >= beforeBg.profile.beerMl + BEER_WIN_MIN && bg[playerId]!.beerMl <= beforeBg.profile.beerMl + BEER_WIN_MAX);
     assert.equal(bg[bob.library.profile.id]!.xp, MATCH_LOSS_XP + MATCH_LOSS_XP);
     const ladder = await store.ladder();
     assert.equal(ladder[0]!.username, 'Алиса');
     assert.equal(ladder[0]!.xp, PACK_XP + CASE_XP + MATCH_WIN_XP + MATCH_WIN_XP + CASINO_XP + MATCH_WIN_XP);
-    assert.equal(ladder[0]!.remainingMl, remainingMlFromElo(ladder[0]!.elo));
+    assert.equal(ladder[0]!.remainingMl, bg[playerId]!.beerMl);
     await store.logout(again.token);
     await assert.rejects(() => store.authenticate(again.token), error => error instanceof PlayerError && error.code === 'loginRequired');
   } finally {

@@ -12,6 +12,7 @@ import {
   HeroState,
   battlegroundsEloDelta,
   battlegroundsXp,
+  beerMlForPlace,
   initialUpgradeCost,
   resolveAutoBattlerCatalog,
   resolveBattlegroundsElo,
@@ -666,7 +667,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       const playerId = this.playerIds.get(player.sessionId);
       return playerId && player.placement > 0 ? [{ playerId, place: player.placement }] : [];
     });
-    let persisted: Record<string, { elo: number; currency: number; gained: number; xp: number }> = {};
+    let persisted: Record<string, { elo: number; currency: number; gained: number; xp: number; beerMl: number }> = {};
     try {
       if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, amount, count);
     } catch (error) { console.error('Failed to persist battlegrounds result', error); }
@@ -679,8 +680,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       const eloDelta = battlegroundsEloDelta(player.placement, count, amount);
       const xpGain = battlegroundsXp(player.placement, count);
       const payload: BattlegroundsRewards = {
-        place: player.placement, eloDelta, xpGain,
-        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? 0, xp: row?.xp ?? 0,
+        place: player.placement, eloDelta, xpGain, beerMlGain: beerMlForPlace(player.placement, count),
+        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? 0, xp: row?.xp ?? 0, beerMl: row?.beerMl ?? 0,
       };
       client.send(EV.rewards, payload);
     }
