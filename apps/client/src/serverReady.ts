@@ -6,9 +6,9 @@ export function healthUrl(origin: string) {
   return `${origin.replace(/\/$/, '')}/health`;
 }
 
-export async function probeServerHealth(origin: string, fetchFn: typeof fetch = fetch): Promise<boolean> {
+export async function probeServerHealth(origin: string, fetchFn: typeof fetch = fetch, signal?: AbortSignal): Promise<boolean> {
   try {
-    const response = await fetchFn(healthUrl(origin));
+    const response = await fetchFn(healthUrl(origin), { cache: 'no-store', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000) });
     if (response.status !== 200) return false;
     const body: unknown = await response.json();
     return !!body && typeof body === 'object' && !Array.isArray(body) && (body as { status?: unknown }).status === 'ok';

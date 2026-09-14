@@ -31,7 +31,7 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
   const rank = player.beerRank;
   const dark = rank.league === 'dark';
   return (
-    <header className="absolute top-0 right-0 left-0 z-20 flex h-[100px] items-center gap-6 bg-paper px-10">
+    <header className="absolute top-0 right-0 left-0 z-[10000] flex h-[100px] items-center gap-6 bg-paper px-10">
       <PlayerStamp />
       <div className="level-bar" data-testid="player-level">
         <p className="level-bar-name">{name} · {t('playerLevel', { n: progress.level })} · {title}</p>
@@ -45,10 +45,24 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
           <span className={`beer-league-badge${dark ? ' is-dark' : ''}`} data-testid="beer-league">{dark ? 'II / ЛИГА «ТЁМНОЕ»' : 'I / ЛИГА «СВЕТЛОЕ»'}</span>
           <strong data-testid="beer-volume" className="top-rank-ml">{rank.remainingMl.toLocaleString('ru-RU')}<small>мл</small></strong>
         </div>
-        <div title={profile ? 'Доллары аккаунта' : 'Доллары • локальная демо-экономика'} className="relative ink-edge flex items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
-          {economy.currencyEvents.map((event, index) => <motion.span key={event.id} className={`currency-badge ${event.amount > 0 ? 'gain' : 'spend'}`} style={{ right: index * 18 }} initial={{ opacity: 1, y: 20, scale: .85 }} animate={{ opacity: [1, 1, 0], y: [20, -5, -45], scale: event.amount > 0 ? [1, 1.2, 1, 1.15, 1] : 1 }} transition={{ duration: 1.8 }} onAnimationComplete={() => economy.dismissCurrency(event.id)}>{event.amount > 0 ? '+' : '-'}${Math.abs(event.amount)}</motion.span>)}
-          <b data-testid="balance" className="font-hand text-[30px]">$ {economy.dollars.toLocaleString('en-US')}</b>
-          <button aria-label="Магазин" onClick={onPlus} disabled={!onPlus} className="border-2 border-ink px-2 text-[24px] disabled:opacity-30">+</button>
+        <div className="relative">
+          <div title={profile ? 'Доллары аккаунта' : 'Доллары • локальная демо-экономика'} className="ink-edge flex min-w-[168px] shrink-0 items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
+            <b data-testid="balance" className="min-w-[7.5rem] text-right font-hand text-[30px] tabular-nums">$ {economy.dollars.toLocaleString('en-US')}</b>
+            <button aria-label="Магазин" onClick={onPlus} disabled={!onPlus} className="border-2 border-ink px-2 text-[24px] disabled:opacity-30">+</button>
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 top-full z-[10000] mt-1 flex justify-end gap-1" aria-hidden>
+            {economy.currencyEvents.map((event, index) => (
+              <motion.span
+                key={event.id}
+                className={`currency-badge ${event.amount > 0 ? 'gain' : 'spend'}`}
+                style={{ marginRight: index * 6 }}
+                initial={{ opacity: 1, y: -8, scale: .85 }}
+                animate={{ opacity: [1, 1, 0], y: [-8, 6, 28], scale: event.amount > 0 ? [1, 1.2, 1, 1.15, 1] : 1 }}
+                transition={{ duration: 1.8 }}
+                onAnimationComplete={() => economy.dismissCurrency(event.id)}
+              >{event.amount > 0 ? '+' : '-'}${Math.abs(event.amount)}</motion.span>
+            ))}
+          </div>
         </div>
         <button aria-label="Настройки" onClick={() => window.dispatchEvent(new Event('open-settings'))} className="border-[3px] border-ink px-3 py-2 text-[25px]">⚙</button>
         {right}

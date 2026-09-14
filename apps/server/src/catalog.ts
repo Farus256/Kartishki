@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, validateMenuMusic, emptyMenuMusic, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic } from '@kartishki/shared';
+import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, coercePlayerLeveling, validateMenuMusic, emptyMenuMusic, defaultShop, resolveShop, validateShopConfig, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic, type ShopConfig } from '@kartishki/shared';
 import { catalogFile } from './catalogFile';
 
 export class CatalogStore {
@@ -13,12 +13,17 @@ export class CatalogStore {
       if (data.autoBattlerMinions && !validAutoBattlerMinions(data.autoBattlerMinions)) throw new Error('Invalid auto-battler minions');
       if (data.autoBattlerHeroes && !validAutoBattlerHeroes(data.autoBattlerHeroes)) throw new Error('Invalid auto-battler heroes');
       if (data.autoBattlerCopy && !validateAutoBattlerCopy(data.autoBattlerCopy)) throw new Error('Invalid auto-battler copy');
-      if (data.playerLeveling && !validatePlayerLeveling(data.playerLeveling)) throw new Error('Invalid player leveling');
+      if (data.playerLeveling) {
+        const leveling = coercePlayerLeveling(data.playerLeveling);
+        if (!leveling) throw new Error('Invalid player leveling');
+        data.playerLeveling = leveling;
+      }
       if (data.menuMusic && !validateMenuMusic(data.menuMusic)) throw new Error('Invalid menu music');
-      this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: data.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: data.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling), menuMusic: data.menuMusic ?? structuredClone(emptyMenuMusic) };
+      if (data.shop && !validateShopConfig(data.shop)) throw new Error('Invalid shop');
+      this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: data.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: data.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling), menuMusic: data.menuMusic ?? structuredClone(emptyMenuMusic), shop: data.shop ?? structuredClone(defaultShop) };
     }
   }
-  snapshot(): Catalog { return structuredClone({ ...this.catalog, autoBattlerMinions: this.catalog.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: this.catalog.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: this.catalog.playerLeveling ?? structuredClone(starterLeveling), menuMusic: this.catalog.menuMusic ?? structuredClone(emptyMenuMusic) }); }
+  snapshot(): Catalog { return structuredClone({ ...this.catalog, autoBattlerMinions: this.catalog.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: this.catalog.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: this.catalog.playerLeveling ?? structuredClone(starterLeveling), menuMusic: this.catalog.menuMusic ?? structuredClone(emptyMenuMusic), shop: resolveShop(this.catalog.shop) }); }
   publishHero(hero: HeroDefinition, version: number) {
     if (!validateHero(hero) || hero.ability.effectId === 'summon' && !this.catalog.cards.some(c => c.id === hero.ability.cardId)) throw new Error('invalidHero');
     if (version !== this.catalog.version) throw new Error('catalogConflict');
@@ -74,6 +79,13 @@ export class CatalogStore {
     if (!validateMenuMusic(menuMusic)) throw new Error('invalidAudio');
     if (version !== this.catalog.version) throw new Error('catalogConflict');
     const next = { ...this.catalog, version: version + 1, menuMusic: structuredClone(menuMusic) };
+    mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(`${this.file}.tmp`, JSON.stringify(next)); renameSync(`${this.file}.tmp`, this.file);
+    this.catalog = next; return this.snapshot();
+  }
+  publishShop(shop: ShopConfig, version: number) {
+    if (!validateShopConfig(shop)) throw new Error('invalidShop');
+    if (version !== this.catalog.version) throw new Error('catalogConflict');
+    const next = { ...this.catalog, version: version + 1, shop: structuredClone(shop) };
     mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(`${this.file}.tmp`, JSON.stringify(next)); renameSync(`${this.file}.tmp`, this.file);
     this.catalog = next; return this.snapshot();
   }

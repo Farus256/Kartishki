@@ -129,7 +129,7 @@ test('account can register, claim daily ink and open a pack', async ({ page }) =
   await expect(page.getByRole('button', { name: /Ежедневная награда/ })).toBeDisabled();
   await expect(page.getByTestId('daily-reward')).toContainText('До следующей награды');
   await page.getByRole('button', { name: 'МАГАЗИН', exact:true }).click();
-  await page.getByRole('button', { name: 'Паки карт', exact: true }).click();
+  await page.getByRole('button', { name: 'Паки', exact: true }).click();
   await page.getByRole('button', { name: /Купить пак/ }).click();
   await page.getByRole('button', { name: 'Порвать пак' }).click();
   await expect(page.getByRole('button', {name: /^Перевернуть карту/})).toHaveCount(5);

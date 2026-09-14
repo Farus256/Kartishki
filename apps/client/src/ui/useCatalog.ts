@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { resolveLeveling, resolveMenuMusic, type CardDefinition, type Catalog, type MenuMusicTrack, type PlayerLeveling, starterLeveling } from '@kartishki/shared';
+import { defaultShop, resolveLeveling, resolveMenuMusic, resolveShop, type CardDefinition, type Catalog, type MenuMusicTrack, type PlayerLeveling, type ShopConfig, starterLeveling } from '@kartishki/shared';
 import { serverOrigin } from '../serverUrl';
 
 export const apiBase = serverOrigin();
@@ -43,4 +43,14 @@ export function useMenuTracks(): MenuMusicTrack[] {
     return () => { live = false; };
   }, []);
   return tracks;
+}
+
+export function useShopConfig(): ShopConfig {
+  const [shop, setShop] = useState(defaultShop);
+  useEffect(() => {
+    let live = true;
+    void loadCatalog().then(data => { if (live) setShop(resolveShop(data.shop)); });
+    return () => { live = false; };
+  }, []);
+  return shop;
 }

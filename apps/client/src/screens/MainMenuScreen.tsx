@@ -9,6 +9,7 @@ import { BeerBottle } from '../ui/BeerBottle';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
 import { apiBase, usePlayerLeveling } from '../ui/useCatalog';
+import { useServerReady } from '../ui/useServerReady';
 
 type Props = { onPlay: () => void; onBattlegrounds: () => void; onDeck: () => void; onShop: () => void; onSettings: () => void; onExit: () => void };
 const TROPHY = { 1: '#c9a227', 2: '#9aa0a6', 3: '#b87333' } as const;
@@ -19,15 +20,16 @@ function Trophy({ place }: { place: 1 | 2 | 3 }) {
     <path fill={TROPHY[place]} stroke="#302b22" strokeWidth="1.1" d="M7.2 16.6h5.6v1.4H7.2zM5.6 18.6h8.8v1.5H5.6z" />
   </svg>;
 }
-function useLadder() {
+function useLadder(ready: boolean) {
   const [rows, setRows] = useState<LadderRow[]>([]);
   useEffect(() => {
+    if (!ready) return;
     let live = true;
     void fetch(`${apiBase}/api/players/ladder`).then(r => r.ok ? r.json() : []).then(data => {
       if (live && Array.isArray(data)) setRows(data);
     }).catch(() => {});
     return () => { live = false; };
-  }, []);
+  }, [ready]);
   return rows;
 }
 function untilMidnight() {
@@ -43,7 +45,8 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
   const profile = player.library?.profile;
   const rank = player.beerRank;
   const dark = rank.league === 'dark';
-  const ladder = useLadder();
+  const serverReady = useServerReady();
+  const ladder = useLadder(serverReady);
   const leveling = usePlayerLeveling();
   const dailyReady = !!profile?.dailyAvailable;
   const [timer, setTimer] = useState(untilMidnight);
@@ -61,6 +64,7 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
     { key: 'menuExit', tone: 'ink' as const, run: onExit, mark: '↩' },
   ];
   return <div className="absolute inset-0 overflow-clip">
+    <div className="absolute inset-0" inert={!serverReady} aria-busy={!serverReady}>
     <Backdrop />
     <MenuFotoWallpaper />
     <div className="menu-wash" />
@@ -116,5 +120,13 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
         </tbody>
       </table>
     </section>
+    </div>
+    {!serverReady && <div className="menu-server-loading" data-testid="menu-server-loading">
+      <div role="status" aria-live="polite" className="menu-server-card">
+        <span className="menu-server-spinner" aria-hidden />
+        <h2>{t('serverConnecting')}</h2>
+        <p>{t('serverWaking')}</p>
+      </div>
+    </div>}
   </div>;
 }

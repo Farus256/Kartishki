@@ -1,56 +1,31 @@
 ﻿import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { CASES, CASINO_GAMES, PACKS, demoCards, drawCard, pickCasinoPrize, pickSlotSymbol, SLOT_PAIR, SLOT_TRIPLE, SLOT_WEIGHTS, slotReward } from '../apps/client/src/economy';
+import { defaultShop, shopCard, shopProducts } from '@kartishki/shared';
+import { demoCards } from '../apps/client/src/economy';
 
-test('pairs pay consolation, triples pay the jackpot row', () => {
-  assert.equal(slotReward([0, 1, 2]).dollars, 0);
-  assert.equal(slotReward([0, 0, 1]).dollars, SLOT_PAIR[0].dollars);
-  assert.equal(slotReward([0, 0, 0]).dollars, SLOT_TRIPLE[0].dollars);
-  assert.equal(slotReward([5, 5, 5]).dollars, SLOT_TRIPLE[5].dollars);
-  assert.equal(slotReward([6, 6, 1]).packs, 1);
-  assert.equal(slotReward([6, 6, 6]).packs, 3);
-  assert.equal(slotReward([7, 7, 0]).cards, 1);
-  assert.equal(slotReward([7, 7, 7]).cards, 5);
+test('slot table has eight faces and currency-only payouts', () => {
+  assert.equal(defaultShop.slots.weights.length, 8);
+  assert.equal(defaultShop.slots.weights.reduce((a, b) => a + b), 100);
+  assert.equal(defaultShop.slots.pair.length, 8);
+  assert.equal(defaultShop.slots.triple.length, 8);
 });
 
-test('weighted reels hit like a hall machine and keep a house edge', () => {
-  assert.equal(pickSlotSymbol(() => 0), 0);
-  assert.equal(pickSlotSymbol(() => 0.999), 7);
-  assert.equal(SLOT_WEIGHTS.reduce((a, b) => a + b), 100);
-  const pack = 100, card = 60, bet = 50;
-  let ev = 0, hit = 0, triples = 0;
-  for (let i = 0; i < SLOT_WEIGHTS.length; i++) {
-    const p = SLOT_WEIGHTS[i] / 100, p3 = p ** 3, p2 = 3 * p * p * (1 - p);
-    const pair = SLOT_PAIR[i], trip = SLOT_TRIPLE[i];
-    const v2 = (pair.dollars ?? 0) + (pair.packs ?? 0) * pack + (pair.cards ?? 0) * card;
-    const v3 = (trip.dollars ?? 0) + (trip.packs ?? 0) * pack + (trip.cards ?? 0) * card;
-    ev += p2 * v2 + p3 * v3;
-    if (v2) hit += p2;
-    if (v3) { hit += p3; triples += p3; }
+test('all card products keep rarity weights and sampling stays in catalog', () => {
+  for (const p of [...shopProducts(defaultShop, 'pack'), ...shopProducts(defaultShop, 'chest')]) {
+    assert.equal(p.weights.length, 5);
+    assert.ok(demoCards.some(card => card.id === shopCard(demoCards, p.weights, () => .5).id));
   }
-  assert.ok(hit > 0.25 && hit < 0.5);
-  assert.ok(triples > 0.02 && triples < 0.08);
-  assert.ok(ev / bet > 0.88 && ev / bet < 0.97);
+  assert.equal(shopCard(demoCards, [0, 20, 45, 30, 5], () => 0).rarity, 'rare');
+  assert.equal(shopCard(demoCards, [0, 20, 45, 30, 5], () => .999).rarity, 'ultimate');
 });
 
-test('all products sum to 100% and weighted sampling respects rarity boundaries', () => {
-  for (const p of [...PACKS, ...CASES]) {
-    assert.equal(p.weights.reduce((a, b) => a + b), 100);
-    assert.ok(demoCards.includes(drawCard(demoCards, p.weights, () => .5)));
-  }
-  assert.equal(drawCard(demoCards, PACKS[2].weights, () => 0).rarity, 'rare');
-  assert.equal(drawCard(demoCards, PACKS[2].weights, () => .999).rarity, 'ultimate');
-  assert.equal(drawCard(demoCards.filter(c => c.rarity === 'epic'), PACKS[0].weights, () => .5).rarity, 'epic');
-});
-
-test('wheel, money case and money pack expose money, XP and card prizes', () => {
-  assert.deepEqual(CASINO_GAMES.map(game => game.kind), ['wheel', 'case', 'pack']);
-  for (const game of CASINO_GAMES) {
-    assert.equal(game.prizes.reduce((sum, prize) => sum + prize.weight, 0), 100);
-    assert.ok(game.prizes.some(prize => prize.dollars));
-    assert.ok(game.prizes.some(prize => prize.xp));
-    assert.ok(game.prizes.some(prize => prize.cards));
-    assert.equal(pickCasinoPrize(game, () => 0), game.prizes[0]);
-    assert.equal(pickCasinoPrize(game, () => .999), game.prizes.at(-1));
-  }
+test('shop has casino, mixed packs and mixed chests', () => {
+  const wheel = defaultShop.products.find(p => p.kind === 'wheel')!;
+  assert.deepEqual(wheel.prizes.map(p => [p.kind, p.amount, p.weight]), [
+    ['currency', 25, 52], ['currency', 75, 28], ['currency', 200, 12],
+    ['currency', 500, 5], ['currency', 1000, 2], ['currency', 2000, 0.7], ['currency', 5000, 0.3],
+  ]);
+  assert.equal(wheel.prizes.reduce((sum, p) => sum + p.weight, 0), 100);
+  assert.ok(shopProducts(defaultShop, 'pack').some(p => p.prizes.some(r => r.kind !== 'cards')));
+  assert.ok(shopProducts(defaultShop, 'chest').some(p => p.prizes.some(r => r.kind !== 'cards')));
 });

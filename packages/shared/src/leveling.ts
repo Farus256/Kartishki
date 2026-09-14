@@ -1,4 +1,4 @@
-export const LEVEL_COUNT = 30;
+export const LEVEL_COUNT = 100;
 export const PACK_XP = 25;
 export const CASE_XP = 20;
 export const CASINO_XP = 15;
@@ -51,6 +51,76 @@ const NAMES: Array<[string, string]> = [
   ['Эпоха', 'Epoch'],
   ['Бессмертный', 'Undying'],
   ['Карточный бог', 'Card god'],
+  ['Хранитель колоды', 'Deck keeper'],
+  ['Страж стола', 'Table guard'],
+  ['Ночной игрок', 'Night player'],
+  ['Карточный волк', 'Card wolf'],
+  ['Смотритель', 'Warden'],
+  ['Туз двора', 'Yard ace'],
+  ['Серый блеф', 'Grey bluff'],
+  ['Костяной круг', 'Bone circle'],
+  ['Чернильный след', 'Ink trail'],
+  ['Хозяин пачки', 'Pack host'],
+  ['Тайный раздатчик', 'Secret dealer'],
+  ['Дворовый хан', 'Yard khan'],
+  ['Мастер сдачи', 'Deal master'],
+  ['Тень колоды', 'Deck shade'],
+  ['Железный игрок', 'Iron player'],
+  ['Карточный рыцарь', 'Card knight'],
+  ['Старший шулер', 'Senior hustler'],
+  ['Хранитель блефа', 'Bluff keeper'],
+  ['Владыка стола', 'Table lord'],
+  ['Ночной барон', 'Night baron'],
+  ['Чернильный король', 'Ink king'],
+  ['Легенда пачки', 'Pack legend'],
+  ['Гроза таверны', 'Tavern storm'],
+  ['Мастер колоды', 'Deck master'],
+  ['Верховный раздатчик', 'High dealer'],
+  ['Страж блефа', 'Bluff guard'],
+  ['Карточный герцог', 'Card duke'],
+  ['Тёмный туз', 'Dark ace'],
+  ['Хозяин блефа', 'Bluff host'],
+  ['Дворовый миф', 'Yard myth'],
+  ['Печать колоды', 'Deck seal'],
+  ['Вечный игрок', 'Eternal player'],
+  ['Карточный жнец', 'Card reaper'],
+  ['Тень эпохи', 'Epoch shade'],
+  ['Магистр стола', 'Table magister'],
+  ['Оракул пачки', 'Pack oracle'],
+  ['Владыка блефа', 'Bluff overlord'],
+  ['Ночной миф', 'Night myth'],
+  ['Хранитель эпохи', 'Epoch keeper'],
+  ['Карточный титан', 'Card titan'],
+  ['Железный туз', 'Iron ace'],
+  ['Серый король', 'Grey king'],
+  ['Страж пачки', 'Pack guard'],
+  ['Чернильный миф', 'Ink myth'],
+  ['Барон блефа', 'Bluff baron'],
+  ['Легенда стола', 'Table legend'],
+  ['Верховный туз', 'High ace'],
+  ['Тень бога', 'God shade'],
+  ['Мастер эпохи', 'Epoch master'],
+  ['Хозяин мифа', 'Myth host'],
+  ['Карточный император', 'Card emperor'],
+  ['Дворовый бог', 'Yard god'],
+  ['Печать блефа', 'Bluff seal'],
+  ['Вечный туз', 'Eternal ace'],
+  ['Гроза колоды', 'Deck storm'],
+  ['Ночной оракул', 'Night oracle'],
+  ['Владыка пачки', 'Pack overlord'],
+  ['Страж эпохи', 'Epoch guard'],
+  ['Чернильный титан', 'Ink titan'],
+  ['Магистр блефа', 'Bluff magister'],
+  ['Легенда мифа', 'Myth legend'],
+  ['Карточный абсолют', 'Card absolute'],
+  ['Железный бог', 'Iron god'],
+  ['Тёмный оракул', 'Dark oracle'],
+  ['Хранитель бога', 'God keeper'],
+  ['Верховный миф', 'High myth'],
+  ['Печать эпохи', 'Epoch seal'],
+  ['Вечный король', 'Eternal king'],
+  ['Тень абсолюта', 'Absolute shade'],
+  ['Карточный предел', 'Card apex'],
 ];
 
 export const starterLeveling: PlayerLeveling = {
@@ -58,16 +128,33 @@ export const starterLeveling: PlayerLeveling = {
   battlegroundsElo: DEFAULT_BATTLEGROUNDS_ELO,
 };
 
+function levelRowOk(row: unknown): row is LevelDef {
+  return !!row && typeof (row as LevelDef).ru === 'string' && (row as LevelDef).ru.trim().length > 0 && (row as LevelDef).ru.length <= 40
+    && typeof (row as LevelDef).en === 'string' && (row as LevelDef).en.length <= 40
+    && Number.isInteger((row as LevelDef).xp) && (row as LevelDef).xp >= 1 && (row as LevelDef).xp <= 10000;
+}
+
 export function validatePlayerLeveling(data: unknown): data is PlayerLeveling {
   if (!data || typeof data !== 'object' || !Array.isArray((data as PlayerLeveling).levels)) return false;
   const table = data as PlayerLeveling;
   if (table.levels.length !== LEVEL_COUNT) return false;
   if (table.battlegroundsElo !== undefined
     && (!Number.isInteger(table.battlegroundsElo) || table.battlegroundsElo < 0 || table.battlegroundsElo > BATTLEGROUNDS_ELO_MAX)) return false;
-  return table.levels.every(row =>
-    row && typeof row.ru === 'string' && row.ru.trim().length > 0 && row.ru.length <= 40
-    && typeof row.en === 'string' && row.en.length <= 40
-    && Number.isInteger(row.xp) && row.xp >= 1 && row.xp <= 10000);
+  return table.levels.every(levelRowOk);
+}
+
+/** Accept shorter saved tables (e.g. old 30) and pad to LEVEL_COUNT from starter. */
+export function coercePlayerLeveling(data: unknown): PlayerLeveling | undefined {
+  if (validatePlayerLeveling(data)) return data;
+  if (!data || typeof data !== 'object' || !Array.isArray((data as PlayerLeveling).levels)) return;
+  const table = data as PlayerLeveling;
+  if (table.levels.length < 1 || table.levels.length > LEVEL_COUNT || !table.levels.every(levelRowOk)) return;
+  if (table.battlegroundsElo !== undefined
+    && (!Number.isInteger(table.battlegroundsElo) || table.battlegroundsElo < 0 || table.battlegroundsElo > BATTLEGROUNDS_ELO_MAX)) return;
+  return {
+    levels: [...table.levels, ...starterLeveling.levels.slice(table.levels.length)],
+    battlegroundsElo: resolveBattlegroundsElo(table),
+  };
 }
 
 export function resolveBattlegroundsElo(table?: PlayerLeveling): number {
@@ -87,7 +174,7 @@ export function battlegroundsXp(place: number, count: number): number {
 }
 
 export function resolveLeveling(data: unknown): PlayerLeveling {
-  const table = validatePlayerLeveling(data) ? data : starterLeveling;
+  const table = coercePlayerLeveling(data) ?? starterLeveling;
   return { ...table, battlegroundsElo: resolveBattlegroundsElo(table) };
 }
 

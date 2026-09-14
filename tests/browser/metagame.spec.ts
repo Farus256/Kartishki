@@ -81,73 +81,107 @@ test('deck editing, limits, search and persistence', async ({ page }) => {
 });
 test('pack purchase is charged once, resumes, flips five cards', async ({ page }) => {
   await enter(page, 'shop');
-  await page.getByRole('button', { name: 'Паки карт', exact: true }).click();
+  await page.getByRole('button', { name: 'Паки', exact: true }).click();
   await page.screenshot({ path: 'artifacts/metagame-packs.png' });
   const before = await state(page);
   await page.getByRole('button', { name: 'Купить пак ($100)', exact: true }).click();
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,400');
+  const mid = await state(page);
+  const rewards = mid.opening.result.rewards as { kind: string; amount?: number }[];
+  const fresh = rewards.filter(reward => reward.kind === 'card').length;
+  const dust = rewards.filter(reward => reward.kind === 'duplicate').reduce((sum, reward) => sum + Number(reward.amount), 0);
+  expect(fresh + rewards.filter(reward => reward.kind === 'duplicate').length).toBe(5);
+  expect(mid.dollars).toBe(1400);
   await expect(page.getByTestId('player-level')).toContainText('25 / 40');
   await expect(page.getByTestId('player-level')).toContainText('осталось 15');
   await page.reload(); await page.getByRole('button', { name: 'Играть как гость' }).click();
   await page.getByRole('button', { name: /МАГАЗИН/i }).last().click();
   await page.getByRole('button', { name: 'Порвать пак' }).click();
   for (let i = 1; i <= 5; i++) await page.getByRole('button', { name: `Перевернуть карту ${i}` }).click();
+  if (dust) await expect(page.getByText(/Уже в альбоме:/)).toBeVisible();
   await page.getByRole('button', { name: 'Ура, в коллекцию!' }).click();
   const after = await state(page);
-  expect(after.dollars).toBe(1400);
-  expect(Object.values(after.owned).reduce((a: number, b) => a + Number(b), 0)).toBe(Object.values(before.owned).reduce((a: number, b) => a + Number(b), 0) + 5);
+  expect(after.dollars).toBe(1400 + dust);
+  expect(Object.values(after.owned).reduce((a: number, b) => a + Number(b), 0)).toBe(Object.values(before.owned).reduce((a: number, b) => a + Number(b), 0) + fresh);
+  expect(after.opening).toBeUndefined();
+});
+test('all-inclusive pack rips like the others and still converts album duplicates', async ({ page }) => {
+  await enter(page, 'shop');
+  await page.getByRole('button', { name: 'Паки', exact: true }).click();
+  await page.getByRole('button', { name: 'Всё включено' }).click();
+  const before = await state(page);
+  await expect(page.locator('.product-choice.chosen .foil-brand')).toHaveText('Картишки Всё включено');
+  await expect(page.locator('.product-choice.chosen .foil-emblem')).toHaveText('$');
+  await page.screenshot({ path: 'artifacts/metagame-mixed-pack.png' });
+  await page.getByRole('button', { name: 'Купить пак ($150)', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Порвать пак' })).toBeVisible();
+  await expect(page.locator('.sealed-pack .foil-brand')).toHaveText('Картишки Всё включено');
+  await expect(page.locator('.sealed-pack .foil-emblem')).toHaveText('$');
+  const mid = await state(page);
+  const rewards = mid.opening.result.rewards as { kind: string; amount?: number }[];
+  const fresh = rewards.filter(reward => reward.kind === 'card').length;
+  const dust = rewards.filter(reward => reward.kind === 'duplicate').reduce((sum, reward) => sum + Number(reward.amount), 0);
+  const cash = rewards.filter(reward => reward.kind === 'currency').reduce((sum, reward) => sum + Number(reward.amount), 0);
+  expect(mid.dollars).toBe(1350);
+  await page.getByRole('button', { name: 'Порвать пак' }).click();
+  for (let i = 0; i < rewards.length; i++) {
+    const kind = rewards[i]!.kind;
+    await page.getByRole('button', { name: kind === 'card' || kind === 'duplicate' ? `Перевернуть карту ${i + 1}` : `Перевернуть награду ${i + 1}` }).click();
+  }
+  if (dust) await expect(page.getByText(/Уже в альбоме:/)).toBeVisible();
+  await page.getByRole('button', { name: 'Ура, в коллекцию!' }).click();
+  const after = await state(page);
+  expect(after.dollars).toBe(1350 + dust + cash);
+  expect(Object.values(after.owned).reduce((a: number, b) => a + Number(b), 0)).toBe(Object.values(before.owned).reduce((a: number, b) => a + Number(b), 0) + fresh);
   expect(after.opening).toBeUndefined();
 });
 test('case lands on awarded card and stays within 16:9', async ({ page }) => {
   await enter(page, 'shop');
-  await page.getByRole('button', { name: 'Кейсы', exact: true }).click();
+  await page.getByRole('button', { name: 'Сундуки', exact: true }).click();
   await page.screenshot({ path: 'artifacts/metagame-cases.png' });
-  await page.getByRole('button', { name: 'ОТКРЫТЬ КЕЙС ($150)', exact: true }).click();
+  await page.getByRole('button', { name: 'ОТКРЫТЬ СУНДУК ($150)', exact: true }).click();
   const purchase = await state(page);
+  const chestCash = (purchase.opening.result.rewards as { kind: string; amount?: number }[]).reduce((sum, reward) => sum + (reward.kind === 'duplicate' || reward.kind === 'currency' ? Number(reward.amount) : 0), 0);
   expect(purchase.dollars).toBe(1350);
-  expect(purchase.opening.reel[purchase.opening.landing].id).toBe(purchase.opening.prize.id);
+  expect(purchase.opening.reel[purchase.opening.landing].card.id).toBe(purchase.opening.result.rewards[0].cardId);
   await expect(page.getByRole('dialog', { name: 'Выигранная карта' })).toBeVisible({ timeout: 10000 });
+  if (chestCash) await expect(page.getByRole('dialog').getByText(/уже в альбоме/i).first()).toBeVisible();
   const x = await page.locator('.roulette-ribbon').evaluate(el => new DOMMatrix(getComputedStyle(el).transform).m41);
   expect(x).toBeCloseTo(-(40 * 168 + 84 - 590), 0);
-  await page.getByRole('button', { name: 'Ура, в коллекцию!' }).click();
+  await page.getByRole('button', { name: /Ура, в коллекцию!|Забрать доллары/ }).click();
+  expect((await state(page)).dollars).toBe(1350 + chestCash);
   for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }, { width: 2560, height: 1080 }]) {
     await page.setViewportSize(viewport);
     await expect.poll(async () => { const bounds = await page.locator('header').boundingBox(); return !!bounds && bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1; }).toBe(true);
-    const button = await page.getByRole('button', { name: 'ОТКРЫТЬ КЕЙС ($150)', exact: true }).boundingBox();
+    const button = await page.locator('.shop-receipt').getByRole('button', { name: 'ОТКРЫТЬ СУНДУК ($150)', exact: true }).boundingBox();
     expect(button!.y + button!.height).toBeLessThanOrEqual(viewport.height + 1);
   }
 });
-test('slot bonus pack is redeemable and no second charge while spinning', async ({ page }) => {
-  await page.addInitScript(() => { Math.random = () => .9; });
-  await enter(page, 'shop');
-  await page.screenshot({ path: 'artifacts/metagame-slots.png' });
-  await page.getByRole('button', { name: 'Потянуть рычаг ($50)', exact: true }).click();
-  await expect(page.locator('.slot-lever')).toBeDisabled();
-  await expect(page.locator('.reel-window')).toHaveCount(3);
-  await expect(page.locator('.slot-lever')).toBeEnabled({ timeout: 10000 });
-  expect((await state(page)).inventory.basement).toBe(3);
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,450');
-  await page.getByRole('button', { name: 'Паки карт', exact: true }).click();
-  await page.getByRole('button', { name: 'Открыть бонусный пак' }).click();
-  expect((await state(page)).inventory.basement).toBe(2);
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,450');
-});
-
-test('casino wheel, money case and money pack reveal and settle prizes once', async ({ page }) => {
+test('slot payout settles once and does not charge twice while spinning', async ({ page }) => {
   await page.addInitScript(() => { Math.random = () => .01; });
   await enter(page, 'shop');
-  await page.getByRole('button', { name: 'Колесо и деньги', exact: true }).click();
-  await expect(page.getByRole('button', { name: /Колесо фортуны/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Денежный кейс/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Пак с наличными/ })).toBeVisible();
-  await expect(page.locator('.casino-rules')).toContainText('ДЕНЬГИ · ОПЫТ · КАРТЫ');
+  await page.screenshot({ path: 'artifacts/metagame-slots.png' });
+  const spin = page.getByRole('button', { name: /SPIN/ });
+  await spin.click();
+  await expect(spin).toBeDisabled();
+  await expect(page.locator('.reel-window')).toHaveCount(3);
+  await expect(spin).toBeEnabled({ timeout: 10000 });
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,600');
+});
+
+test('casino wheel reveals and settles a prize once', async ({ page }) => {
+  await page.addInitScript(() => { Math.random = () => .01; });
+  await enter(page, 'shop');
+  await page.getByRole('button', { name: 'Казино', exact: true }).click();
+  await page.getByRole('button', { name: /Колесо фортуны/ }).click();
+  await expect(page.getByRole('button', { name: /Машина Юзи/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Крутить за $75' })).toBeVisible();
+  await expect(page.getByText(/вручную за \$200/)).toBeVisible();
+  await expect(page.locator('.casino-rules')).toHaveCount(0);
   await page.screenshot({ path: 'artifacts/metagame-casino.png' });
 
-  await page.getByRole('button', { name: 'Играть за $75', exact: true }).click();
+  await page.getByRole('button', { name: 'Крутить за $75' }).click();
   await expect(page.getByTestId('balance')).toHaveText('$ 1,425');
-  await expect(page.getByText('$25', { exact: true })).toBeVisible({ timeout: 5000 });
-  await page.getByRole('button', { name: 'Забрать награду', exact: true }).click();
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,450');
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,450', { timeout: 8000 });
   const settled = await state(page);
   expect(settled.opening).toBeUndefined();
   expect(settled.dollars).toBe(1450);
@@ -158,29 +192,27 @@ test('insufficient balance disables purchases without modifying ownership', asyn
   await page.evaluate(() => { const key = 'kartishki-demo-economy-v1'; const s = JSON.parse(localStorage.getItem(key)!); s.dollars = 49; localStorage.setItem(key, JSON.stringify(s)); });
   await enter(page, 'shop');
   const before = await state(page);
-  await expect(page.getByRole('button', { name: 'Потянуть рычаг ($50)', exact: true })).toBeDisabled();
-  await page.getByRole('button', { name: 'Паки карт', exact: true }).click();
+  await expect(page.getByRole('button', { name: /SPIN/ })).toBeDisabled();
+  await page.getByRole('button', { name: 'Паки', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Купить пак ($100)', exact: true })).toBeDisabled();
-  await page.getByRole('button', { name: 'Кейсы', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'ОТКРЫТЬ КЕЙС ($150)', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Сундуки', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'ОТКРЫТЬ СУНДУК ($150)', exact: true })).toBeDisabled();
   expect(await state(page)).toEqual(before);
 });
 
-test('lever drag charges once and a resumed cash reward settles once', async ({ page }) => {
+test('slot spin charges once and a resumed cash reward settles once', async ({ page }) => {
   await page.addInitScript(() => { Math.random = () => .01; });
   await enter(page, 'shop');
-  const lever = page.locator('.slot-lever');
-  const box = (await lever.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + 20);
-  await page.mouse.down(); await page.mouse.move(box.x + box.width / 2, box.y + 85, { steps: 8 }); await page.mouse.up();
+  const spin = page.getByRole('button', { name: /SPIN/ });
+  await spin.click();
   await expect(page.getByTestId('balance')).toHaveText('$ 1,450');
   await expect(page.locator('.currency-badge.spend')).toHaveText('-$50');
-  await expect(lever).toBeDisabled();
+  await expect(spin).toBeDisabled();
   await page.reload(); await page.getByRole('button', { name: 'Играть как гость' }).click();
   await page.getByRole('button', { name: /МАГАЗИН/i }).last().click();
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,700', { timeout: 10000 });
-  await expect(page.locator('.currency-badge.gain')).toHaveText('+$250');
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,600', { timeout: 10000 });
+  await expect(page.locator('.currency-badge.gain')).toHaveText('+$150');
   expect((await state(page)).opening).toBeUndefined();
   await page.reload(); await page.getByRole('button', { name: 'Играть как гость' }).click();
-  await expect(page.getByTestId('balance')).toHaveText('$ 1,700');
+  await expect(page.getByTestId('balance')).toHaveText('$ 1,600');
 });

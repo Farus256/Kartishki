@@ -3,9 +3,10 @@ import { promisify } from 'node:util';
 import {
   CASE_COST, CASE_XP, DAILY_REWARD, DECK_SIZE,
   MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_SIZE, PACK_XP, WIN_REWARD, XP_AWARDS,
-  applyBeerMl, battlegroundsCurrencyReward, battlegroundsXp, beerMlForPlace, beerMlForResult, starterCards,
+  applyBeerMl, applyShopResult, battlegroundsCurrencyReward, battlegroundsXp, beerMlForPlace, beerMlForResult, defaultShop, parseShopAction, resolveShopAction, shopBonusXp, starterCards, takeAlbumCard,
   type CardDefinition, type CaseResult, type LadderRow, type LootCard, type MatchRewards,
   type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerProfile, type SavedDeck,
+  type ShopConfig, type ShopResult, type ShopWallet,
   resolveSettings, validateSettingsPatch,
 } from '@kartishki/shared';
 import { type Database, type Sql } from './database';
@@ -157,14 +158,21 @@ export class PlayerStore {
       return this.library(playerId, tx);
     });
   }
-  private async grant(tx: Sql, playerId: string, cards: CardDefinition[], cost: number, xpGain: number) {
-    const paid = (await tx.query<{ currency: string | number; xp: string | number }>('UPDATE players SET currency = currency - $2, xp = xp + $3 WHERE id = $1 AND currency >= $2 RETURNING currency, xp', [playerId, cost, xpGain])).rows[0];
-    if (!paid) throw new PlayerError('insufficientFunds');
+  private async grant(tx: Sql, playerId: string, cards: CardDefinition[], cost: number, xpGain: number, prices = defaultShop.sellPrices) {
+    const owned = Object.fromEntries((await tx.query<{ card_id: string; copies: number }>('SELECT card_id, copies FROM player_collection WHERE player_id = $1', [playerId])).rows
+      .map(row => [row.card_id, Number(row.copies)]));
+    const duplicates: { id: string; amount: number }[] = [];
+    const fresh: CardDefinition[] = [];
     for (const card of cards) {
-      await tx.query(`INSERT INTO player_collection (player_id, card_id, copies) VALUES ($1,$2,1)
-        ON CONFLICT (player_id, card_id) DO UPDATE SET copies = player_collection.copies + 1`, [playerId, card.id]);
+      const reward = takeAlbumCard(owned, card, prices);
+      if (reward.kind === 'duplicate') duplicates.push({ id: reward.cardId, amount: reward.amount });
+      else fresh.push(card);
     }
-    return { currency: Number(paid.currency), xp: Number(paid.xp) };
+    const extra = duplicates.reduce((sum, row) => sum + row.amount, 0);
+    const paid = (await tx.query<{ currency: string | number; xp: string | number }>('UPDATE players SET currency = currency - $2 + $4, xp = xp + $3 WHERE id = $1 AND currency >= $2 RETURNING currency, xp', [playerId, cost, xpGain, extra])).rows[0];
+    if (!paid) throw new PlayerError('insufficientFunds');
+    for (const card of fresh) await tx.query('INSERT INTO player_collection (player_id, card_id, copies) VALUES ($1,$2,1) ON CONFLICT (player_id, card_id) DO NOTHING', [playerId, card.id]);
+    return { currency: Number(paid.currency), xp: Number(paid.xp), duplicates };
   }
   async addXp(playerId: string, amount: unknown): Promise<PlayerLibrary> {
     if (!Number.isInteger(amount) || !XP_AWARDS.includes(amount as typeof XP_AWARDS[number])) throw new PlayerError('invalidRequest');
@@ -173,7 +181,7 @@ export class PlayerStore {
       return this.library(playerId, tx);
     });
   }
-  async openPack(playerId: string, catalog: CardDefinition[]): Promise<PackResult> {
+  async openPack(playerId: string, catalog: CardDefinition[], prices = defaultShop.sellPrices): Promise<PackResult> {
     if (!catalog.length) throw new PlayerError('emptyCatalog');
     return this.db.transaction(async tx => {
       await tx.query('SELECT id FROM players WHERE id = $1 FOR UPDATE', [playerId]);
@@ -181,11 +189,11 @@ export class PlayerStore {
       if (cards.every(card => card.rarity === 'common') && catalog.some(card => card.rarity !== 'common')) {
         cards[PACK_SIZE - 1] = pick(catalog.filter(card => card.rarity !== 'common'), packOdds);
       }
-      const paid = await this.grant(tx, playerId, cards, PACK_COST, PACK_XP);
+      const paid = await this.grant(tx, playerId, cards, PACK_COST, PACK_XP, prices);
       return { cards: cards.map(loot), ...paid };
     });
   }
-  async openCase(playerId: string, catalog: CardDefinition[]): Promise<CaseResult> {
+  async openCase(playerId: string, catalog: CardDefinition[], prices = defaultShop.sellPrices): Promise<CaseResult> {
     if (!catalog.length) throw new PlayerError('emptyCatalog');
     return this.db.transaction(async tx => {
       await tx.query('SELECT id FROM players WHERE id = $1 FOR UPDATE', [playerId]);
@@ -193,7 +201,7 @@ export class PlayerStore {
       const landing = 18;
       const reel = Array.from({ length: 24 }, () => loot(pick(catalog, caseOdds)));
       reel[landing] = loot(prize);
-      const paid = await this.grant(tx, playerId, [prize], CASE_COST, CASE_XP);
+      const paid = await this.grant(tx, playerId, [prize], CASE_COST, CASE_XP, prices);
       return { prize: loot(prize), reel, landing, ...paid };
     });
   }
@@ -255,6 +263,33 @@ export class PlayerStore {
         result[id] = { elo, currency, gained, xp, beerMl };
       }
       return result;
+    });
+  }
+  async shop(playerId: string, catalog: CardDefinition[], config: ShopConfig, raw: unknown): Promise<{ result: ShopResult; library: PlayerLibrary }> {
+    const action = parseShopAction(raw);
+    if (!action) throw new PlayerError('invalidRequest');
+    if (!catalog.length) throw new PlayerError('emptyCatalog');
+    return this.db.transaction(async tx => {
+      await tx.query('SELECT id FROM players WHERE id = $1 FOR UPDATE', [playerId]);
+      const library = await this.library(playerId, tx);
+      const wallet: ShopWallet = {
+        currency: library.profile.currency, xp: library.profile.xp,
+        owned: Object.fromEntries(library.collection.map(row => [row.cardId, row.copies])),
+      };
+      let result: ShopResult;
+      try { result = resolveShopAction(config, catalog, wallet, action, () => randomInt(1_000_000_000) / 1_000_000_000); }
+      catch (error) { throw new PlayerError(error instanceof Error ? error.message : 'invalidRequest'); }
+      const next = applyShopResult(wallet, result);
+      const bonus = shopBonusXp(result.kind);
+      await tx.query('UPDATE players SET currency = $2, xp = $3 WHERE id = $1', [playerId, next.currency, next.xp + bonus]);
+      const ids = new Set([...Object.keys(wallet.owned), ...Object.keys(next.owned)]);
+      for (const cardId of ids) {
+        const copies = next.owned[cardId] ?? 0;
+        if (copies <= 0) await tx.query('DELETE FROM player_collection WHERE player_id = $1 AND card_id = $2', [playerId, cardId]);
+        else await tx.query(`INSERT INTO player_collection (player_id, card_id, copies) VALUES ($1,$2,$3)
+          ON CONFLICT (player_id, card_id) DO UPDATE SET copies = $3`, [playerId, cardId, copies]);
+      }
+      return { result, library: await this.library(playerId, tx) };
     });
   }
 }

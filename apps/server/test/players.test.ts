@@ -3,7 +3,7 @@ import test from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BEER_WIN_MAX, BEER_WIN_MIN, CASE_COST, CASE_XP, CASINO_XP, DAILY_REWARD, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_XP, WIN_REWARD, battlegroundsCurrencyReward, battlegroundsEloDelta, starterCards } from '@kartishki/shared';
+import { BEER_WIN_MAX, BEER_WIN_MIN, CASE_COST, CASE_XP, CASINO_XP, DAILY_REWARD, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_XP, WIN_REWARD, battlegroundsCurrencyReward, battlegroundsEloDelta, defaultShop, resolveShop, shopCash, starterCards } from '@kartishki/shared';
 import { migratePlayers, openDatabase } from '../src/database';
 import { PlayerError, PlayerStore } from '../src/players';
 
@@ -39,15 +39,16 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     await assert.rejects(() => store.claimDaily(playerId), error => error instanceof PlayerError && error.code === 'alreadyClaimed');
     const pack = await store.openPack(playerId, starterCards);
     assert.equal(pack.cards.length, 5);
-    assert.equal(pack.currency, DAILY_REWARD - PACK_COST);
-    assert.equal(pack.xp, PACK_XP);
+    assert.equal(pack.duplicates.length, 5);
+    assert.equal(pack.currency, DAILY_REWARD - PACK_COST + pack.duplicates.reduce((sum, row) => sum + row.amount, 0));
     assert.equal((await store.library(playerId)).profile.xp, PACK_XP);
     const afterPack = await store.library(playerId);
-    assert.ok(afterPack.collection.reduce((sum, row) => sum + row.copies, 0) > again.library.collection.reduce((sum, row) => sum + row.copies, 0));
+    assert.equal(afterPack.collection.reduce((sum, row) => sum + row.copies, 0), again.library.collection.reduce((sum, row) => sum + row.copies, 0));
     await db.query('UPDATE players SET currency = $2 WHERE id = $1', [playerId, CASE_COST]);
     const crate = await store.openCase(playerId, starterCards);
     assert.equal(crate.reel[crate.landing]!.id, crate.prize.id);
-    assert.equal(crate.currency, 0);
+    assert.equal(crate.duplicates.length, 1);
+    assert.equal(crate.currency, crate.duplicates.reduce((sum, row) => sum + row.amount, 0));
     assert.equal(crate.xp, PACK_XP + CASE_XP);
     const bob = await store.register('Борис', 'password1');
     const rewards = await store.settleMatch(playerId, bob.library.profile.id, playerId);
@@ -75,8 +76,18 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     assert.equal((await store.login('Алиса', 'password1')).library.profile.currency, wallet.profile.currency);
     await assert.rejects(() => store.changeCurrency(playerId, 2501), error => error instanceof PlayerError && error.code === 'invalidRequest');
     await assert.rejects(() => store.changeCurrency(playerId, -(wallet.profile.currency + 1)), error => error instanceof PlayerError && error.code === 'insufficientFunds');
+    const shopped = await store.shop(playerId, starterCards, resolveShop(defaultShop), { type: 'buy', productId: 'basement' });
+    assert.equal(shopped.result.kind, 'pack');
+    assert.ok(shopped.result.rewards.every(reward => reward.kind === 'duplicate'));
+    assert.equal(shopped.library.profile.currency, wallet.profile.currency - 100 + shopCash(shopped.result.rewards));
+    const stranger = { ...starterCards[0]!, id: 'album-stranger' };
+    await store.changeCurrency(playerId, 100);
+    const unique = await store.shop(playerId, [stranger], resolveShop(defaultShop), { type: 'buy', productId: 'basement' });
+    assert.equal(unique.result.rewards.filter(reward => reward.kind === 'card').length, 1);
+    assert.equal(unique.result.rewards.filter(reward => reward.kind === 'duplicate').length, 4);
+    assert.equal(unique.library.collection.find(row => row.cardId === 'album-stranger')?.copies, 1);
     const afterSpin = await store.addXp(playerId, CASINO_XP);
-    assert.equal(afterSpin.profile.xp, vsGuest.xp + CASINO_XP);
+    assert.equal(afterSpin.profile.xp, vsGuest.xp + PACK_XP + PACK_XP + CASINO_XP);
     await assert.rejects(() => store.addXp(playerId, 7), error => error instanceof PlayerError && error.code === 'invalidRequest');
     const beforeBg = await store.library(playerId);
     const bg = await store.settleBattlegrounds([
@@ -92,7 +103,7 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     assert.equal(bg[bob.library.profile.id]!.xp, MATCH_LOSS_XP + MATCH_LOSS_XP);
     const ladder = await store.ladder();
     assert.equal(ladder[0]!.username, 'Алиса');
-    assert.equal(ladder[0]!.xp, PACK_XP + CASE_XP + MATCH_WIN_XP + MATCH_WIN_XP + CASINO_XP + MATCH_WIN_XP);
+    assert.equal(ladder[0]!.xp, PACK_XP + CASE_XP + MATCH_WIN_XP + MATCH_WIN_XP + PACK_XP + PACK_XP + CASINO_XP + MATCH_WIN_XP);
     assert.equal(ladder[0]!.remainingMl, bg[playerId]!.beerMl);
     await store.logout(again.token);
     await assert.rejects(() => store.authenticate(again.token), error => error instanceof PlayerError && error.code === 'loginRequired');

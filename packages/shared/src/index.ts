@@ -1,4 +1,5 @@
 import { schema, t } from '@colyseus/schema';
+export * from './shop';
 
 export const phases = ['start', 'main', 'combat', 'end'] as const;
 export type Phase = typeof phases[number];
@@ -40,7 +41,7 @@ export type HeroDefinition = {
   id: string; name: string; description: string; health: number; art: CardDefinition['art'];
   ability: { name: string; cost: number; effectId: 'damage' | 'heal' | 'summon'; amount: number; cardId?: string };
 };
-export type Catalog = { version: number; cards: CardDefinition[]; heroes?: HeroDefinition[]; autoBattlerMinions?: import('./autoBattler').AutoBattlerMinionDef[]; autoBattlerHeroes?: import('./autoBattler').AutoBattlerHeroDef[]; autoBattlerCopy?: import('./autoBattler').AutoBattlerCopy; playerLeveling?: import('./leveling').PlayerLeveling; menuMusic?: import('./menuMusic').MenuMusic };
+export type Catalog = { version: number; cards: CardDefinition[]; heroes?: HeroDefinition[]; autoBattlerMinions?: import('./autoBattler').AutoBattlerMinionDef[]; autoBattlerHeroes?: import('./autoBattler').AutoBattlerHeroDef[]; autoBattlerCopy?: import('./autoBattler').AutoBattlerCopy; playerLeveling?: import('./leveling').PlayerLeveling; menuMusic?: import('./menuMusic').MenuMusic; shop?: import('./shop').ShopConfig };
 export { starterHeroes, validateHero } from './heroes';
 export { starterCards, validateCard, effects, triggers, properties } from './cards';
 export {

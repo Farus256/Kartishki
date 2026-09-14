@@ -1,10 +1,10 @@
-const assets = import.meta.glob(['../../../audio/click_001.ogg', '../../../audio/select_001.ogg', '../../../audio/card-slide-1.ogg', '../../../audio/card-place-1.ogg', '../../../audio/card-shove-1.ogg', '../../../audio/card-fan-1.ogg', '../../../audio/switch1.ogg', '../../../audio/dice-shake-1.ogg', '../../../audio/impactMetal_light_000.ogg', '../../../audio/cards-pack-open-1.ogg', '../../../audio/card-slide-2.ogg', '../../../audio/tick_001.ogg', '../../../audio/confirmation_001.ogg', '../../../audio/chip-lay-1.ogg', '../../../audio/chips-collide-1.ogg'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const assets = import.meta.glob(['../../../audio/click_001.ogg', '../../../audio/select_001.ogg', '../../../audio/card-slide-1.ogg', '../../../audio/card-place-1.ogg', '../../../audio/card-shove-1.ogg', '../../../audio/card-fan-1.ogg', '../../../audio/switch1.ogg', '../../../audio/dice-shake-1.ogg', '../../../audio/impactMetal_light_000.ogg', '../../../audio/drop_001.ogg', '../../../audio/cards-pack-open-1.ogg', '../../../audio/card-slide-2.ogg', '../../../audio/tick_001.ogg', '../../../audio/confirmation_001.ogg', '../../../audio/confirmation_004.ogg', '../../../audio/chip-lay-1.ogg', '../../../audio/chips-stack-1.ogg'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const files = {
   ui_click: 'click_001', ui_select: 'select_001', card_hover: 'card-slide-1',
   card_place: 'card-place-1', card_remove: 'card-shove-1', page_turn: 'card-fan-1',
-  lever_pull: 'switch1', reels_spin: 'dice-shake-1', reel_stop: 'impactMetal_light_000',
+  lever_pull: 'switch1', reels_spin: 'dice-shake-1', reel_stop: 'impactMetal_light_000', reel_land: 'drop_001',
   pack_rip: 'cards-pack-open-1', card_flip: 'card-slide-2', case_tick: 'tick_001',
-  case_win: 'confirmation_001', coins_spend: 'chip-lay-1', coins_win: 'chips-collide-1',
+  case_win: 'confirmation_001', slots_big: 'confirmation_004', coins_spend: 'chip-lay-1', coins_win: 'chips-stack-1',
 } as const;
 export type Sound = keyof typeof files;
 
@@ -70,7 +70,13 @@ export class AudioManager {
         if (cancelled || !this.enabled || !buffer) return;
         if (this.voices.size >= 16) { const oldest = this.voices.values().next().value!; oldest.stop(); this.voices.delete(oldest); }
         source = ctx.createBufferSource(); source.buffer = buffer; source.loop = loop;
-        const gain = ctx.createGain(); gain.gain.value = (loop ? .18 : name === 'card_hover' ? .16 : .45) * this.sfxVol;
+        const gain = ctx.createGain();
+        const soft = name === 'coins_win' || name === 'coins_spend' ? .14
+          : name === 'card_hover' ? .16
+          : name === 'reel_land' ? .135
+          : name === 'case_tick' ? .225
+          : .45;
+        gain.gain.value = (loop ? (name === 'reels_spin' ? .09 : .18) : soft) * this.sfxVol;
         source.connect(gain).connect(ctx.destination); this.voices.add(source);
         const voice = source;
         voice.onended = () => { this.voices.delete(voice); voice.disconnect(); gain.disconnect(); if (source === voice) source = undefined; };

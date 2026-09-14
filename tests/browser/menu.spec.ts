@@ -4,6 +4,30 @@ const LADDER = [
   { username: 'Борис', elo: 1100, xp: 40, remainingMl: 540 },
   { username: 'Вера', elo: 1050, xp: 20, remainingMl: 210 },
 ];
+
+test('menu blocks actions and keeps retrying until backend recovers', async ({ page }) => {
+  await stubMenuApis(page);
+  let healthy = true;
+  let probes = 0;
+  await page.route('**/health', route => {
+    probes++;
+    return route.fulfill({ status: healthy ? 200 : 503, json: { status: healthy ? 'ok' : 'starting' } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Играть как гость' }).click();
+  await expect(page.getByTestId('menu-server-loading')).toHaveCount(0);
+  healthy = false;
+  await expect(page.getByTestId('menu-server-loading')).toBeVisible({ timeout: 10000 });
+  expect(await page.locator('.main-menu-actions').evaluate(el => !!el.closest('[inert]'))).toBe(true);
+  const failedAt = probes;
+  await expect.poll(() => probes, { timeout: 10000 }).toBeGreaterThan(failedAt + 1);
+  await page.screenshot({ path: 'artifacts/menu-server-loading.png' });
+  healthy = true;
+  await expect(page.getByTestId('menu-server-loading')).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByTestId('menu-ladder')).toContainText('Алиса');
+  await page.getByRole('button', { name: /ПОЛЕ СРАЖЕНИЙ/ }).click();
+  await expect(page.getByTestId('ab-screen')).toBeVisible();
+});
 async function stubMenuApis(page: Page) {
   await page.route('**/health', route => route.fulfill({ json: { status: 'ok' } }));
   await page.route('**/api/catalog', route => route.fulfill({ json: { cards: [] } }));

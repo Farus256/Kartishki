@@ -1,4 +1,5 @@
 import express from 'express';
+import { resolveShop } from '@kartishki/shared';
 import { PlayerError, type PlayerStore } from './players';
 import type { CatalogStore } from './catalog';
 
@@ -24,8 +25,18 @@ export function playerApi(store: PlayerStore, catalog: CatalogStore) {
   router.post('/daily', async (_req,res) => { res.json(await store.claimDaily(res.locals.playerId)); });
   router.post('/wallet', async (req,res) => { res.json(await store.changeCurrency(res.locals.playerId, req.body?.delta)); });
   router.post('/settings', async (req,res) => { res.json(await store.saveSettings(res.locals.playerId, req.body)); });
-  router.post('/packs', async (_req,res) => { res.json(await store.openPack(res.locals.playerId, catalog.snapshot().cards)); });
-  router.post('/cases', async (_req,res) => { res.json(await store.openCase(res.locals.playerId, catalog.snapshot().cards)); });
+  router.post('/packs', async (_req,res) => {
+    const snap = catalog.snapshot();
+    res.json(await store.openPack(res.locals.playerId, snap.cards, resolveShop(snap.shop).sellPrices));
+  });
+  router.post('/cases', async (_req,res) => {
+    const snap = catalog.snapshot();
+    res.json(await store.openCase(res.locals.playerId, snap.cards, resolveShop(snap.shop).sellPrices));
+  });
+  router.post('/shop', async (req,res) => {
+    const snap = catalog.snapshot();
+    res.json(await store.shop(res.locals.playerId, snap.cards, resolveShop(snap.shop), req.body));
+  });
   router.post('/xp', async (req,res) => { res.json(await store.addXp(res.locals.playerId, req.body?.amount)); });
   router.put('/decks', async (req,res) => { res.json(await store.saveDeck(res.locals.playerId,req.body,catalog.snapshot().cards)); });
   router.delete('/decks/:id', async (req,res) => { await store.deleteDeck(res.locals.playerId,req.params.id,req.body?.version); res.sendStatus(204); });

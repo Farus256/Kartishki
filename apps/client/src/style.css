@@ -147,7 +147,7 @@ audio { max-width: 100%; }
 .shop-title { position: absolute; top: 108px; left: 55px; right: 55px; display: flex; justify-content: space-between; align-items: center; font-family: var(--font-hand); font-size: 27px; letter-spacing: 3px; }
 .shop-title small { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; opacity: .6; }
 .shop-tabs { position: absolute; top: 157px; left: 55px; display: flex; gap: 8px; }
-.shop-tabs button { padding: 10px 28px; border: 3px solid #1a1a1a; font: 23px var(--font-hand); background: #d5c7af; box-shadow: 4px 4px #1a1a1a; }
+.shop-tabs button { padding: 10px 18px; border: 3px solid #1a1a1a; font: 21px var(--font-hand); background: #d5c7af; box-shadow: 4px 4px #1a1a1a; }
 .shop-tabs button[aria-pressed=true] { background: #24231f; color: #efece4; transform: rotate(-1deg); }
 .shop-tabs button:disabled { opacity: .45; cursor: default; }
 .catalog-layout { display: grid; grid-template-columns: 1fr 430px; gap: 30px; height: 100%; align-items: center; }
@@ -172,9 +172,60 @@ audio { max-width: 100%; }
 .casino-games button > span { font:86px/1 var(--font-stencil); }
 .casino-games button strong { font:28px var(--font-hand); }
 .casino-games button small { font:13px var(--font-mono); }
-.casino-rules ul { max-height:245px; overflow:auto; margin:14px 0 20px; padding:0; list-style:none; }
-.casino-rules li { display:flex; justify-content:space-between; padding:6px 3px; border-bottom:1px dashed #1a1a1a55; font:13px var(--font-mono); }
+.casino-shell { height: 100%; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: visible; }
+.casino-shell > .casino-games { flex: 0 0 auto; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.casino-shell > .casino-games button { min-height: 78px; flex-direction: row; padding: 10px 18px; gap: 14px; }
+.casino-shell > .casino-games button > span { font-size: 36px; }
+.casino-shell > .slot-layout, .casino-shell > .casino-layout, .casino-shell > .casino-opening { flex: 1; min-height: 0; overflow: visible; }
+.casino-shell .slot-layout { grid-template-columns: minmax(0, 1.15fr) minmax(300px, 380px); gap: 22px; overflow: visible; }
+.fortune-layout { --wheel: 536px; position: relative; display: grid; place-items: center; min-height: calc(var(--wheel) + 48px); }
+.fortune-stage { position: relative; display: grid; place-items: center; width: var(--wheel); height: var(--wheel); }
+.fortune-pointer { position: absolute; top: calc(50% - (var(--wheel) / 2) - 4px); left: 50%; z-index: 4; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 28px solid var(--ink); transform: translate(-50%, 0); filter: drop-shadow(3px 4px #1a1a166); }
+.fortune-pointer::after { content: none; }
+.fortune-wheel { width: var(--wheel); height: var(--wheel); max-width: 100%; max-height: 100%; border-radius: 50%; border: 4px solid var(--ink); box-shadow: 8px 10px #1a1a166, inset 0 0 0 9px var(--paper), inset 0 0 0 12px var(--ink); position: relative; overflow: hidden; background-color: #e9dfc9; flex: none; }
+.fortune-wheel::before { content: ''; position: absolute; inset: 0; border-radius: 50%; z-index: 1; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 29px, #24231f0b 29px 30px), repeating-linear-gradient(-18deg, #1a1a1a08 0 1px, transparent 1px 6px); }
+.fortune-wheel::after { content: ''; position: absolute; inset: 16px; z-index: 1; border-radius: 50%; border: 1px dashed #1a1a1644; pointer-events: none; }
+.fortune-spoke { position: absolute; left: 50%; bottom: 50%; z-index: 1; width: 3px; height: 50%; margin-left: -1.5px; background: var(--ink); transform-origin: bottom center; pointer-events: none; }
+.fortune-label { position: absolute; left: 50%; top: 50%; z-index: 2; width: 150px; margin-left: -75px; display: flex; flex-direction: column; align-items: center; gap: 2px; font: 24px/1.05 var(--font-hand); color: var(--ink); text-align: center; pointer-events: none; transform: rotate(var(--mid)) translateY(calc(var(--wheel) * -.36)) rotate(calc(var(--mid) * -1)); text-shadow: 0 1px 0 var(--paper), 1px 1px 0 #efece4cc; }
+.fortune-label b { font: 32px/1 var(--font-stencil); }
+.fortune-label.is-tight { width: 90px; margin-left: -45px; font-size: 16px; }
+.fortune-label.is-tight b { font-size: 22px; }
+.fortune-label.is-radial { width: 88px; margin-left: -44px; font-size: 0; gap: 0; white-space: nowrap; transform: rotate(var(--mid)) translateY(calc(var(--wheel) * -.40)) rotate(var(--tip)); }
+.fortune-label.is-radial b { font-size: 18px; letter-spacing: -.04em; }
+.fortune-hub { position: absolute; top: 50%; left: 50%; z-index: 3; width: 104px; height: 104px; display: grid; place-items: center; border-radius: 50%; border: 4px solid var(--ink); background: var(--paper); box-shadow: 5px 6px #1a1a166; font: 42px/1 var(--font-hand); color: var(--ink); transform: translate(-50%, -50%); background-image: repeating-linear-gradient(0deg, transparent 0 29px, #24231f0b 29px 30px); pointer-events: none; }
+.fortune-stage.is-draggable .fortune-wheel { cursor: grab; touch-action: none; }
+.fortune-stage.is-dragging .fortune-wheel { cursor: grabbing; }
+.fortune-controls { position: absolute; left: calc(50% + (var(--wheel) / 2) + 30px); bottom: calc(50% - (var(--wheel) / 10)); display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 220px; }
+.fortune-spin { width: 104px; height: 104px; border-radius: 50%; border: 4px solid var(--ink); background: #d7c07a; color: var(--ink); box-shadow: 5px 6px #1a1a166; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; line-height: 1; cursor: pointer; }
+.fortune-spin:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 6px 8px #1a1a166; }
+.fortune-spin:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.fortune-spin:focus-visible { outline: 3px solid var(--blood); outline-offset: 4px; }
+.fortune-spin-icon { font: 34px/1 var(--font-stencil); }
+.fortune-spin strong { font: 22px/1 var(--font-hand); }
+.fortune-manual-hint { position: absolute;margin: 0; padding: 5px 10px; left: -90px; bottom: -70px;border: 2px dashed #1a1a1a55; background: #fff6; font: 14px/1.45 var(--font-mono) !important; text-align: center; }
+.casino-rules { max-height: none; overflow: visible; min-height: 0; }
+.casino-rules > button { flex: 0 0 auto; }
+.foil-pack.is-mixed { --foil-color: #e8d5a3; }
+.foil-pack.is-mixed .foil-brand { letter-spacing: 1px; font-size: 22px; line-height: 1.15; padding: 0 16px; text-align: center; }
+.foil-pack.compact.is-mixed .foil-brand { font-size: 13px; letter-spacing: 0; }
+.wooden-crate.is-mixed { background: repeating-linear-gradient(0deg,#0000 0 52px,#1e2a22 53px 59px),repeating-linear-gradient(4deg,#3f5a44 0 3px,#54785c 4px 10px,#2c4032 11px 12px); }
+.prize-odds { list-style: none; padding: 0; margin: 12px 0; }
+.prize-odds li { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #1a1a1a55; font: 12px var(--font-mono); }
+.pack-extras { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 8px 0 18px; }
+.reward-chip { min-width: 120px; padding: 16px 18px; border: 3px solid #1a1a1a; font: 28px var(--font-hand); text-align: center; background: #e9dfc9; box-shadow: 5px 6px #1a1a166; }
+.reward-chip.is-currency { background: #d7c07a; }
+.reward-chip.is-xp { background: #9cba8a; }
+.reward-chip.is-duplicate { background: #d7c07a; font-size: 16px; max-width: 260px; line-height: 1.25; }
+.duplicate-note { margin: 8px 0 0; padding: 6px 8px; background: #d7c07a; border: 2px solid #1a1a1a; font: 12px var(--font-mono); text-align: center; }
+.reel-tile.is-currency, .reel-tile.is-xp, .reel-tile.is-cards { background: #cbb98a; }
+.shop-editor { display: grid; gap: 18px; }
+.shop-product { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 12px; border: 2px solid var(--ink); }
+.shop-product textarea { grid-column: 1 / -1; min-height: 52px; }
+.casino-rules ul { max-height: none; overflow: visible; margin: 10px 0 14px; padding: 0; list-style: none; }
+.casino-rules li { display: flex; justify-content: space-between; padding: 4px 3px; border-bottom: 1px dashed #1a1a1a55; font: 12px var(--font-mono); }
 .casino-opening { height:100%; display:grid; grid-template-columns:1fr 1fr; place-items:center; gap:36px; }
+.casino-opening.is-wheel { grid-template-columns: minmax(0,1.25fr) minmax(300px,400px); gap:24px; align-items:stretch; }
+.casino-opening.is-wheel .casino-prize { align-self:center; }
 .casino-reveal { width:330px; height:330px; display:grid; place-items:center; align-content:center; gap:12px; border:8px double var(--ink); border-radius:50%; background:repeating-conic-gradient(#c6a85b 0 22.5deg,#8da477 22.5deg 45deg); box-shadow:12px 14px #1a1a166; }
 .casino-reveal > span { font:100px/1 var(--font-stencil); }
 .casino-reveal strong { padding:6px 12px; background:var(--paper); border:3px solid var(--ink); font:26px var(--font-hand); }
@@ -221,30 +272,36 @@ audio { max-width: 100%; }
 .wooden-crate b { position: absolute; bottom: 40px; right: 60px; background: #b3a56e; color: #24231f; font-size: 40px; border: 4px solid #24231f; }
 .wooden-crate small { position: absolute; bottom: 14px; font: 11px var(--font-mono); }
 .crate-1 { filter: grayscale(.65); transform: rotate(2deg); }
-.slot-layout { display: grid; grid-template-columns: 985px 1fr; gap: 60px; align-items: center; height: 100%; }
-.slot-machine { position: relative; border: 9px solid #24231f; border-radius: 32px 32px 12px 12px; padding: 24px 30px; background: repeating-linear-gradient(-28deg,#00000008 0 2px,transparent 2px 9px),linear-gradient(100deg,#978670,#c3ac8b 45%,#8a765c); box-shadow: 12px 13px #24231f66,inset 0 0 0 5px #e3c69a; }
-.slot-machine h2 { font: 57px var(--font-stencil); text-align: center; letter-spacing: 6px; text-shadow: 3px 3px #e5cf9c; }
+.slot-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: center; height: 100%; }
+.slot-machine { position: relative; border: 4px solid var(--ink); border-radius: 8px 22px 8px 22px; padding: 22px 26px 18px; background: repeating-linear-gradient(0deg, transparent 0 29px, #24231f0b 29px 30px), linear-gradient(100deg, #d5c7af, #e9dfc9 45%, #cbb98a); box-shadow: 8px 10px #1a1a166, inset 0 0 0 4px #efece488; }
+.slot-machine h2 { font: 48px var(--font-stencil); text-align: center; letter-spacing: 4px; text-shadow: 3px 3px #e5cf9c; }
 .slot-subtitle { text-align: center; font: 12px var(--font-mono); letter-spacing: 4px; margin: 0 0 25px; }
-.bulb-row { display: flex; justify-content: space-between; margin-bottom: 14px; }
-.bulb-row span { width: 14px; height: 14px; background: #f3d877; border: 2px solid #49422e; border-radius: 50%; animation: bulb-flicker 2.7s infinite; }
+.bulb-row { display: flex; justify-content: space-between; margin-bottom: 12px; }
+.bulb-row span { width: 14px; height: 14px; border-radius: 50%; background: #f6d56a; border: 2px solid #49422e; box-shadow: 0 0 10px #ffcf43, 0 0 18px #f5a62388; animation: bulb-glow 2.2s ease-in-out infinite; }
+.bulb-row span:nth-child(odd) { animation-delay: .45s; }
 @keyframes bulb-flicker { 0%,65%,100% { box-shadow: 0 0 9px #ffcf43; } 70%,80% { background: #a09365; box-shadow: none; } }
-.reels { display: flex; gap: 9px; border: 8px solid #24231f; padding: 12px; background: #3b3930; box-shadow: inset 0 8px 15px #000; }
+@keyframes bulb-glow { 0%,100% { background: #f3d877; box-shadow: 0 0 8px #ffcf43, 0 0 16px #f5a62388; } 50% { background: #ffe9a8; box-shadow: 0 0 16px #ffe27a, 0 0 28px #f5a623cc; } }
+.reels { display: flex; gap: 9px; border: 4px solid var(--ink); padding: 12px; background: #3b3930; box-shadow: inset 0 8px 15px #000, 5px 6px #1a1a166; }
 .reel-window { height: 132px; flex: 1; overflow: hidden; background: linear-gradient(#afa999,#f1ebdd 35% 65%,#aaa393); box-shadow: inset 3px 0 7px #0007; }
 .reel-window .reel-sym { display: grid; place-items: center; height: 132px; }
 .reel-window img { width: 118px; height: 118px; object-fit: contain; filter: drop-shadow(2px 3px 0 #0003); }
-.slot-lever { position: absolute; right: -43px; top: 175px; width: 26px; height: 152px; background: linear-gradient(90deg,#272521,#b0a899,#272521); border: 4px solid #24231f; border-radius: 9px; touch-action: none; }
-.slot-lever span { position: absolute; top: -24px; left: -14px; width: 47px; height: 47px; border: 5px solid #24231f; border-radius: 50%; background: radial-gradient(at 35% 30%,#d46b51,#782d22 70%); }
-.slot-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 32px; gap: 16px; }
-.slot-bottom > span { text-align: center; font: 12px var(--font-mono); }
-.slot-bottom > span img { width: 36px; height: 36px; object-fit: contain; display: block; margin: 0 auto 4px; }
-.slot-bottom > button { font-size: 25px; padding: 18px 26px; }
-.slot-pay { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 4px; line-height: 1.2; }
-.slot-pay li { display: grid; grid-template-columns: 34px 1fr 1fr; gap: 8px; align-items: center; font: 11px var(--font-mono); }
-.slot-pay img { width: 34px; height: 34px; object-fit: contain; }
-.coin-slot { width: 230px; height: 25px; background: #24231f; border: 5px solid #6b6150; margin: 25px auto 0; }
+.slot-bottom { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-top: 22px; gap: 16px; }
+.slot-bet { display: flex; align-items: center; gap: 8px; justify-self: start; }
+.slot-bet button { width: 48px; height: 48px; border: 3px solid var(--ink); background: #d5c7af; box-shadow: 4px 4px var(--ink); font: 28px/1 var(--font-stencil); }
+.slot-bet button:disabled { opacity: .45; box-shadow: none; }
+.slot-bet strong { min-width: 92px; padding: 8px 12px; border: 3px solid var(--ink); background: var(--paper); text-align: center; font: 28px/1 var(--font-stencil); box-shadow: 4px 4px #1a1a166; }
+.slot-status { margin: 0; text-align: center; font: 14px var(--font-mono); letter-spacing: 1px; }
+.slot-spin { justify-self: end; min-width: 210px; min-height: 100px; padding: 18px 28px !important; font: 44px/1 var(--font-stencil) !important; letter-spacing: 4px; }
+.slot-pay { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; line-height: 1.2; max-height: none; overflow: visible; }
+.slot-pay li { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 10px; align-items: center; font: 18px/1.1 var(--font-hand); }
+.slot-pay img { width: 52px; height: 52px; object-fit: contain; }
+.slot-pay b { font: 22px/1 var(--font-stencil); }
+.coin-slot { position: relative; width: 230px; height: 22px; background: var(--ink); border: 4px solid #6b6150; margin: 22px auto 0; overflow: visible; }
+.slot-bill { position: absolute; left: 50%; top: 0; z-index: 3; width: 46px; height: 24px; display: grid; place-items: center; border: 2px solid var(--ink); background: #d7c07a; box-shadow: 3px 3px #1a1a166; font: 16px/1 var(--font-hand); font-style: normal; pointer-events: none; animation: slot-payout .85s ease-out forwards; }
+@keyframes slot-payout { 0% { transform: translate(-50%, 0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
 .slot-rules { padding: 24px; }
-.slot-rules ul { font: 12px/2 var(--font-mono); margin: 15px 0; }
-.slot-result { border-block: 2px dashed #756750; padding: 16px 0; margin: 20px 0; font: 24px var(--font-hand); color: #305f3c; }
+.slot-rules ul { font: 12px/2 var(--font-mono); margin: 15px 0; max-height: none; overflow: visible; }
+.slot-result { border-block: 2px dashed #756750; padding: 16px 0; margin: 20px 0; font: 32px var(--font-hand); color: #305f3c; }
 .pack-opening,.case-opening { display: flex; height: 100%; flex-direction: column; align-items: center; position: relative; }
 .pack-opening > h2,.case-opening > h2 { font: 38px var(--font-hand); margin: 8px 0 20px; }
 .sealed-pack { position: absolute; top: 80px; }
@@ -252,22 +309,22 @@ audio { max-width: 100%; }
 .tear-hint { position: absolute; bottom: 45px; }
 .torn-head { position: absolute; z-index: 20; width: 320px; height: 60px; padding: 15px; background: #34312b; color: #dfcd99; border-bottom: 3px dashed #b5a276; font: 24px var(--font-hand); }
 .pack-cards { display: flex; gap: 48px; margin: 125px 0 65px; }
-.flip-perspective { position: relative; perspective: 1200px; width: 200px; height: 270px; }
-.flip-card { position: relative; width: 200px; height: 270px; transform-style: preserve-3d; cursor: pointer; }
-.flip-front,.flip-back { position: absolute; inset: 0; backface-visibility: hidden; }
+.flip-perspective { position: relative; perspective: 1200px; width: 226px; height: 310px; overflow: visible; }
+.flip-card { position: relative; width: 226px; height: 310px; transform-style: preserve-3d; cursor: pointer; overflow: visible; }
+.flip-front,.flip-back { position: absolute; inset: 0; display: grid; place-items: center; backface-visibility: hidden; overflow: visible; }
 .flip-back { transform: rotateY(180deg); }
 .pack-opening > p,.case-opening > p { font: 14px var(--font-mono); margin-bottom: 22px; }
 .roulette-window { position: relative; width: 1180px; height: 260px; overflow: hidden; border-block: 6px solid #24231f; margin: 85px 0 36px; background: #b5a68c; box-shadow: 0 9px #24231f33; }
 .roulette-ribbon { display: flex; position: absolute; left: 0; top: 0; }
 .roulette-selector { position: absolute; pointer-events: none; z-index: 5; inset: 0 auto 0 50%; transform: translateX(-50%); width: 168px; border: 4px solid #d3a239; box-shadow: 0 0 0 600px #17140f66; }
 .roulette-selector::before { content: '▼'; position: absolute; top: -7px; left: 63px; color: #e4b242; font-size: 30px; text-shadow: 2px 2px #000; }
-.reel-tile { position: relative; flex-shrink: 0; width: 168px; height: 248px; padding: 10px; border-right: 2px solid #24231f; background: #ddd0b6; }
-.reel-tile > div { height: 190px; overflow: hidden; border: 2px solid #24231f; background: #a99b84; display: grid; place-items: center; }
+.reel-tile { position: relative; flex-shrink: 0; width: 168px; height: 248px; padding: 10px; border-right: 2px solid #24231f; background: #ddd0b6; box-sizing: border-box; }
+.reel-tile > div { height: 190px; overflow: hidden; border: 3px solid #24231f; background: #a99b84; display: grid; place-items: center; box-sizing: border-box; }
 .reel-tile img { width: 100%; height: 100%; object-fit: cover; }
 .reel-tile span { font: 100px var(--font-hand); }
 .reel-tile strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font: 17px var(--font-hand); margin-top: 8px; }
 .reel-tile i { position: absolute; bottom: 0; left: 0; right: 0; height: 8px; }
-.prize-modal { position: absolute; inset: -222px -55px -24px; z-index: 50; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 30px; background: #14130ff2; color: #efece4; }
+.prize-modal { position: absolute; inset: -222px -55px -24px; z-index: 50; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 30px; background: #14130ff2; color: #efece4; overflow: visible; }
 .prize-modal h2 { font: 35px var(--font-hand); }
 button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) { .bulb-row span { animation: none; } }
@@ -346,15 +403,14 @@ button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 .levels-table { width: 100%; border-collapse: collapse; }
 .levels-table th, .levels-table td { border: 2px solid var(--ink); padding: 6px 8px; text-align: left; }
 .levels-table input { width: 100%; min-width: 0; }
-.currency-badge { position: absolute; top: 26px; z-index: 50; pointer-events: none; white-space: nowrap; padding: 3px 9px; border: 2px solid currentColor; background: #efece4; font: bold 23px 'PT Mono', monospace; }
+.currency-badge { position: relative; z-index: 10001; pointer-events: none; white-space: nowrap; padding: 3px 9px; border: 2px solid currentColor; background: #efece4; font: bold 23px 'PT Mono', monospace; transform: translateZ(0); }
 .currency-badge.spend { color: #b51f24; }
 .currency-badge.gain { color: #24743d; }
 .reel-window { flex: 1; }
-.slot-lever:disabled { cursor: not-allowed; }
 .game-card-face, .flip-front, .flip-back { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .game-card-face img, .reel-tile img { image-rendering: crisp-edges; transform: translateZ(0); }
 .photo-pipeline output { float: right; font-variant-numeric: tabular-nums; }
-@media (prefers-reduced-motion: reduce) { .currency-badge { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .currency-badge { animation: none; } .slot-bill { animation-duration: .3s; } }
 .flip-card.is-flat { transform: none !important; transform-style: flat; }
 .flip-card.is-flat .flip-front { display: none; }
 .flip-card.is-flat .flip-back { transform: translateZ(0); }
@@ -455,3 +511,10 @@ main.editor .editor-grid { grid-template-columns: minmax(280px,1fr) minmax(320px
 .trigger-buttons { display:flex; flex-wrap:wrap; gap:8px; }.ability-editor { margin:18px 0; background:#eceee2; }
 @media(prefers-reduced-motion:reduce) { .hero-offers > button { transition:none; } }
 
+.menu-server-loading { position:absolute; inset:0; z-index:45; display:grid; place-items:center; background:#191e19b8; backdrop-filter:blur(5px); }
+.menu-server-card { width:min(580px,90%); padding:42px; text-align:center; color:var(--ink); background:var(--paper); border:3px solid var(--ink); border-radius:5px 20px; box-shadow:10px 12px #0006; }
+.menu-server-card h2 { margin:20px 0 12px; font:32px var(--font-hand); }
+.menu-server-card p { font:14px/1.6 var(--font-mono); }
+.menu-server-spinner { display:inline-block; width:46px; height:46px; border:4px solid #1a1a1a22; border-top-color:var(--blood); border-radius:50%; animation:menu-server-spin 1s linear infinite; }
+@keyframes menu-server-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .menu-server-spinner { animation:none; } }

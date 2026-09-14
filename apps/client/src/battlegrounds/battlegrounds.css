@@ -321,7 +321,7 @@
 .ab-combat-hero-damage { position:absolute; top:48px; right:-22px; font:42px var(--font-stencil); color:var(--blood); text-shadow:2px 2px var(--paper); }
 .ab-combat-foe.is-lethal,.ab-combat-me.is-lethal { filter:grayscale(1); outline:3px solid var(--blood); }
 .ab-combat-banner { top:46%; font-size:32px; }
-.ab-combat-speed { right:-160px; top:290px; width:136px; flex-wrap:wrap; }
+.ab-combat-speed { right:-160px; top:258px; width:136px; flex-wrap:wrap; }
 .ab-combat-pop { animation-duration:.9s; font-size:36px; }
 @keyframes ab-rip-left { to { transform:translate(-88px,64px) rotate(-32deg); opacity:0; } }
 @keyframes ab-rip-right { to { transform:translate(92px,70px) rotate(28deg); opacity:0; } }
@@ -515,10 +515,10 @@
 /* HS-style gold, circular tavern ops, visible keywords, no clip. */
 .ab-tavern,.ab-tavern-row,.ab-tavern-row .ab-minion-wrap,.ab-board,.ab-slot,.ab-hand,.ab-hand .ab-minion-wrap { overflow:visible; }
 .ab-tavern-head { width:760px; grid-template-columns:250px 160px 250px; height:140px; align-items:center; }
-.ab-tier-sign { flex-direction:column; align-items:flex-end; gap:8px; }
+.ab-tier-sign { flex-direction:column; align-items:flex-end; gap:8px; position:relative; top:-28px; }
 .ab-tier-sign > span { display:block; }
 .ab-tier-sign button,.ab-tavern-ops button { min-width:0; min-height:0; }
-.ab-tavern-ops { display:flex; gap:14px; align-items:center; justify-self:start; }
+.ab-tavern-ops { display:flex; gap:14px; align-items:center; justify-self:start; position:relative; top:-28px; }
 .ab-tavern-btn {
   width:92px; height:92px; min-width:92px; min-height:92px; padding:0; display:grid; place-items:center;
   border:7px ridge #b48b4e; border-radius:50%; color:#fff6d2; cursor:pointer; position:relative;
@@ -540,6 +540,18 @@
   cursor:default; outline:none; filter:none; box-shadow:0 0 0 4px #2c2628,0 5px 10px #0006;
 }
 .ab-tavern-btn:disabled span { background:#554938; color:#e4d7bf; border-color:#988465; }
+.ab-tavern-btn,.ab-combat-speed button { transition:transform .18s ease,filter .18s ease,box-shadow .18s ease; }
+.ab-tavern-btn svg { transition:transform .35s ease; }
+.ab-tavern-btn.is-reroll:hover:enabled svg { transform:rotate(100deg); }
+.ab-tavern-btn.is-upgrade:hover:enabled svg { transform:translateY(-4px); }
+.ab-tavern-btn.is-freeze:hover:enabled svg { transform:rotate(30deg) scale(1.1); }
+.ab-tavern-btn:active:enabled,.ab-combat-speed button:active:enabled { transform:translateY(2px) scale(.95); filter:brightness(1.25); }
+.ab-tavern-btn:focus-visible { outline:3px solid #fff1b0; outline-offset:5px; }
+.ab-combat-speed button:hover:enabled { transform:translateY(-3px); filter:brightness(1.12); box-shadow:0 4px 12px #e1bd6866; }
+@media(prefers-reduced-motion:reduce) {
+  .ab-tavern-btn,.ab-tavern-btn svg,.ab-combat-speed button { transition:none; }
+  .ab-tavern-btn:hover:enabled,.ab-tavern-btn:hover:enabled svg,.ab-tavern-btn:active:enabled,.ab-combat-speed button:hover:enabled,.ab-combat-speed button:active:enabled { transform:none; }
+}
 .ab-hero-dock > .ab-gold {
   left:calc(50% + 220px); right:auto; top:48px; width:auto; min-width:0; transform:none;
   display:flex; flex-direction:row; align-items:center; gap:10px;

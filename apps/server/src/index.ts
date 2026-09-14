@@ -4,7 +4,7 @@ import { matchRoomWithPlayers } from './MatchRoom';
 import { autoBattlerRoomWithPlayers } from './autoBattler/AutoBattlerRoom';
 import express from 'express';
 import { catalogStore } from './catalog';
-import { validateAutoBattlerCopy, validateAutoBattlerHero, validateAutoBattlerMinion, validateCard, validateMenuMusic, validatePlayerLeveling } from '@kartishki/shared';
+import { validateAutoBattlerCopy, validateAutoBattlerHero, validateAutoBattlerMinion, validateCard, validateMenuMusic, validatePlayerLeveling, validateShopConfig } from '@kartishki/shared';
 import { musicAssets } from './musicAssets';
 import { openDatabase, migratePlayers } from './database';
 import { PlayerStore } from './players';
@@ -58,6 +58,11 @@ app.put('/api/auto-battler-heroes', express.json({ limit: '7mb' }), (req, res) =
 app.put('/api/player-leveling', express.json({ limit: '64kb' }), (req, res) => {
   if (!Number.isInteger(req.body?.version) || !validatePlayerLeveling(req.body?.leveling)) { res.status(400).json({ error: 'invalidLeveling' }); return; }
   try { res.json(catalogStore.publishPlayerLeveling(req.body.leveling, req.body.version)); }
+  catch (error) { const reason = error instanceof Error ? error.message : 'publishError'; res.status(reason === 'catalogConflict' ? 409 : 400).json({ error: reason }); }
+});
+app.put('/api/shop', express.json({ limit: '64kb' }), (req, res) => {
+  if (!Number.isInteger(req.body?.version) || !validateShopConfig(req.body?.shop)) { res.status(400).json({ error: 'invalidShop' }); return; }
+  try { res.json(catalogStore.publishShop(req.body.shop, req.body.version)); }
   catch (error) { const reason = error instanceof Error ? error.message : 'publishError'; res.status(reason === 'catalogConflict' ? 409 : 400).json({ error: reason }); }
 });
 app.put('/api/menu-music', express.json({ limit: '32kb' }), (req, res) => {

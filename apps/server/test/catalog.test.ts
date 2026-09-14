@@ -145,7 +145,7 @@ test('player leveling names and xp persist for new clients', () => {
   const dir=mkdtempSync(join(tmpdir(),'kartishki-lvl-')), file=join(dir,'catalog.json');
   try {
     const store=new CatalogStore(file), pinned=store.snapshot();
-    assert.equal(pinned.playerLeveling!.levels.length,30);
+    assert.equal(pinned.playerLeveling!.levels.length,100);
     const leveling=structuredClone(starterLeveling);
     leveling.levels[0] = { ru: 'Чернильный птенец', en: 'Ink chick', xp: 12 };
     leveling.battlegroundsElo = 48;
@@ -171,5 +171,21 @@ test('menu music playlist persists for the client menu', () => {
     assert.equal(next.menuMusic!.tracks[0]!.name,'Интро');
     assert.equal(new CatalogStore(file).snapshot().menuMusic!.tracks[0]!.url,`/api/music/${hash}.mp3`);
     assert.throws(()=>store.publishMenuMusic({tracks:[{id:'x',name:'bad',url:'http://evil/x.mp3'}]},next.version),/invalidAudio/);
+  } finally { rmSync(file,{force:true}); rmdirSync(dir); }
+});
+
+test('1v1 shop config persists for the client shop', () => {
+  const dir=mkdtempSync(join(tmpdir(),'kartishki-shop-')), file=join(dir,'catalog.json');
+  try {
+    const store=new CatalogStore(file), pinned=store.snapshot();
+    assert.equal(pinned.shop!.products[0]!.id,'wheel');
+    const shop=structuredClone(pinned.shop!);
+    shop.products[0] = { ...shop.products[0]!, cost: 90 };
+    shop.sellPrices = [6, 21, 61, 181, 501];
+    const next=store.publishShop(shop,pinned.version);
+    assert.equal(next.shop!.products[0]!.cost,90);
+    assert.equal(next.shop!.sellPrices[0],6);
+    assert.equal(new CatalogStore(file).snapshot().shop!.products[0]!.cost,90);
+    assert.throws(()=>store.publishShop(shop,pinned.version),/catalogConflict/);
   } finally { rmSync(file,{force:true}); rmdirSync(dir); }
 });

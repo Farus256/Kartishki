@@ -1,28 +1,74 @@
 import { audioManager } from './AudioManager';
-﻿import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { CASE_XP, CASINO_XP, PACK_XP, type CardDefinition } from '@kartishki/shared';
+import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { applyShopCredit, applyShopDebit, applyShopResult, resolveShopAction, shopBonusXp, shopCard, shopCash, shopMixed, type CardDefinition, type ShopAction, type ShopProduct, type ShopResult, type ShopReward, type ShopWallet } from '@kartishki/shared';
 import { playerSession } from './playerSession';
-import { useCatalog } from './ui/useCatalog';
-import { CASES, CASINO_GAMES, PACKS, demoCards, drawCard, pickCasinoPrize, pickSlotSymbol, slotReward } from './economy';
+import { useCatalog, useShopConfig } from './ui/useCatalog';
+import { demoCards } from './economy';
 
+export type ChestTile = { kind: 'card'; card: CardDefinition } | { kind: 'currency' | 'xp' | 'cards'; amount: number };
+export type Opening = { kind: 'packs'; result: ShopResult; name: string; cards: { card: CardDefinition; duplicate?: number }[]; extras: ShopReward[] }
+  | { kind: 'chests'; result: ShopResult; reel: ChestTile[]; landing: number }
+  | { kind: 'slots'; result: ShopResult; reels: number[]; label: string; credited: boolean }
+  | { kind: 'casino'; result: ShopResult; credited: boolean };
 export type LocalDeck = { id: string; name: string; cards: string[] };
-type Opening = { kind: 'packs'; cards: CardDefinition[]; name: string }
-  | { kind: 'cases'; reel: CardDefinition[]; landing: number; prize: CardDefinition }
-  | { kind: 'slots'; reels: number[]; label: string; cards: CardDefinition[]; pendingReward?: { dollars: number; packs: number } }
-  | { kind: 'casino'; gameId: string; label: string; cards: CardDefinition[]; pendingReward: { dollars: number; xp: number } };
 type State = { dollars: number; owned: Record<string, number>; decks: LocalDeck[]; activeDeck: string; inventory: Record<string, number>; opening?: Opening };
 const KEY = 'kartishki-demo-economy-v1';
+const SHOP_ERRORS: Record<string, string> = {
+  insufficientFunds: 'Не хватает долларов.', invalidProduct: 'Нет такого товара.', invalidCard: 'Нет такой карты.',
+  emptyCatalog: 'В каталоге нет карт этой редкости.', invalidRequest: 'Некорректный запрос.',
+};
 function initial(): State {
   const cards = demoCards.slice(0, 15).flatMap(c => [c.id, c.id]);
   const fresh: State = { dollars: 1500, owned: Object.fromEntries(demoCards.slice(0, 18).map(c => [c.id, 2])), decks: [{ id: 'starter', name: 'Подвальная банда', cards }], activeDeck: 'starter', inventory: {} };
-  try { const s = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (s && Number.isSafeInteger(s.dollars) && s.dollars >= 0 && Array.isArray(s.decks) && s.decks.every((d: LocalDeck) => typeof d.id === 'string' && typeof d.name === 'string' && Array.isArray(d.cards)) && s.owned && Object.values(s.owned).every(n => Number.isSafeInteger(n) && Number(n) >= 0) && s.inventory && typeof s.activeDeck === 'string') return s; } catch { /* start a fresh demo if storage is unavailable */ }
+  try { const s = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (s && Number.isSafeInteger(s.dollars) && s.dollars >= 0 && Array.isArray(s.decks) && s.decks.every((d: LocalDeck) => typeof d.id === 'string' && typeof d.name === 'string' && Array.isArray(d.cards)) && s.owned && Object.values(s.owned).every(n => Number.isSafeInteger(n) && Number(n) >= 0) && s.inventory && typeof s.activeDeck === 'string') {
+    if (s.opening && !['packs', 'chests', 'slots', 'casino'].includes(s.opening.kind)) delete s.opening;
+    if (s.opening?.kind === 'packs') {
+      if (!Array.isArray(s.opening.extras)) s.opening.extras = [];
+      if (!Array.isArray(s.opening.cards)) delete s.opening;
+      else s.opening.cards = s.opening.cards.map((item: CardDefinition | { card: CardDefinition; duplicate?: number }) => 'id' in item ? { card: item } : item);
+    }
+    if ((s.opening?.kind === 'slots' || s.opening?.kind === 'casino' || s.opening?.kind === 'chests') && !s.opening.result) delete s.opening;
+    return s;
+  } } catch { /* start a fresh demo if storage is unavailable */ }
   return fresh;
 }
-function cash() {
-  return playerSession.getSnapshot().library?.profile.currency;
+function lootOf(result: ShopResult, catalog: CardDefinition[]) {
+  return result.rewards.flatMap(reward => {
+    if (reward.kind !== 'card' && reward.kind !== 'duplicate') return [];
+    const card = catalog.find(item => item.id === reward.cardId);
+    return card ? [{ card, duplicate: reward.kind === 'duplicate' ? reward.amount : undefined }] : [];
+  });
+}
+function cardsOf(result: ShopResult, catalog: CardDefinition[]) { return lootOf(result, catalog).map(item => item.card); }
+function extrasOf(result: ShopResult) { return result.rewards.filter(reward => reward.kind === 'currency' || reward.kind === 'xp'); }
+function slotLabel(result: ShopResult) {
+  const amount = result.rewards[0]?.kind === 'currency' ? result.rewards[0].amount : 0;
+  if (!result.reels || !amount) return 'В этот раз без выигрыша.';
+  const counts = [0, 1, 2, 3, 4, 5, 6, 7].map(i => result.reels!.filter(n => n === i).length);
+  const n = Math.max(...counts);
+  return n >= 3 ? `Тройка: $ ${amount}!` : n >= 2 ? `Пара: $ ${amount}!` : 'В этот раз без выигрыша.';
+}
+function prizeTile(prize: ShopProduct['prizes'][number]): ChestTile {
+  if (prize.kind === 'currency' || prize.kind === 'xp') return { kind: prize.kind, amount: prize.amount };
+  return { kind: 'cards', amount: prize.amount };
+}
+function chestReel(result: ShopResult, catalog: CardDefinition[], product: ShopProduct) {
+  const landing = 40;
+  const prize = product.prizes[result.prizeIndex] ?? product.prizes[0]!;
+  const cards = cardsOf(result, catalog);
+  // Vault-style card ribbon whenever the landing prize is cards (incl. Контрабанда).
+  if (!shopMixed(product) || prize.kind === 'cards') {
+    const reel: ChestTile[] = Array.from({ length: 48 }, () => ({ kind: 'card', card: shopCard(catalog, product.weights) as CardDefinition }));
+    if (cards[0]) reel[landing] = { kind: 'card', card: cards[0] };
+    return { reel, landing };
+  }
+  const reel: ChestTile[] = Array.from({ length: 48 }, () => prizeTile(product.prizes[Math.min(product.prizes.length - 1, Math.floor(Math.random() * product.prizes.length))]!));
+  reel[landing] = prizeTile(prize);
+  return { reel, landing };
 }
 function useEconomyState() {
   const published = useCatalog();
+  const shop = useShopConfig();
   const catalog = [...demoCards, ...published.filter(c => !demoCards.some(d => d.id === c.id))];
   const account = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const [state, setState] = useState(initial);
@@ -47,16 +93,78 @@ function useEconomyState() {
     }
   }, [account.lastReward]);
   function commit(next: State) { current.current = next; setState(next); }
-  async function transaction(cost: number, cards: CardDefinition[], patch: Partial<State> = {}) {
-    const s = current.current;
-    const dollars = cash() ?? s.dollars;
-    if (s.opening || dollars < cost) { setMessage(s.opening ? 'Сначала заберите награду.' : 'Не хватает долларов.'); return false; }
-    if (cash() !== undefined && cost && !await playerSession.changeCurrency(-cost)) { setMessage('Не хватает долларов.'); return false; }
-    const owned = { ...s.owned };
-    cards.forEach(c => { owned[c.id] = (owned[c.id] ?? 0) + 1; });
-    commit({ ...s, dollars: cash() === undefined ? s.dollars - cost : s.dollars, owned, ...patch }); currency(-cost); setMessage(''); return true;
+  function guestWallet(s: State, extra = 0): ShopWallet {
+    return { currency: s.dollars + extra, xp: account.xp, owned: s.owned };
   }
-  return { ...state, dollars: account.library?.profile.currency ?? state.dollars, catalog, message, currencyEvents,
+  function fail(error: unknown) {
+    const code = error instanceof Error ? error.message : '';
+    setMessage(SHOP_ERRORS[code] ?? (account.error && SHOP_ERRORS[account.error]) ?? 'Не хватает долларов.');
+    return false;
+  }
+  function openingFor(result: ShopResult): Opening | undefined {
+    if (result.kind === 'pack') return { kind: 'packs', result, name: result.name, cards: lootOf(result, catalog), extras: extrasOf(result) };
+    if (result.kind === 'chest' && result.product) return { kind: 'chests', result, ...chestReel(result, catalog, result.product) };
+    if (result.kind === 'slots' && result.reels) return { kind: 'slots', result, reels: result.reels, label: slotLabel(result), credited: !!account.library };
+    if (result.kind === 'wheel') return { kind: 'casino', result, credited: !!account.library };
+  }
+  async function play(action: ShopAction, free = false) {
+    const s = current.current;
+    if (s.opening) { setMessage('Сначала заберите награду.'); return false; }
+    try {
+      let result: ShopResult;
+      if (account.library) {
+        const payload = await playerSession.shop(action);
+        if (!payload) return fail(new Error(playerSession.getSnapshot().error || 'invalidRequest'));
+        result = payload.result;
+        commit({ ...s, opening: openingFor(result) });
+      } else {
+        const padded = guestWallet(s, free && action.type === 'buy' ? (shop.products.find(p => p.id === action.productId)?.cost ?? 0) : 0);
+        result = resolveShopAction(shop, catalog, padded, action);
+        const delayed = result.kind === 'slots' || result.kind === 'wheel' || result.kind === 'pack' || result.kind === 'chest';
+        const next = delayed ? applyShopDebit(padded, result) : applyShopResult(padded, result);
+        commit({ ...s, dollars: next.currency, owned: next.owned, opening: openingFor(result), inventory: action.type === 'buy' && free ? { ...s.inventory, [action.productId]: Math.max(0, (s.inventory[action.productId] ?? 0) - 1) } : s.inventory });
+        playerSession.grantXp(shopBonusXp(result.kind) + (delayed ? 0 : next.xp - padded.xp));
+      }
+      if (!free && result.cost) currency(-result.cost);
+      const cash = shopCash(result.rewards);
+      if (result.kind !== 'slots' && result.kind !== 'wheel' && result.kind !== 'pack' && result.kind !== 'chest' && cash) currency(cash);
+
+      setMessage('');
+      return true;
+    } catch (error) { return fail(error); }
+  }
+  async function creditOpening() {
+    const s = current.current;
+    if (!s.opening) return;
+    if (s.opening.kind === 'packs' || s.opening.kind === 'chests') {
+      const { result } = s.opening;
+      const win = shopCash(result.rewards);
+      const xp = result.rewards.reduce((sum, reward) => sum + (reward.kind === 'xp' ? reward.amount : 0), 0);
+      if (!account.library) {
+        const next = applyShopCredit(guestWallet(s), result);
+        commit({ ...s, dollars: next.currency, owned: next.owned, opening: undefined });
+        playerSession.grantXp(xp);
+      } else commit({ ...s, opening: undefined });
+      currency(win);
+      if (cardsOf(result, catalog).length || xp) audioManager.play('case_win');
+      return;
+    }
+    const { result, credited } = s.opening;
+    const win = shopCash(result.rewards);
+    const xp = result.rewards.reduce((sum, reward) => sum + (reward.kind === 'xp' ? reward.amount : 0), 0);
+    if (!credited && !account.library) {
+      const next = applyShopCredit(guestWallet(s), result);
+      commit({ ...s, dollars: next.currency, owned: next.owned, opening: undefined });
+      playerSession.grantXp(xp);
+    } else commit({ ...s, opening: undefined });
+    currency(win);
+    if (cardsOf(result, catalog).length || xp) audioManager.play('case_win');
+  }
+  const owned = account.library ? Object.fromEntries(account.library.collection.map(row => [row.cardId, row.copies])) : state.owned;
+  const rawDollars = account.library?.profile.currency ?? state.dollars;
+  const openingHold = account.library && state.opening && (state.opening.kind === 'packs' || state.opening.kind === 'chests')
+    ? shopCash(state.opening.result.rewards) : 0;
+  return { ...state, owned, shop, dollars: rawDollars - openingHold, catalog, message, currencyEvents,
     dismissCurrency(id: number) { setCurrencyEvents(events => events.filter(event => event.id !== id)); },
     clearMessage: () => setMessage(''),
     selectDeck(id: string) { if (current.current.decks.some(d => d.id === id)) commit({ ...current.current, activeDeck: id }); },
@@ -66,55 +174,13 @@ function useEconomyState() {
       commit({ ...s, decks: [...s.decks.filter(d => d.id !== deck.id), { ...deck, name: deck.name.trim() }], activeDeck: deck.id }); setMessage('Колода сохранена.'); return true;
     },
     deleteDeck(id: string) { const s = current.current; const decks = s.decks.filter(d => d.id !== id); commit({ ...s, decks, activeDeck: s.activeDeck === id ? decks[0]?.id ?? '' : s.activeDeck }); setMessage('Колода удалена.'); },
-    async openPack(id: string) { const p = PACKS.find(p => p.id === id); if (!p) return; const s = current.current; const free = (s.inventory[id] ?? 0) > 0; const cards = Array.from({ length: 5 }, () => drawCard(catalog, p.weights)); if (await transaction(free ? 0 : p.cost, cards, { inventory: { ...s.inventory, [id]: Math.max(0, (s.inventory[id] ?? 0) - 1) }, opening: { kind: 'packs', cards, name: p.name } })) playerSession.addXp(PACK_XP); },
-    async openCase(id: string) { const p = CASES.find(p => p.id === id); if (!p) return; const prize = drawCard(catalog, p.weights); const reel = Array.from({ length: 48 }, () => drawCard(catalog, p.weights)); reel[40] = prize; if (await transaction(p.cost, [prize], { opening: { kind: 'cases', reel, landing: 40, prize } })) playerSession.addXp(CASE_XP); },
-    async spin() {
-      const s = current.current;
-      if (s.opening || (cash() ?? s.dollars) < 50) return false;
-      const reels = Array.from({ length: 3 }, () => pickSlotSymbol());
-      const reward = slotReward(reels);
-      const cards = Array.from({ length: reward.cards }, () => drawCard(catalog, PACKS[1].weights));
-      const ok = await transaction(50, [], { opening: { kind: 'slots', reels, label: reward.label, cards, pendingReward: { dollars: reward.dollars, packs: reward.packs } } });
-      if (ok) playerSession.addXp(CASINO_XP);
-      return ok;
-    },
-    async settleSlot() {
-      const s = current.current;
-      if (s.opening?.kind !== 'slots') return;
-      const { pendingReward: reward, cards } = s.opening;
-      // Old saved spins already paid their rewards; only new pending spins settle here.
-      const win = reward?.dollars ?? 0;
-      if (cash() !== undefined && win && !await playerSession.changeCurrency(win)) return;
-      const owned = { ...s.owned };
-      if (reward) cards.forEach(c => { owned[c.id] = (owned[c.id] ?? 0) + 1; });
-      commit({ ...s, opening: undefined, owned, dollars: cash() === undefined ? s.dollars + win : s.dollars, inventory: { ...s.inventory, basement: (s.inventory.basement ?? 0) + (reward?.packs ?? 0) } });
-      currency(win);
-    },
-    async playCasino(id: string) {
-      const game = CASINO_GAMES.find(item => item.id === id);
-      const s = current.current;
-      if (!game || s.opening || (cash() ?? s.dollars) < game.cost) return false;
-      const prize = pickCasinoPrize(game);
-      const cards = Array.from({ length: prize.cards ?? 0 }, () => drawCard(catalog, game.kind === 'case' ? CASES[1].weights : PACKS[1].weights));
-      const ok = await transaction(game.cost, [], {
-        opening: { kind: 'casino', gameId: game.id, label: prize.label, cards, pendingReward: { dollars: prize.dollars ?? 0, xp: prize.xp ?? 0 } },
-      });
-      if (ok) playerSession.addXp(CASINO_XP);
-      return ok;
-    },
-    async settleCasino() {
-      const s = current.current;
-      if (s.opening?.kind !== 'casino') return;
-      const { cards, pendingReward } = s.opening;
-      if (cash() !== undefined && pendingReward.dollars && !await playerSession.changeCurrency(pendingReward.dollars)) return;
-      if (pendingReward.xp) playerSession.addXp(pendingReward.xp);
-      const owned = { ...s.owned };
-      cards.forEach(card => { owned[card.id] = (owned[card.id] ?? 0) + 1; });
-      commit({ ...s, opening: undefined, owned, dollars: cash() === undefined ? s.dollars + pendingReward.dollars : s.dollars });
-      currency(pendingReward.dollars);
-      if (cards.length || pendingReward.xp) audioManager.play('case_win');
-    },
-    finish() { commit({ ...current.current, opening: undefined }); },
+    openPack(id: string) { return play({ type: 'buy', productId: id }, (current.current.inventory[id] ?? 0) > 0); },
+    openCase(id: string) { return play({ type: 'buy', productId: id }); },
+    spin(bet?: number) { const product = shop.products.find(p => p.kind === 'slots'); return product ? play({ type: 'buy', productId: product.id, bet }) : false; },
+    playCasino(id: string, land?: number) { return play({ type: 'buy', productId: id, ...(land != null ? { land } : {}) }); },
+    settleSlot() { return creditOpening(); },
+    settleCasino() { return creditOpening(); },
+    finish() { return creditOpening(); },
   };
 }
 type Economy = ReturnType<typeof useEconomyState>;

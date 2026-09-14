@@ -1,9 +1,8 @@
 import { audioManager } from './AudioManager';
 import React from 'react';
+import '@kartishki/i18n';
 import { createRoot } from 'react-dom/client';
-import { probeServerHealth } from './serverReady';
 import { WakeScreen } from './screens/WakeScreen';
-import { serverOrigin } from './serverUrl';
 import './style.css';
 
 audioManager.install();
@@ -18,12 +17,4 @@ async function mountApp() {
   root.render(<React.StrictMode><EconomyProvider><App /></EconomyProvider></React.StrictMode>);
 }
 
-async function boot() {
-  if (await probeServerHealth(serverOrigin())) {
-    await mountApp();
-    return;
-  }
-  root.render(<React.StrictMode><WakeScreen onReady={() => { void mountApp(); }} /></React.StrictMode>);
-}
-
-void boot();
+root.render(<React.StrictMode><WakeScreen onReady={() => { void mountApp(); }} /></React.StrictMode>);

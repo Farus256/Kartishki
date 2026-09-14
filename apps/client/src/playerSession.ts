@@ -1,5 +1,5 @@
 import { addBeerMl, beerMlForPlace, beerMlForResult, calibratedRank, isBeerRank, rankFromMl, type BeerRank } from './beerRank';
-import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type BattlegroundsRewards, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerSettings, type SavedDeck } from '@kartishki/shared';
+import { MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, XP_AWARDS, type BattlegroundsRewards, type CaseResult, type MatchRewards, type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerSettings, type SavedDeck, type ShopAction, type ShopResult } from '@kartishki/shared';
 import { applyPlayerSettings, currentLocalSettings } from './applySettings';
 import { serverOrigin } from './serverUrl';
 
@@ -38,8 +38,7 @@ function setLibrary(library: PlayerLibrary, syncSettings = false) {
 function addCopies(library: PlayerLibrary, ids: string[], currency: number): PlayerLibrary {
   const collection = library.collection.map(row => ({ ...row }));
   for (const id of ids) {
-    const row = collection.find(item => item.cardId === id);
-    if (row) row.copies++; else collection.push({ cardId: id, copies: 1 });
+    if (!collection.some(item => item.cardId === id)) collection.push({ cardId: id, copies: 1 });
   }
   return { ...library, profile: { ...library.profile, currency }, collection };
 }
@@ -132,6 +131,18 @@ export const playerSession = {
     let result: CaseResult | undefined;
     await run(async()=>{ result = await request<CaseResult>('/cases','POST',{}); setLibrary({ ...addCopies(snapshot.library!, [result.prize.id], result.currency), profile: { ...snapshot.library!.profile, currency: result.currency, xp: result.xp } }); });
     return result;
+  },
+  grantXp(amount: number) {
+    if (!Number.isInteger(amount) || amount <= 0 || snapshot.library) return;
+    const xp = snapshot.xp + amount;
+    try { localStorage.setItem(GUEST_XP_KEY, String(xp)); } catch { /* keep session xp in memory */ }
+    publish({ xp });
+  },
+  async shop(action: ShopAction) {
+    if (!token || !snapshot.library) return;
+    let payload: { result: ShopResult; library: PlayerLibrary } | undefined;
+    await run(async () => { payload = await request<{ result: ShopResult; library: PlayerLibrary }>('/shop', 'POST', action); setLibrary(payload.library); });
+    return payload;
   },
   async saveDeck(deck: { id?: string; name: string; cards: string[]; version?: number }) {
     await run(async()=>{
