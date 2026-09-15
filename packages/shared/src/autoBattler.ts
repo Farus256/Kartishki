@@ -21,11 +21,14 @@ export const AUTO_BATTLER = {
   DISCOVER_SPELL_ID: 'ab-discover',
   HERO_CHOICES: 2,
   /** Authoritative recruit-phase length. Room clock ticks seconds; at 0 combat starts. */
-  RECRUIT_MS: 40_000,
+  /** Turn 1 recruit length; each later turn adds RECRUIT_STEP_MS up to RECRUIT_MAX_MS (bigger boards need more time). */
+  RECRUIT_MS: 35_000,
+  RECRUIT_STEP_MS: 8_000,
+  RECRUIT_MAX_MS: 80_000,
   HERO_SELECT_MS: 20_000,
   RECONNECT_GRACE_SECONDS: 45,
   MAX_COMBAT_ACTIONS: 512,
-  MAX_COMBAT_MS: 20_000,
+  MAX_COMBAT_MS: 23_000,
   RESULT_STAMP_MS: 1100,
   DAMAGE_CAP_ENABLED: true,
   DAMAGE_CAP: 15,

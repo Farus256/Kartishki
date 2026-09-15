@@ -82,6 +82,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
   private heroMs: number = AUTO_BATTLER.HERO_SELECT_MS;
   private debug = false;
   private testCombatMs?: number;
+  private testMode = false;
   private recruitDeadline?: { clear(): void };
   private recruitTicker?: { clear(): void };
   private heroDeadline?: { clear(): void };
@@ -131,6 +132,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     const heroRequested = testMode && typeof options.heroMs === 'number' && Number.isFinite(options.heroMs) ? options.heroMs : AUTO_BATTLER.HERO_SELECT_MS;
     this.heroMs = Math.min(120_000, Math.max(200, Math.floor(heroRequested)));
     this.debug = options.debug === true && process.env.AB_DEBUG === '1' && process.env.NODE_ENV !== 'production';
+    this.testMode = testMode;
     if (testMode) this.testCombatMs = Number(process.env.AB_TEST_COMBAT_MS ?? 80) || 80;
     this.state.catalogVersion = this.catalog.version;
     this.state.combatSeed = randomInt(1, 0xffffffff);
@@ -465,10 +467,17 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.recruitTicker = undefined;
   }
 
+  /** Tests pin the length; a real table grows it every turn so late boards get time to be played. */
+  private recruitMsForTurn(): number {
+    if (this.testMode) return this.recruitMs;
+    return Math.min(AUTO_BATTLER.RECRUIT_MAX_MS, this.recruitMs + Math.max(0, this.state.turn - 1) * AUTO_BATTLER.RECRUIT_STEP_MS);
+  }
+
   private startRecruitClock(): void {
     this.clearRecruitClock();
-    this.state.recruitSeconds = Math.ceil(this.recruitMs / 1000);
-    this.state.phaseEndsAt = Date.now() + this.recruitMs;
+    const ms = this.recruitMsForTurn();
+    this.state.recruitSeconds = Math.ceil(ms / 1000);
+    this.state.phaseEndsAt = Date.now() + ms;
     this.recruitTicker = this.clock.setInterval(() => {
       if (this.state.phase !== 'RECRUIT_PHASE') {
         this.clearRecruitClock();
@@ -476,7 +485,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       }
       this.state.recruitSeconds = Math.max(0, Math.ceil((this.state.phaseEndsAt - Date.now()) / 1000));
     }, 1000);
-    this.recruitDeadline = this.clock.setTimeout(() => this.forceEndRecruit(), this.recruitMs);
+    this.recruitDeadline = this.clock.setTimeout(() => this.forceEndRecruit(), ms);
   }
 
   private forceEndRecruit(): void {
@@ -585,7 +594,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         events: [...prelude, ...result.events].map((event, index) => ({ ...event, id: index + 1 })),
         boards: { a: shownA.board, b: shownB.board },
         initialHealth,
-        durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 4_500 + prelude.length * 420 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 2_100 + result.events.length * 220),
+        durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 4_500 + prelude.length * 420 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 2_400 + result.events.length * 250),
         summary: { winnerId: result.winnerId, loserId: result.loserId, damage: result.damage, tie: result.tie },
       };
 

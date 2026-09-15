@@ -276,7 +276,7 @@
 .ab-screen.is-ab-dragging { cursor:grabbing; }
 .ab-screen.is-ab-dragging.is-invalid { cursor:not-allowed; }
 .ab-screen.is-ab-dragging .ab-minion:hover,.ab-screen.is-ab-dragging .ab-minion:focus-visible { transform:none; outline:none; }
-.ab-screen.is-ab-dragging .ab-hand .ab-minion:hover,.ab-screen.is-ab-dragging .ab-hand .ab-minion:focus-visible { transform:none; zoom:1; }
+.ab-screen.is-ab-dragging .ab-hand .ab-minion:hover,.ab-screen.is-ab-dragging .ab-hand .ab-minion:focus-visible,.ab-hand .ab-minion.is-grabbed { transform:none; zoom:1; }
 .ab-dnd-layer { position:absolute; inset:0; z-index:20; pointer-events:none; }
 .ab-drag-ghost { position:absolute; left:0; top:0; pointer-events:none; filter:drop-shadow(8px 12px #1a1a1a55); will-change:transform; }
 .ab-drag-ghost,.ab-drag-ghost * { pointer-events:none!important; }

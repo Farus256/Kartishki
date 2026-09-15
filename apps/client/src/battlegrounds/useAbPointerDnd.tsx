@@ -392,8 +392,9 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const screen = screenRef.current;
     if (!screen) return;
     const root = stageBox(screen);
-    // Grab offset comes from where the card is under the pointer right now, even mid-slide,
-    // so the ghost appears exactly under the finger.
+    // A hovered hand card is zoomed; the ghost is the resting card, so measure the resting box
+    // (is-grabbed drops the hover zoom) and keep the grab point inside it.
+    event.currentTarget.classList.add('is-grabbed');
     const grabbed = rectToLocal(event.currentTarget.getBoundingClientRect(), root, STAGE_W, STAGE_H);
     // A pickup while the previous ghost is still landing ends that landing now, so
     // every tile under this gesture is where it looks.
@@ -408,7 +409,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const run: Run = {
       pointerId: event.pointerId,
       payload,
-      grab: grabOffset(pointer, { x: grabbed.x, y: grabbed.y }),
+      grab: (() => { const g = grabOffset(pointer, { x: grabbed.x, y: grabbed.y }); return { x: Math.max(8, Math.min(grabbed.w - 8, g.x)), y: Math.max(8, Math.min(grabbed.h - 8, g.y)) }; })(),
       origin: card,
       startClient: { x: event.clientX, y: event.clientY },
       lastClient: { x: event.clientX, y: event.clientY },
@@ -433,6 +434,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const fail = () => { cleanup(); cancel(); };
     const key = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { cleanup(); cancel(); } };
     const cleanup = () => {
+      run.source.classList.remove('is-grabbed');
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', fail);

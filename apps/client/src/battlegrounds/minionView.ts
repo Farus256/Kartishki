@@ -44,10 +44,8 @@ export function minionDossierLines(minion: AbMinion, catalog: AutoBattlerCatalog
   const def = minionDef(minion.cardId, catalog);
   const copy = catalog.copy;
   const lines: string[] = [];
-  if (def?.description) {
-    const text = pickLoc(def.description, lang).trim();
-    if (text) lines.push(text);
-  }
+  const text = def?.description ? pickLoc(def.description, lang).trim() : '';
+  if (text) lines.push(text);
   const fallback = (key: string) => t(`abKeyword_${key}`, { defaultValue: key });
   const title = (key: string) => {
     const name = abCopyName(copy, 'keywords', key, lang, '');
@@ -60,7 +58,10 @@ export function minionDossierLines(minion: AbMinion, catalog: AutoBattlerCatalog
     if (name && desc) return desc.startsWith(name) ? desc : `${name}: ${desc}`;
     return desc || name || fallback(key);
   };
+  // The card text already spells out its own Battlecry/Deathrattle; the generic keyword line would just repeat it.
+  const described = (key: string) => !!text && text.toLowerCase().startsWith(title(key).toLowerCase());
   for (const key of minion.keywords) {
+    if (described(key)) continue;
     if (key === 'deathrattle' && def?.deathrattle) {
       lines.push(`${title(key)}: ${def.deathrattle.count}× ${minionName(def.deathrattle.summonId, catalog, lang)}`);
       continue;
@@ -73,7 +74,7 @@ export function minionDossierLines(minion: AbMinion, catalog: AutoBattlerCatalog
     }
     lines.push(keywordLine(key));
   }
-  if (def?.auraId) lines.push(abCopyDescription(copy, 'auras', def.auraId, lang, t('abAuraHint')));
+  if (def?.auraId && !text) lines.push(abCopyDescription(copy, 'auras', def.auraId, lang, t('abAuraHint')));
   if (minion.golden) lines.push(t('abGoldenHint'));
   return lines.filter(Boolean);
 }

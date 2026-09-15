@@ -13,7 +13,7 @@ import { playMinionVoice } from './voiceLines';
 type Props = { combat: CombatEventsMessage; boards: AbCombatBoards; meId: string; catalog: AutoBattlerCatalog; players: AbPlayer[]; pairing?: { playerA: string; playerB: string }[]; initialHeroes?: AbPlayer[]; waiting?: boolean; recruitAfter?: boolean; phaseReady?: boolean; onDone: () => void; /** Fires when a hero hit lands on screen, so standings drop in sync with the stamp. */ onHeroHealth?: (sessionId: string, health: number) => void };
 type Piece = { minion: AbMinion; side: 0 | 1 };
 const W=AB_LAYOUT.COMBAT_W,H=AB_LAYOUT.COMBAT_H,CW=AB_LAYOUT.MINION_W,CH=AB_LAYOUT.MINION_H;
-const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?2900:e.kind==='DEATH'?440:e.kind==='SUMMON'?520:['DEATHRATTLE','REBORN'].includes(e.kind)?600:e.kind==='PLAYER_DAMAGE'?2400:e.kind==='STATS'?420:180;
+const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?3200:e.kind==='DEATH'?500:e.kind==='SUMMON'?580:['DEATHRATTLE','REBORN'].includes(e.kind)?660:e.kind==='PLAYER_DAMAGE'?2600:e.kind==='STATS'?460:200;
 
 /** HTML cards match the tavern tile. Pixi is not used for combat minions. */
 export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],initialHeroes,waiting=false,recruitAfter=true,phaseReady=true,onDone,onHeroHealth}:Props){
@@ -275,7 +275,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
      const id=attacker,el=tiles.current.get(id),at=home(piecesRef.current,id);
      // Always walk back, even when dead: deaths play out only once both cards stand in place.
    if(el){const x=parseFloat(el.style.left)*W/100,y=parseFloat(el.style.top)*H/100;
-      await pause(reduced?1:300*budget,u=>{const ease=1-(1-u)**3;place(id,x+(at.x-x)*ease,y+(at.y-y)*ease);});
+      await pause(reduced?1:340*budget,u=>{const ease=1-(1-u)**3;place(id,x+(at.x-x)*ease,y+(at.y-y)*ease);});
       el.classList.remove('is-attacking');place(id,at.x,at.y);
      }
      tiles.current.get(id)?.classList.remove('is-attacking');
@@ -287,7 +287,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
      const duel=!!attacker;
      await returnAttacker();
      if(!pendingHealth.size)return;
-     await pause(reduced?8:(duel?300:250)*budget);
+     await pause(reduced?8:(duel?450:350)*budget);
      if(cancelled)return;
      await applyHits();
     };
@@ -300,7 +300,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
      const list=piecesRef.current;
      const src=event.sourceId?home(list,event.sourceId):null;const dst=event.targetId?home(list,event.targetId):null;
      if(event.kind==='ATTACK'&&event.sourceId&&event.targetId&&src&&dst){
-      if(struck)await pause(reduced?8:820);
+      if(struck)await pause(reduced?8:950);
       struck=true;
       attacker=event.sourceId;
       const el=tiles.current.get(attacker);el?.classList.add('is-attacking');
