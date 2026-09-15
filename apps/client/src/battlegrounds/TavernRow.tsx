@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AB_LAYOUT, tavernGap } from './battlegroundsLayout';
 import { AUTO_BATTLER, type AutoBattlerCatalog } from '@kartishki/shared';
-import { Bartender } from './Bartender';
+import { Bartender, type BartenderMood } from './Bartender';
 import { PaperTooltip } from '../ui/PaperTooltip';
 import type { AbPlayer } from '../autoBattlerSession';
 import { MinionTile } from './MinionTile';
@@ -53,8 +53,12 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
   const reaction = useTavernReaction(me, error);
   const lines: Record<string, [string, string]> = { BUY: ['Хорошая покупка.', 'Good buy.'], SELL: ['Заберу за наличные.', 'Cash on the table.'], REROLL: ['Новая партия.', 'Fresh stock.'], FREEZE: ['Отложу до завтра.', 'Reserved for tomorrow.'], UPGRADE: ['Пускаю в подсобку.', 'The back room is open.'], TRIPLE: ['Три в один. Красиво!', 'Three into one. Nice!'], NO_GOLD: ['Сначала деньги.', 'Cash first.'], PLAYER_WIN: ['Стол твой.', 'Your table.'], PLAYER_LOSS: ['Ещё отыграешься.', 'There is another round.'] };
   const sellHot = dnd?.zone === 'sell';
-  const canBuy = recruit && me.gold >= AUTO_BATTLER.BUY_COST && me.hand.length < AUTO_BATTLER.HAND_LIMIT;
-  const canRoll = recruit && me.gold >= AUTO_BATTLER.REROLL_COST;
+  const mood: BartenderMood = me.tavern.frozen ? 'frozen'
+    : sellHot || reaction === 'BUY' || reaction === 'SELL' || reaction === 'REROLL' ? 'greedy'
+    : reaction === 'TRIPLE' || reaction === 'UPGRADE' || reaction === 'PLAYER_WIN' ? 'pleased'
+    : reaction === 'NO_GOLD' || reaction === 'PLAYER_LOSS' ? 'sad' : 'neutral';
+  const canBuy = recruit && me.gold >= me.buyCost && me.hand.length < AUTO_BATTLER.HAND_LIMIT;
+  const canRoll = recruit && me.gold >= me.rerollCost;
   const canUpgrade = recruit && me.tavernTier < AUTO_BATTLER.MAX_TIER && me.gold >= me.upgradeCost;
 
   return (
@@ -67,12 +71,13 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
               disabled={!canUpgrade} onClick={onTierUp} data-testid="ab-tier-up"
               aria-label={me.tavernTier === 6 ? 'MAX' : `${t('abTierUp')} $${me.upgradeCost}`}>
               <UpgradeIcon />
-              {me.tavernTier < 6 && <span>{me.upgradeCost}</span>}
+              <span>{me.tavernTier < AUTO_BATTLER.MAX_TIER ? me.upgradeCost : 'MAX'}</span>
             </button>
           </PaperTooltip>
         </header>
         <div className={`ab-bartender ${dnd?.armed && (dnd.kind === 'board' || dnd.kind === 'hand') ? 'is-sell-ready' : ''} ${sellHot ? 'is-hot' : ''}`} data-testid="ab-sell-zone">
-          <Bartender />
+          <Bartender mood={mood} />
+          {sellHot && <b className="ab-sell-tag" aria-hidden>+{AUTO_BATTLER.SELL_REWARD}$</b>}
           <span>{t('abDealerName')}</span>
           <small role="status" key={reaction}>{reaction ? lines[reaction]?.[i18n.language.startsWith('ru') ? 0 : 1] : t('abSellHint')}</small>
         </div>
@@ -80,7 +85,7 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
           <button type="button" className={`ab-tavern-btn is-reroll ${canRoll ? 'is-ready' : ''}`}
             disabled={!canRoll} onClick={onReroll} data-testid="ab-reroll" aria-label={t('abReroll')}>
             <RefreshIcon />
-            <span>{AUTO_BATTLER.REROLL_COST}</span>
+            <span>{me.rerollCost}</span>
           </button>
           <button type="button" className={`ab-tavern-btn is-freeze ${me.tavern.frozen ? 'is-on' : ''} ${recruit ? 'is-ready' : ''}`}
             disabled={!recruit} onClick={onFreeze} data-testid="ab-freeze"

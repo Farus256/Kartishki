@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
 import { AUTO_BATTLER, type AutoBattlerCatalog } from '@kartishki/shared';
 import type { AbMinion, AbPlayer } from '../autoBattlerSession';
 import { clientToStage, STAGE_H, STAGE_W } from '../ui/stageCoords';
-import { canPlayToBoard, passedDragThreshold, playToIndex } from './pointerMath';
+import { canPlayToBoard, passedDragThreshold } from './pointerMath';
 import { type AbDndApi, type AbDndView } from './abDndContext';
 import { MinionTile } from './MinionTile';
 import { isSpell } from './minionView';
+import { audioManager } from '../AudioManager';
 import {
   AB_DND,
   aimCurve,
@@ -28,11 +30,20 @@ import {
   type Rect,
 } from './pointerDnd';
 
+function settleBoardAnimations(screen: HTMLElement): void {
+  screen.querySelectorAll('.ab-board .ab-minion').forEach(el => el.getAnimations().forEach(animation => animation.finish()));
+}
+
 function stageBox(screen: HTMLElement): DOMRect {
   return (document.querySelector('[data-stage]') ?? screen).getBoundingClientRect();
 }
 
-const idle: AbDndView = { kind: null, draggingId: null, previewIndex: null, zone: 'none', targetId: null, valid: false, armed: false };
+const idle: AbDndView = { kind: null, draggingId: null, previewIndex: null, zone: 'none', targetId: null, valid: false, armed: false, settling: false, hidden: null };
+
+/** Viewport pixels: CSS zoom makes stage-space X miss the hole the user sees. */
+const INSERT_HYSTERESIS_CLIENT_PX = 14;
+/** Ghost glide from the release point onto the tile it stands for. */
+const LAND_MS = 190;
 
 type Run = {
   pointerId: number;
@@ -49,8 +60,9 @@ type Run = {
   host: HTMLElement;
   session: ReturnType<typeof createDragSession>;
   powerOrigin: { x: number; y: number };
-  insertionCenters: number[] | null;
 };
+
+type Park = { run: Run; mode: 'land' | 'sell' | 'return'; aimed: boolean };
 
 type Opts = {
   enabled: boolean;
@@ -58,7 +70,6 @@ type Opts = {
   catalog: AutoBattlerCatalog;
   screenRef: RefObject<HTMLElement | null>;
   onIntent: (intent: AbIntent) => void;
-  flightFrom?: RefObject<Map<string, DOMRect>>;
 };
 
 function localOf(el: Element | null, root: Rect, localW: number, localH: number): LocalRect | undefined {
@@ -72,6 +83,12 @@ function findMinion(me: AbPlayer | undefined, payload: AbDragPayload): AbMinion 
   return list.find(item => item.id === payload.id) ?? null;
 }
 
+/** The real tile for an id: tavern, hand or board, never the ghost. */
+function liveTile(screen: HTMLElement, id: string): HTMLElement | null {
+  const escaped = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : id.replace(/["\\]/g, '\\$&');
+  return screen.querySelector<HTMLElement>(`.ab-board [data-ab-id="${escaped}"], .ab-hand [data-ab-id="${escaped}"], .ab-tavern-row [data-ab-id="${escaped}"]`);
+}
+
 function targetFromPoint(clientX: number, clientY: number, domain: string): string | null {
   const stack = document.elementsFromPoint(clientX, clientY);
   for (const node of stack) {
@@ -82,43 +99,41 @@ function targetFromPoint(clientX: number, clientY: number, domain: string): stri
   return null;
 }
 
-function over(clientX: number, clientY: number, selector: string): boolean {
-  return document.elementsFromPoint(clientX, clientY).some(node => node instanceof Element && node.closest(selector));
-}
-
-/** Viewport-pixel slot centers. CSS zoom makes stage-space X miss the hole the user sees. */
-function clientBoardCenters(screen: HTMLElement): number[] {
-  const centers = [...screen.querySelectorAll<HTMLElement>('[data-ab-slot]')]
+/**
+ * Centers of the slots currently on screen, gap included. Once the gap is
+ * rendered the row is stable, so the hole always opens under the pointer.
+ * Without a gap (first frame of a hand drag) one extra center stands for "after the last".
+ */
+function liveSlotCenters(screen: HTMLElement): number[] {
+  const slots = [...screen.querySelectorAll<HTMLElement>('[data-ab-slot]')]
     .filter(slot => !slot.classList.contains('is-well') && !slot.closest('.ab-drag-hold'))
-    .sort((a, b) => Number(a.dataset.abSlot ?? 0) - Number(b.dataset.abSlot ?? 0))
-    .map(slot => {
-      const box = slot.getBoundingClientRect();
-      return box.left + box.width / 2;
-    });
-  if (centers.length) {
+    .sort((a, b) => Number(a.dataset.abSlot ?? 0) - Number(b.dataset.abSlot ?? 0));
+  const centers = slots.map(slot => {
+    const box = slot.getBoundingClientRect();
+    return box.left + box.width / 2;
+  });
+  if (centers.length && !slots.some(slot => slot.classList.contains('is-gap'))) {
     const stride = centers.length > 1 ? Math.max(40, centers[1]! - centers[0]!) : 120;
     centers.push(centers[centers.length - 1]! + stride);
   }
   return centers;
 }
 
-function boardInsertIndex(run: Run, clientX: number, _clientY: number, maxIndex: number): number {
-  if (!run.insertionCenters) run.insertionCenters = clientBoardCenters(run.host);
-  return insertionIndex(clientX, run.insertionCenters, run.lastIndex, 12, maxIndex);
-}
-
 function zoneAt(kind: AbDragKind, clientX: number, clientY: number, point: { x: number; y: number }, areas: { buy?: LocalRect; sell?: LocalRect; board?: LocalRect }): DropZone {
-  if ((kind === 'board' || kind === 'hand') && over(clientX, clientY, '[data-testid="ab-sell-zone"]')) return 'sell';
-  if (kind === 'shop' && (over(clientX, clientY, '[data-testid="ab-hero"]') || over(clientX, clientY, '[data-testid="ab-hand"]') || over(clientX, clientY, '.ab-buy-zone') || over(clientX, clientY, '[data-testid="ab-board"]'))) return 'buy';
-  if ((kind === 'board' || kind === 'hand') && over(clientX, clientY, '[data-testid="ab-board"]')) return 'board';
+  const stack = document.elementsFromPoint(clientX, clientY);
+  const over = (selector: string) => stack.some(node => node instanceof Element && node.closest(selector));
+  if (kind !== 'shop' && over('[data-testid="ab-sell-zone"]')) return 'sell';
+  if (kind === 'shop' && over('[data-testid="ab-hero"],[data-testid="ab-hand"],.ab-buy-zone')) return 'buy';
+  if (kind !== 'shop' && over('[data-testid="ab-board"]')) return 'board';
   return hitZone(kind, point, areas);
 }
 
-export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, flightFrom }: Opts) {
+export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: Opts) {
   const [view, setView] = useState<AbDndView>(idle);
   const viewRef = useRef(view);
   viewRef.current = view;
   const runRef = useRef<Run | null>(null);
+  const parkRef = useRef<Park | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
   const headRef = useRef<SVGPolygonElement>(null);
@@ -132,7 +147,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, fli
   const lockRef = useRef(createPendingLock());
   const suppressRef = useRef<EventTarget | null>(null);
   const detachRef = useRef<() => void>(() => {});
-  const [ghost, setGhost] = useState<AbMinion | null>(null);
+  const [ghost, setGhost] = useState<{ minion: AbMinion; full: boolean } | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyGhost = useCallback((run: Run, tilt: number) => {
@@ -158,116 +173,151 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, fli
     );
     const sell = localOf(screen.querySelector('[data-testid="ab-sell-zone"]'), root, STAGE_W, STAGE_H);
     const board = localOf(screen.querySelector('[data-testid="ab-board"]'), root, STAGE_W, STAGE_H);
-    const centers = [...screen.querySelectorAll<HTMLElement>('[data-testid^="ab-board-slot-"]')]
-      .filter(slot => !slot.classList.contains('is-well'))
-      .sort((a, b) => Number(a.dataset.abSlot ?? 0) - Number(b.dataset.abSlot ?? 0))
-      .map(slot => {
-        const box = rectToLocal(slot.getBoundingClientRect(), root, STAGE_W, STAGE_H);
-        return box.x + box.w / 2;
-      });
-    if (centers.length) {
-      const stride = centers.length > 1 ? Math.max(48, centers[1]! - centers[0]!) : 160;
-      centers.push(centers[centers.length - 1]! + stride);
-    }
-    // A new placeholder recenters the row. Keep pointer boundaries stable while
-    // it moves, so that the preview cannot push itself into the next index.
-    const run = runRef.current;
-    if (run?.payload.kind === 'hand' && !run.insertionCenters) run.insertionCenters = centers;
     return {
       root,
       buy: buy ? inflate(buy, AB_DND.BUY_PAD) : undefined,
       sell: sell ? inflate(sell, AB_DND.SELL_PAD) : undefined,
       board: board ? inflate(board, AB_DND.BOARD_PAD) : undefined,
-      centers: run?.insertionCenters ?? centers,
     };
   }, [screenRef]);
 
-  const finish = useCallback((intent: AbIntent | null, snapBack: boolean) => {
-    const run = runRef.current;
-    runRef.current = null;
-    const ghostEl = ghostRef.current;
-    const source = run?.source;
-    if (source) {
-      suppressRef.current = source;
-      window.setTimeout(() => { if (suppressRef.current === source) suppressRef.current = null; }, 40);
-    }
-    const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const ms = reduced || intent ? 0 : snapBack ? AB_DND.RETURN_MS : AB_DND.SNAP_MS;
-    if (intent && run?.source) {
-      const box = run.source.getBoundingClientRect();
-      if (box.width > 2) flightFrom?.current.set(run.payload.id, box);
-    }
-    if (intent) intentRef.current(intent);
-    setView(idle);
-    const done = () => {
-      if (ghostEl) {
-        ghostEl.style.transition = '';
-        ghostEl.style.visibility = 'hidden';
-      }
-      setGhost(null);
-    };
-    if (ghostEl && run && ms) {
-      ghostEl.style.transition = `transform ${ms}ms ease`;
-      if (snapBack) {
-        ghostEl.style.transform = `translate3d(${run.origin.x}px,${run.origin.y}px,0) scale(1)`;
-      } else {
-        ghostEl.style.transform += ' scale(0.96)';
-      }
-      settleTimer.current = setTimeout(done, ms);
-    } else done();
-  }, [flightFrom]);
-
-  const cancel = useCallback(() => {
-    detachRef.current();
-    detachRef.current = () => {};
-    const run = runRef.current;
-    if (!run) {
-      setView(current => current.armed ? idle : current);
-      setGhost(null);
-      return;
-    }
-    try { run.host.releasePointerCapture(run.pointerId); } catch { /* already released */ }
-    finish(null, run.armed);
-  }, [finish]);
-
-  const drop = useCallback(() => {
-    const run = runRef.current;
-    if (!run) return;
-    if (!enabledRef.current) { finish(null, false); return; }
-    try { run.host.releasePointerCapture(run.pointerId); } catch { /* already released */ }
-    if (!run.armed) { runRef.current = null; return; }
+  /** Zone + insertion preview for one pointer position. Shared by move and drop so both agree. */
+  const sample = useCallback((run: Run, clientX: number, clientY: number, layout: NonNullable<ReturnType<typeof measure>>) => {
     const player = meRef.current;
-    const layout = measure();
-    const domain = player?.power.targetDomain ?? '';
-    const targetId = run.payload.kind === 'power' ? targetFromPoint(run.lastClient.x, run.lastClient.y, domain) : null;
-    const zone = run.payload.kind === 'power'
-      ? (targetId ? 'target' : 'none')
-      : layout ? zoneAt(run.payload.kind, run.lastClient.x, run.lastClient.y, run.pointer, layout) : viewRef.current.zone;
-    const maxIndex = run.payload.kind === 'board'
-      ? Math.max(0, (player?.board.length ?? 1) - 1)
-      : Math.min(AB_DND.MAX_BOARD, player?.board.length ?? 0);
-    const preview = zone === 'board'
-      ? (run.payload.kind === 'hand' && layout
-        ? playToIndex(insertionIndex(run.pointer.x, layout.centers, run.lastIndex, AB_DND.HYSTERESIS, maxIndex), player?.board.length ?? 0)
-        : run.payload.kind === 'board'
-          ? boardInsertIndex(run, run.lastClient.x, run.lastClient.y, maxIndex)
-          : viewRef.current.previewIndex)
-      : viewRef.current.previewIndex;
+    const zone = zoneAt(run.payload.kind, clientX, clientY, run.pointer, layout);
+    let preview: number | null = null;
+    if (zone === 'board' && run.payload.kind !== 'shop') {
+      const centers = liveSlotCenters(run.host);
+      // A reorder can only land among the remaining minions; a play may also land after the last.
+      const maxIndex = run.payload.kind === 'board'
+        ? Math.max(0, (player?.board.length ?? 1) - 1)
+        : Math.min(AB_DND.MAX_BOARD, Math.max(0, centers.length - 1));
+      preview = insertionIndex(clientX, centers, run.lastIndex, INSERT_HYSTERESIS_CLIENT_PX, maxIndex);
+      run.lastIndex = preview;
+    }
     const intent = resolveDrop({
       kind: run.payload.kind,
       id: run.payload.id,
       fromIndex: run.payload.index,
       zone,
       previewIndex: preview,
-      targetId,
+      targetId: null,
       boardLength: player?.board.length ?? 0,
-      canBuy: !!player && player.gold >= AUTO_BATTLER.BUY_COST && player.hand.length < AUTO_BATTLER.HAND_LIMIT,
+      canBuy: !!player && player.gold >= player.buyCost && player.hand.length < AUTO_BATTLER.HAND_LIMIT,
       canPlay: !!player && (canPlayToBoard(player.board.length) || (!!run.minion && isSpell(run.minion))),
-      validTarget: !!targetId,
+      validTarget: false,
     });
-    const committed = commitIntent(run.session, lockRef.current, intent);
-    finish(committed, !committed);
-  }, [finish, measure]);
+    return { zone, preview, intent };
+  }, []);
+
+  const hideGhost = useCallback(() => {
+    const ghostEl = ghostRef.current;
+    if (ghostEl) {
+      ghostEl.style.transition = '';
+      ghostEl.style.opacity = '';
+      ghostEl.style.visibility = 'hidden';
+    }
+    setGhost(null);
+  }, []);
+
+  /** The ghost has landed: show the real tile in the same frame the ghost disappears. */
+  const reveal = useCallback(() => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = null;
+    parkRef.current = null;
+    setView(idle);
+    hideGhost();
+  }, [hideGhost]);
+
+  const finish = useCallback((intent: AbIntent | null, run: Run) => {
+    const ghostEl = ghostRef.current;
+    suppressRef.current = run.source;
+    window.setTimeout(() => { if (suppressRef.current === run.source) suppressRef.current = null; }, 40);
+    // Local state takes the move now; the server echo only confirms it.
+    if (intent) intentRef.current(intent);
+    if (run.payload.kind === 'power' || !run.armed || !ghostEl) { reveal(); return; }
+    // Keep the hole-free layout static: any tile still sliding jumps to its slot before the ghost aims at it.
+    settleBoardAnimations(run.host);
+    parkRef.current = { run, mode: intent ? (intent.type === 'sell' ? 'sell' : 'land') : 'return', aimed: false };
+    setView({ kind: run.payload.kind, draggingId: run.payload.id, previewIndex: null, zone: 'none', targetId: null, valid: false, armed: false, settling: true, hidden: run.payload.id });
+  }, [reveal]);
+
+  // Runs after the board committed its new order: glide the ghost onto its tile, then swap them.
+  // Re-aims if the tile moves again while the ghost is still in the air (late echo).
+  const stateKey = me ? [me.tavern.offers, me.hand, me.board].map(list => list.map(card => card.id).join(',')).join('|') : '';
+  useLayoutEffect(() => {
+    const park = parkRef.current;
+    if (!view.settling || !park) return;
+    const screen = screenRef.current;
+    const ghostEl = ghostRef.current;
+    if (!screen || !ghostEl) { reveal(); return; }
+    const root = stageBox(screen);
+    const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let target: LocalRect | undefined;
+    let fade = false;
+    if (park.mode === 'sell') {
+      const zone = localOf(screen.querySelector('[data-testid="ab-sell-zone"]'), root, STAGE_W, STAGE_H);
+      if (zone) {
+        const w = park.run.origin.w * 0.4, h = park.run.origin.h * 0.4;
+        target = { x: zone.x + zone.w / 2 - w / 2, y: zone.y + zone.h / 2 - h / 2, w, h };
+        fade = true;
+      }
+    } else {
+      const tile = liveTile(screen, park.run.payload.id);
+      target = localOf(tile, root, STAGE_W, STAGE_H);
+      if (tile) setGhost(current => current ? { ...current, full: !!tile.closest('.ab-hand') } : current);
+    }
+    target ??= park.run.origin;
+    const ms = reduced ? 0 : park.mode === 'return' ? AB_DND.RETURN_MS : LAND_MS;
+    ghostEl.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2,.75,.2,1), width ${ms}ms ease, height ${ms}ms ease, opacity ${ms}ms ease` : '';
+    ghostEl.style.width = `${target.w}px`;
+    ghostEl.style.height = `${target.h}px`;
+    ghostEl.style.transform = `translate3d(${target.x}px,${target.y}px,0) scale(1) rotate(0deg)`;
+    if (fade) ghostEl.style.opacity = '0';
+    if (!park.aimed) {
+      park.aimed = true;
+      settleTimer.current = setTimeout(reveal, ms);
+    }
+  }, [view.settling, stateKey, reveal, screenRef]);
+
+  const cancel = useCallback(() => {
+    detachRef.current();
+    detachRef.current = () => {};
+    const run = runRef.current;
+    runRef.current = null;
+    if (!run) {
+      if (viewRef.current.settling) reveal();
+      else {
+        setView(current => current.armed ? idle : current);
+        setGhost(null);
+      }
+      return;
+    }
+    try { run.host.releasePointerCapture(run.pointerId); } catch { /* already released */ }
+    finish(null, run);
+  }, [finish, reveal]);
+
+  const drop = useCallback(() => {
+    const run = runRef.current;
+    if (!run) return;
+    runRef.current = null;
+    if (!enabledRef.current) { finish(null, run); return; }
+    try { run.host.releasePointerCapture(run.pointerId); } catch { /* already released */ }
+    if (!run.armed) return;
+    const player = meRef.current;
+    let intent: AbIntent | null = null;
+    if (run.payload.kind === 'power') {
+      const targetId = targetFromPoint(run.lastClient.x, run.lastClient.y, player?.power.targetDomain ?? '');
+      intent = resolveDrop({
+        kind: 'power', id: run.payload.id, fromIndex: 0, zone: targetId ? 'target' : 'none', previewIndex: null,
+        targetId, boardLength: 0, canBuy: false, canPlay: false, validTarget: !!targetId,
+      });
+    } else {
+      const layout = measure();
+      intent = layout ? sample(run, run.lastClient.x, run.lastClient.y, layout).intent : null;
+    }
+    finish(commitIntent(run.session, lockRef.current, intent), run);
+  }, [finish, measure, sample]);
 
   const onMove = useCallback((event: PointerEvent) => {
     const run = runRef.current;
@@ -295,15 +345,17 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, fli
       run.armed = true;
       try { run.host.setPointerCapture(run.pointerId); } catch { /* synthetic pointers */ }
       suppressRef.current = run.source;
-      setGhost(run.minion);
+      if (run.minion) { setGhost({ minion: run.minion, full: run.payload.kind === 'hand' }); audioManager.play('ab_pickup'); }
       setView({
         kind: run.payload.kind,
         draggingId: run.payload.id,
-        previewIndex: run.payload.kind === 'board' || run.payload.kind === 'hand' ? run.payload.index : null,
+        previewIndex: run.payload.kind === 'board' ? run.payload.index : null,
         zone: 'none',
         targetId: null,
         valid: false,
         armed: true,
+        settling: false,
+        hidden: null,
       });
     }
     const tilt = clampTilt(vx);
@@ -316,41 +368,17 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, fli
         else applyGhost(live, tilt);
       });
     }
-    const player = meRef.current;
+    const prev = viewRef.current;
     if (run.payload.kind === 'power') {
-      const domain = player?.power.targetDomain ?? '';
-      const targetId = targetFromPoint(event.clientX, event.clientY, domain);
-      const next = { kind: run.payload.kind, draggingId: run.payload.id, previewIndex: null as number | null, zone: (targetId ? 'target' : 'none') as DropZone, targetId, valid: !!targetId, armed: true };
-      const prev = viewRef.current;
-      if (prev.targetId !== next.targetId || prev.valid !== next.valid || prev.zone !== next.zone) setView(next);
+      const targetId = targetFromPoint(event.clientX, event.clientY, meRef.current?.power.targetDomain ?? '');
+      const next: AbDndView = { ...idle, kind: 'power', draggingId: run.payload.id, zone: targetId ? 'target' : 'none', targetId, valid: !!targetId, armed: true };
+      if (prev.targetId !== next.targetId || prev.zone !== next.zone) setView(next);
       return;
     }
-    const zone = zoneAt(run.payload.kind, event.clientX, event.clientY, pointer, layout);
-    const maxIndex = run.payload.kind === 'board'
-      ? Math.max(0, (player?.board.length ?? 1) - 1)
-      : Math.min(AB_DND.MAX_BOARD, player?.board.length ?? 0);
-    const preview = zone === 'board'
-      ? (run.payload.kind === 'hand'
-        ? playToIndex(insertionIndex(pointer.x, layout.centers, run.lastIndex, AB_DND.HYSTERESIS, maxIndex), player?.board.length ?? 0)
-        : boardInsertIndex(run, event.clientX, event.clientY, maxIndex))
-      : null;
-    if (preview !== null) run.lastIndex = preview;
-    const sample = resolveDrop({
-      kind: run.payload.kind,
-      id: run.payload.id,
-      fromIndex: run.payload.index,
-      zone,
-      previewIndex: preview,
-      targetId: null,
-      boardLength: player?.board.length ?? 0,
-      canBuy: !!player && player.gold >= AUTO_BATTLER.BUY_COST && player.hand.length < AUTO_BATTLER.HAND_LIMIT,
-      canPlay: !!player && (canPlayToBoard(player.board.length) || (!!run.minion && isSpell(run.minion))),
-      validTarget: false,
-    });
-    const next: AbDndView = { kind: run.payload.kind, draggingId: run.payload.id, previewIndex: preview, zone, targetId: null, valid: !!sample, armed: true };
-    const prev = viewRef.current;
+    const { zone, preview, intent } = sample(run, event.clientX, event.clientY, layout);
+    const next: AbDndView = { ...idle, kind: run.payload.kind, draggingId: run.payload.id, previewIndex: preview, zone, valid: !!intent, armed: true };
     if (prev.zone !== next.zone || prev.previewIndex !== next.previewIndex || prev.valid !== next.valid) setView(next);
-  }, [applyArrow, applyGhost, cancel, measure]);
+  }, [applyArrow, applyGhost, cancel, measure, sample, screenRef]);
 
   const onLost = useCallback((event: Event) => {
     const run = runRef.current;
@@ -361,22 +389,26 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, fli
 
   const begin = useCallback((payload: AbDragPayload, event: ReactPointerEvent<HTMLElement>) => {
     if (!enabledRef.current || event.button !== 0 || runRef.current) return;
-    if (settleTimer.current) clearTimeout(settleTimer.current);
-    setGhost(null);
-    if (ghostRef.current) ghostRef.current.style.transition = '';
     const screen = screenRef.current;
     if (!screen) return;
-    // Finish the previous reorder before measuring this gesture's targets.
-    screen.querySelectorAll('.ab-board .ab-minion').forEach(el => el.getAnimations().forEach(animation => animation.finish()));
     const root = stageBox(screen);
-    const src = event.currentTarget.getBoundingClientRect();
+    // Grab offset comes from where the card is under the pointer right now, even mid-slide,
+    // so the ghost appears exactly under the finger.
+    const grabbed = rectToLocal(event.currentTarget.getBoundingClientRect(), root, STAGE_W, STAGE_H);
+    // A pickup while the previous ghost is still landing ends that landing now, so
+    // every tile under this gesture is where it looks.
+    if (viewRef.current.settling) flushSync(reveal);
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    hideGhost();
+    // Finish the previous reorder before measuring this gesture's targets.
+    settleBoardAnimations(screen);
     const pointer = clientToStage(event.clientX, event.clientY, root);
-    const card = rectToLocal(src, root, STAGE_W, STAGE_H);
+    const card = rectToLocal(event.currentTarget.getBoundingClientRect(), root, STAGE_W, STAGE_H);
     const power = localOf(screen.querySelector('[data-testid="ab-hero-power"]'), root, STAGE_W, STAGE_H);
     const run: Run = {
       pointerId: event.pointerId,
       payload,
-      grab: grabOffset(pointer, { x: card.x, y: card.y }),
+      grab: grabOffset(pointer, { x: grabbed.x, y: grabbed.y }),
       origin: card,
       startClient: { x: event.clientX, y: event.clientY },
       lastClient: { x: event.clientX, y: event.clientY },
@@ -388,7 +420,6 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, fli
       host: screen,
       session: createDragSession(),
       powerOrigin: power ? { x: power.x + power.w / 2, y: power.y + power.h / 2 } : pointer,
-      insertionCenters: payload.kind === 'board' ? clientBoardCenters(screen) : null,
     };
     runRef.current = run;
     // Capture after pickup: capturing on pointerdown retargets ordinary clicks
@@ -416,21 +447,23 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, fli
     window.addEventListener('blur', fail);
     window.addEventListener('keydown', key);
     run.host.addEventListener('lostpointercapture', onLost);
-  }, [cancel, drop, onLost, onMove, screenRef]);
+  }, [cancel, drop, hideGhost, onLost, onMove, reveal, screenRef]);
 
   useEffect(() => () => { detachRef.current(); if (rafRef.current) cancelAnimationFrame(rafRef.current); if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
   useEffect(() => { if (!enabled) cancel(); }, [enabled, cancel]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const ghostEl = ghostRef.current;
     const run = runRef.current;
-    if (ghostEl && run?.armed && run.minion) {
+    if (ghostEl && ghost && run?.armed) {
+      ghostEl.style.transition = '';
+      ghostEl.style.opacity = '';
       ghostEl.style.visibility = 'visible';
       ghostEl.style.width = `${run.origin.w}px`;
       ghostEl.style.height = `${run.origin.h}px`;
       applyGhost(run, 2);
     }
-  }, [ghost, applyGhost]);
+  }, [ghost?.minion.id, applyGhost]);
 
   const api = useMemo<AbDndApi>(() => ({
     ...view,
@@ -442,12 +475,12 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent, fli
 
   const overlay = (
     <div className="ab-dnd-layer" data-testid="ab-dnd-layer" aria-hidden>
-      <div ref={ghostRef} className="ab-drag-ghost" data-testid="ab-drag-ghost" style={{ visibility: ghost ? 'visible' : 'hidden' }}>
-        {ghost && <MinionTile minion={ghost} catalog={catalog} ghost fullCard={runRef.current?.payload.kind === 'hand'} />}
+      <div ref={ghostRef} className={`ab-drag-ghost ${ghost?.full ? 'is-hand' : 'is-token'}`} data-testid="ab-drag-ghost" style={{ visibility: ghost ? 'visible' : 'hidden' }}>
+        {ghost && <MinionTile minion={ghost.minion} catalog={catalog} ghost fullCard={ghost.full} />}
       </div>
       <svg className="ab-aim-arrow" data-testid="ab-aim-arrow" style={{ display: view.kind === 'power' && view.armed ? 'block' : 'none' }}>
-        <path ref={pathRef} fill="none" stroke="#1a1a1a" strokeWidth="3" />
-        <polygon ref={headRef} fill="#1a1a1a" />
+        <path ref={pathRef} className="ab-aim-line" fill="none" />
+        <polygon ref={headRef} className="ab-aim-head" />
       </svg>
     </div>
   );

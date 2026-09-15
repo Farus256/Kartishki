@@ -1,0 +1,56 @@
+/* fx-combat: duel camera, blood, crumble, poison mist, shield shards, hero stamp. transform/opacity only. */
+
+/* Camera: the duelling pair steps forward, the rest fall back */
+.ab-combat-card { transition:left .13s ease-out,opacity .16s ease,filter .16s ease,scale .16s ease; }
+.ab-combat.is-duel .ab-combat-card:not(.is-attacking):not(.is-defending) { opacity:.74; filter:saturate(.75) brightness(.92); }
+.ab-combat.is-duel .ab-combat-card.is-defending { z-index:5; scale:1.06; }
+.ab-combat.is-duel .ab-combat-card.is-attacking { scale:1.06; }
+.ab-combat-card .ab-combat-flip { will-change:translate,rotate; }
+
+/* Impact */
+.ab-combat-veil { position:absolute; inset:-20px; pointer-events:none; z-index:11; background:radial-gradient(ellipse at 50% 50%,transparent 45%,#b2201a55 100%); animation:ab-veil .42s ease-out forwards; }
+@keyframes ab-veil { from { opacity:1; } to { opacity:0; } }
+.ab-combat-splat { position:absolute; width:110px; height:90px; margin:0; pointer-events:none; z-index:10; background:radial-gradient(ellipse at 40% 45%,#7a0f0c 0 22%,transparent 24%),radial-gradient(circle at 70% 30%,#8f1511 0 12%,transparent 14%),radial-gradient(circle at 25% 70%,#6e0b09 0 10%,transparent 12%),radial-gradient(circle at 75% 72%,#8f1511 0 8%,transparent 10%); will-change:transform,opacity; }
+.ab-combat-drop { position:absolute; width:9px; height:11px; margin:-5px 0 0 -4px; border-radius:50% 50% 55% 55%; background:#8f1511; box-shadow:inset -1px -2px 0 #4d0705; pointer-events:none; z-index:10; will-change:transform,opacity; }
+.ab-combat-card.is-hit .ab-minion-art::after { background:#8f1511; }
+
+/* Death: crumble pieces and dust */
+.ab-combat-shard { position:absolute; left:0; top:0; width:100%; pointer-events:none; will-change:transform,opacity; filter:brightness(.8) sepia(.4); }
+.ab-combat-dust { position:absolute; left:50%; bottom:6px; width:120px; height:46px; border-radius:50%; margin:0; pointer-events:none; z-index:2; background:radial-gradient(ellipse,#d9c8a8bb 0 30%,#a88f6c55 60%,transparent 72%); will-change:transform,opacity; }
+
+/* Poison */
+.ab-combat-card.is-poisoned .ab-minion-art { filter:sepia(.6) hue-rotate(60deg) saturate(2.2) brightness(.85); }
+.ab-combat-mist { position:absolute; width:70px; height:56px; margin:-28px 0 0 -35px; border-radius:50%; pointer-events:none; z-index:9; background:radial-gradient(circle,#7dff5acc 0 20%,#3fbf3a88 50%,transparent 72%); filter:blur(4px); will-change:transform,opacity; }
+
+/* Divine shield */
+.ab-combat-shine { position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; pointer-events:none; z-index:9; background:#fff6c8; box-shadow:0 0 10px 3px #ffdf80; will-change:transform,opacity; }
+.ab-combat-card.is-shield-breaking::before { border-width:6px; box-shadow:0 0 30px #ffdf80; }
+
+/* Summon */
+.ab-combat-card .ab-combat-flip { will-change:transform; }
+
+/* Hero hit: big stamp and a sharper wobble */
+.ab-combat-hero-damage { top:26px; right:auto; left:-70px; font-size:76px; letter-spacing:-2px; color:#ff3b2e; -webkit-text-stroke:2px #3a0a08; text-shadow:0 4px 0 #3a0a08,0 0 22px #ff5b47aa; animation:ab-hero-stamp .8s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes ab-hero-stamp { 0% { opacity:0; transform:scale(2.4) rotate(-14deg); } 30% { opacity:1; transform:scale(1) rotate(-6deg); } 75% { transform:scale(1.04) rotate(-6deg); } 100% { opacity:1; transform:scale(1) rotate(-6deg); } }
+.ab-hero-tally { animation:ab-tally-in .3s ease-out; }
+@keyframes ab-tally-in { from { opacity:0; transform:scale(.6); } }
+
+@media(prefers-reduced-motion:reduce) {
+  .ab-combat-card { transition:none; }
+  .ab-combat.is-duel .ab-combat-card { opacity:1; filter:none; scale:1; }
+  .ab-combat-hero-damage,.ab-combat-veil { animation:none; }
+}
+
+/* Hero name plaques: mine under the portrait like the recruit dock, the foe one beside it (the enemy row starts right below) */
+.ab-combat-foe > strong,.ab-combat-me > strong { display:inline-block; padding:2px 12px; border:2px ridge #b48b4e; border-radius:10px; background:#2a1d18e0; color:#ffdfab; font:19px var(--font-hand); white-space:nowrap; }
+.ab-combat-me > strong { margin-top:-24px; position:relative; z-index:2; }
+.ab-combat-foe > strong { position:absolute; right:calc(100% - 4px); top:52px; }
+
+/* Death variants: a slash flash for the splits */
+.ab-combat-slash { position:absolute; pointer-events:none; z-index:11; background:linear-gradient(90deg,transparent,#fff6d2,#ffd66b,#fff6d2,transparent); filter:drop-shadow(0 0 8px #ffb347); }
+.ab-combat-slash.is-vertical { left:46%; top:-10%; width:8%; height:120%; transform-origin:50% 50%; }
+.ab-combat-slash.is-horizontal { left:-10%; top:46%; width:120%; height:8%; background:linear-gradient(0deg,transparent,#fff6d2,#ffd66b,#fff6d2,transparent); }
+.ab-combat-card[data-death-style=snap] .ab-combat-shard { filter:brightness(1.1) sepia(.3); }
+.ab-combat-shard.is-reborn { filter:none; }
+.ab-combat-hero-shard { border-radius:38% 38% 8% 8%; filter:brightness(.85) sepia(.3); }
+.ab-combat-foe.is-lethal,.ab-combat-me.is-lethal { outline:0; }

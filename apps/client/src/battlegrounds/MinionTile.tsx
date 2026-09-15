@@ -9,6 +9,7 @@ import { PaperTooltip } from '../ui/PaperTooltip';
 import { illustrationUrl } from './illustrations';
 import { useAbDnd } from './abDndContext';
 import { AnimatedNumber } from './AnimatedNumber';
+import { idlePhase, KeywordIcon, RebornSash, SIGNAL_KEYWORDS, TauntFrame } from './cardBadges';
 
 export type BuffKind = 'power' | 'ability' | 'card';
 const BuffFlashContext = createContext<ReadonlyMap<string, BuffKind>>(new Map());
@@ -72,7 +73,7 @@ function MinionDossier({ minion, catalog }: { minion: AbMinion; catalog: AutoBat
   return (
     <article className={`ab-dossier ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''}`} data-testid="ab-dossier">
       <span className="ab-dossier-stars">{'★'.repeat(minion.tavernTier)}</span>
-      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark"><b>★</b><small>{t('abDiscover')}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" />}</div>
+      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" />}</div>
       <h3 className="ab-dossier-name">{name}</h3>
       <div className="ab-dossier-text">
         {lines.map(line => <p key={line}>{line}</p>)}
@@ -100,10 +101,12 @@ type Props = {
   arriveDelay?: number;
   fullCard?: boolean;
   fan?: number;
+  /** Full-card hover; off inside the discover window where the cards are already full size. */
+  dossier?: boolean;
   onClick?: () => void;
 };
 
-export function MinionTile({ minion, catalog, actionLabel, disabled, selected, dragKind, dragIndex, targetDomain, ghost, arrive = true, arriveDelay = 0, fullCard = false, fan = 0, onClick }: Props) {
+export function MinionTile({ minion, catalog, actionLabel, disabled, selected, dragKind, dragIndex, targetDomain, ghost, arrive = true, arriveDelay = 0, fullCard = false, fan = 0, dossier = true, onClick }: Props) {
   const { i18n, t } = useTranslation();
   const dnd = useAbDnd();
   const flash = useContext(BuffFlashContext).get(minion.id);
@@ -116,12 +119,13 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
   const canDrag = !!dragKind && !ghost;
   const lifted = !ghost && dnd?.armed && dnd.draggingId === minion.id && dnd.kind !== 'shop';
   const shopLift = !ghost && dnd?.armed && dnd.draggingId === minion.id && dnd.kind === 'shop';
+  const parked = !ghost && dnd?.hidden === minion.id;
   const isTarget = !ghost && dnd?.kind === 'power' && dnd.targetId === minion.id;
   const dim = !ghost && dnd?.kind === 'power' && dnd.armed && !isTarget;
   return (
-    <PaperTooltip className={`ab-minion-wrap ${!ghost && arrive ? 'is-arrive' : ''} ${flash ? `is-buff-${flash}` : ''}`} data-buff={flash} style={{ animationDelay: `${arriveDelay}ms`, '--fan-r': fan * 1.1, '--fan-y': Math.abs(fan) * 1.5 } as CSSProperties} placement="right" boxClassName="paper-tooltip is-dossier" delay={220} content={ghost || dnd?.armed ? null : <MinionDossier minion={minion} catalog={catalog} />}>
+    <PaperTooltip className={`ab-minion-wrap ${!ghost && arrive ? 'is-arrive' : ''} ${flash ? `is-buff-${flash}` : ''}`} data-buff={flash} style={{ animationDelay: `${arriveDelay}ms`, '--fan-r': fan * 1.1, '--fan-y': Math.abs(fan) * 1.5, '--idle-phase': `${(-idlePhase(minion.id) * 2.8).toFixed(2)}s` } as CSSProperties} placement="right" boxClassName="paper-tooltip is-dossier" delay={220} content={ghost || !dossier || dnd?.armed ? null : <MinionDossier minion={minion} catalog={catalog} />}>
       <button type="button" aria-label={`${name}${actionLabel ? ' · ' + actionLabel : ''}`}
-        className={`ab-minion ${fullCard ? 'is-full-card' : 'is-token'} ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''} ${selected ? 'is-selected' : ''} ${canDrag ? 'is-draggable' : ''} ${lifted ? 'is-lifted' : ''} ${shopLift ? 'is-shop-lift' : ''} ${isTarget ? 'is-target' : ''} ${dim ? 'is-dim' : ''}`}
+        className={`ab-minion ${fullCard ? 'is-full-card' : 'is-token'} ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''} ${selected ? 'is-selected' : ''} ${canDrag ? 'is-draggable' : ''} ${lifted ? 'is-lifted' : ''} ${shopLift ? 'is-shop-lift' : ''} ${parked ? 'is-parked' : ''} ${isTarget ? 'is-target' : ''} ${dim ? 'is-dim' : ''}`}
         aria-disabled={!!disabled}
         data-ab-id={minion.id}
         data-keywords={minion.keywords.join(' ')}
@@ -132,12 +136,17 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
           dnd.begin({ kind: dragKind, id: minion.id, index: dragIndex ?? 0 }, event);
         }}
         onClick={event => { if (!disabled && !dnd?.didDrag(event.currentTarget)) onClick?.(); }}
-        data-testid={`ab-minion-${minion.id}`}>
-        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark"><b>★</b><small>{t('abDiscover')}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" draggable={false} />}</span>
+        data-testid={ghost ? `ab-ghost-${minion.id}` : `ab-minion-${minion.id}`}>
+        {!fullCard && !ghost && <i className="ab-token-shadow" aria-hidden />}
+        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" draggable={false} />}</span>
         <span className="ab-minion-tier">{spell ? '★' : minion.tavernTier}</span>
+        {minion.keywords.includes('taunt') && <TauntFrame />}
         {minion.keywords.includes('divineShield') && <span className="ab-shield-bubble" aria-hidden="true" />}
+        {minion.keywords.includes('reborn') && <RebornSash />}
         {minion.keywords.includes('windfury') && <span className="ab-wind" aria-hidden="true"><i /><i /><i /></span>}
         <span className="ab-minion-name">{name}</span>
+        {fullCard && !spell && <span className="ab-minion-tribe">{minionTribeLabel(def, catalog, i18n.language, t)}</span>}
+        {fullCard && !dossier && <span className="ab-minion-text">{minionDossierLines(minion, catalog, i18n.language, t)[0]}</span>}
         {!spell && (
           <span className="ab-minion-stats">
             <b className={tone(minion.attack, printed?.attack)} aria-label={`${t('attack')}: ${minion.attack}`}>
@@ -151,7 +160,7 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
           </span>
         )}
         <span className="ab-minion-keys">
-          {[...minion.keywords].map(key => <em key={key} data-keyword={key} aria-label={abCopyName(catalog.copy, 'keywords', key, i18n.language, t(`abKeyword_${key}`))}>{KEYWORD_MARK[key] ?? key[0]}</em>)}
+          {[...minion.keywords].filter(key => !SIGNAL_KEYWORDS.has(key)).map(key => <em key={key} data-keyword={key} aria-label={abCopyName(catalog.copy, 'keywords', key, i18n.language, t(`abKeyword_${key}`))}><KeywordIcon keyword={key} />{KEYWORD_MARK[key] && !['battlecry', 'deathrattle', 'cleave', 'immune', 'cannotAttack', 'humiliate', 'bait', 'poisonous'].includes(key) ? KEYWORD_MARK[key] : null}</em>)}
         </span>
         {actionLabel && <span className="ab-minion-act">{actionLabel}</span>}
       </button>

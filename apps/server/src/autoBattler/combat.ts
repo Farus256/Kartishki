@@ -3,6 +3,7 @@ import { createRng } from './rng';
 import { TriggerQueue } from './TriggerQueue';
 import type { EffectRegistry } from './keywords';
 import type { CombatContext, CombatMinion, CombatResult, CombatantSnapshot } from './combatTypes';
+import { runCombatEffects } from './effects';
 
 export type { CombatContext, CombatMinion, CombatResult, CombatantSnapshot } from './combatTypes';
 
@@ -58,7 +59,7 @@ function refreshAuras(ctx: CombatContext): void {
   for (const board of ctx.boards) {
     for (const minion of board) minion.auraAttack = 0;
   }
-  for (const aura of ctx.registry.auras) aura.recalculate?.(ctx.boards);
+  for (const aura of ctx.registry.auras) aura.recalculate?.(ctx.boards, ctx);
   for (const minion of ctx.boards.flat()) if (before.get(minion.id) !== atk(minion)) {
     ctx.emit({ kind: 'STATS', targetId: minion.id, attack: atk(minion), remainingHealth: minion.health });
   }
@@ -241,6 +242,8 @@ export function resolveCombat(
   };
 
   ctx.emit({ kind: 'COMBAT_START', seed, playerA: owners[0], playerB: owners[1] });
+  // Start-of-combat effects fire left to right, first board A then B; they last this fight only.
+  for (const board of boards) for (const minion of [...board]) runCombatEffects(ctx, 'startCombat', minion);
   refreshAuras(ctx);
 
   const countA = living(boards[0]).length;

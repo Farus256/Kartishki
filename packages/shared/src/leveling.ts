@@ -167,10 +167,12 @@ export function battlegroundsEloDelta(place: number, count: number, amount = DEF
   return Math.round(amount * (2 * (count - place) / (count - 1) - 1));
 }
 
+/** 1st earns a win, last a loss, the places between slide from 35 down to 18. */
 export function battlegroundsXp(place: number, count: number): number {
   if (place === 1) return MATCH_WIN_XP;
-  if (place <= Math.ceil(count / 2)) return MATCH_DRAW_XP;
-  return MATCH_LOSS_XP;
+  if (place >= count) return MATCH_LOSS_XP;
+  const t = (place - 1) / Math.max(1, count - 1);
+  return Math.round(35 - 17 * t);
 }
 
 export function resolveLeveling(data: unknown): PlayerLeveling {

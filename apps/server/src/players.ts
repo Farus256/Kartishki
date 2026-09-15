@@ -254,7 +254,7 @@ export class PlayerStore {
         if (!row) continue;
         const place = unique.get(id)!;
         const xpGain = battlegroundsXp(place, field);
-        const gained = battlegroundsCurrencyReward(place);
+        const gained = battlegroundsCurrencyReward(place, field);
         const xp = Number(row.xp) + xpGain;
         const beerMl = applyBeerMl(Number(row.beerMl), beerMlForPlace(place, field));
         const elo = beerMl;

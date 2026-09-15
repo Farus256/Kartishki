@@ -1,31 +1,37 @@
-/** One 1600×900 source of truth for Battlegrounds spacing. CSS and Pixi both read this. */
+/**
+ * One 1600×900 source of truth for Battlegrounds spacing. CSS and Pixi both read this.
+ * The table is a 160 | 1440 grid under the 38px header (controls overlay the table's right edge); every row below is in
+ * table-local pixels (0,0 = table top-left), and combat rows overlay the same bands:
+ *   tavern head 8–148 · tavern/enemy row 152 · divider 332 · board/my row 372 · hero dock 552 · hand 706.
+ */
 export const AB_LAYOUT = {
   STAGE_W: 1600,
   STAGE_H: 900,
   HEADER_H: 38,
-  LEADERBOARD_W: 154,
+  LEADERBOARD_W: 160,
+  RAIL_W: 160,
   MINION_W: 150,
   MINION_H: 170,
   TAVERN_W: 150,
   TAVERN_H: 170,
   HAND_W: 124,
-  HAND_H: 178,
+  HAND_H: 150,
   DISCOVER_W: 230,
-  HERO: 88,
-  POWER_W: 156,
+  HERO: 136,
+  POWER_W: 104,
   BOARD_MAX_W: 1180,
-  COMBAT_W: 1260,
-  COMBAT_H: 842,
-  COMBAT_ENEMY_Y: 204,
-  COMBAT_PLAYER_Y: 426,
+  COMBAT_W: 1440,
+  COMBAT_H: 862,
+  COMBAT_ENEMY_Y: 152,
+  COMBAT_PLAYER_Y: 372,
   SLIDE_MS: 130,
   FLY_MS: 320,
 } as const;
 
 export function lineGap(count: number): number {
-  if (count <= 3) return 20;
-  if (count <= 5) return 12;
-  return 6;
+  if (count <= 3) return 34;
+  if (count <= 5) return 24;
+  return 14;
 }
 
 export function tavernGap(count: number): number {

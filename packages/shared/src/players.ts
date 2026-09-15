@@ -4,9 +4,16 @@ export const PACK_COST = 100;
 export const CASE_COST = 200;
 export const PACK_SIZE = 5;
 export const BOTTLE_CAPACITY = 2000;
-export const BATTLEGROUNDS_CURRENCY_REWARDS = [400, 200, 100, 50] as const;
-export function battlegroundsCurrencyReward(place: number) {
-  return Number.isInteger(place) && place >= 1 ? BATTLEGROUNDS_CURRENCY_REWARDS[place - 1] ?? 0 : 0;
+/** Cash by final place (1st … 8th); shorter tables map onto the same curve. */
+export const BATTLEGROUNDS_CURRENCY_REWARDS = [400, 250, 150, 100, 60, 40, 25, 10] as const;
+/** Index into an 8-step table for a place within a field of any size. */
+export function placeStep(place: number, field: number): number {
+  const size = Math.max(2, field);
+  const p = Math.max(1, Math.min(size, place));
+  return Math.round((p - 1) / (size - 1) * 7);
+}
+export function battlegroundsCurrencyReward(place: number, field = 8) {
+  return Number.isInteger(place) && place >= 1 ? BATTLEGROUNDS_CURRENCY_REWARDS[placeStep(place, field)] ?? 0 : 0;
 }
 export const BEER_WIN_MIN = 40;
 export const BEER_WIN_MAX = 80;
@@ -23,10 +30,12 @@ export function beerMlForResult(score: number, random = Math.random) {
   if (score === 0.5) return beerMlBetween(BEER_DRAW_MIN, BEER_DRAW_MAX, random);
   return beerMlBetween(BEER_LOSS_MIN, BEER_LOSS_MAX, random);
 }
+/** Beer for a Battlegrounds place: a win range for 1st, a loss range for last, a graded slope between (2nd ≈ +30 … penultimate ≈ −30, ±5 luck). */
 export function beerMlForPlace(place: number, field: number, random = Math.random) {
   if (field <= 1 || place <= 1) return beerMlForResult(1, random);
   if (place >= field) return beerMlForResult(0, random);
-  return beerMlForResult(0.5, random);
+  const t = (place - 1) / (field - 1);
+  return Math.round(30 - 60 * t) + beerMlBetween(-5, 5, random);
 }
 export function applyBeerMl(current: number, delta: number) {
   return Math.max(0, (Number.isFinite(current) ? current : 0) + (Number.isFinite(delta) ? Math.trunc(delta) : 0));

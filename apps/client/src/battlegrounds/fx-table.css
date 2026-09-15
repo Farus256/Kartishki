@@ -1,0 +1,36 @@
+/* fx-table: coins, flights, triple merge, bartender moods. Motion is transform/opacity only. */
+
+/* Shared overlay inside the stage, under the drag layer (20) and modals (40) */
+.ab-fx-layer { position:absolute; inset:0; z-index:19; pointer-events:none; overflow:visible; }
+.ab-fx-coin { position:absolute; left:0; top:0; width:22px; height:22px; border-radius:50%; border:2px solid #6a4314; background:radial-gradient(circle at 32% 28%,#fff3b0,#e8b53a 42%,#a86b14 78%,#6a430f); box-shadow:inset 0 -2px 0 #0004,0 2px 3px #0007; color:#7a4a12; font:bold 11px/18px var(--font-stencil); text-align:center; font-style:normal; will-change:transform; }
+.ab-fx-spark { position:absolute; left:-4px; top:-4px; width:8px; height:8px; border-radius:50%; background:var(--fx-color,#ffd76a); box-shadow:0 0 8px 2px var(--fx-color,#ffd76a); will-change:transform; }
+.ab-fx-ring { position:absolute; left:0; top:0; width:80px; height:80px; border-radius:50%; border:4px solid var(--fx-color,#ffd76a); box-shadow:0 0 18px var(--fx-color,#ffd76a),inset 0 0 18px var(--fx-color,#ffd76a); will-change:transform,opacity; }
+.ab-fx-clone { filter:drop-shadow(6px 10px 0 #1a1a1a55); will-change:transform; }
+.ab-fx-clone .ab-minion-art { animation:none!important; }
+
+/* Triple merge */
+.ab-triple-layer { position:absolute; inset:0; z-index:21; pointer-events:none; }
+.ab-triple-piece { position:absolute; will-change:transform; filter:drop-shadow(0 0 14px #ffd76a) drop-shadow(6px 10px 0 #1a1a1a55); }
+.ab-triple-piece .ab-minion { height:100%; transform:none!important; }
+.ab-triple-piece .ab-minion-wrap { width:100%; height:100%; }
+.ab-triple-piece .ab-minion-art { animation:none!important; }
+.ab-minion.is-unborn { visibility:hidden; }
+.ab-triple-stamp .ab-triple-cards { display:none; }
+@keyframes ab-stamp-fade { 0%,70% { opacity:1; } to { opacity:0; } }
+
+/* Purse */
+.ab-gold.is-bump { animation:ab-purse-bump .45s cubic-bezier(.2,.9,.3,1.4); }
+@keyframes ab-purse-bump { 30% { transform:scale(1.08) rotate(-2deg); } 60% { transform:scale(.98) rotate(1deg); } to { transform:none; } }
+
+/* Bartender moods */
+.ab-dealer-art { transition:filter .35s ease,transform .35s ease; transform-origin:50% 90%; }
+.ab-dealer-art.is-greedy { transform:translateY(-3px) rotate(-3deg); }
+.ab-dealer-art.is-pleased { transform:translateY(-5px) scale(1.04); animation:ab-dealer-bounce .6s ease-out; }
+.ab-dealer-art.is-frozen { filter:saturate(.5) brightness(1.15) drop-shadow(0 0 8px #9ef0ff); animation:ab-dealer-shiver .18s linear infinite; }
+.ab-dealer-art.is-sad { transform:translateY(3px) rotate(2deg); filter:saturate(.7); }
+@keyframes ab-dealer-bounce { 30% { transform:translateY(-14px) scale(1.06); } 60% { transform:translateY(-2px) scale(1.03); } to { transform:translateY(-5px) scale(1.04); } }
+@keyframes ab-dealer-shiver { 0%,100% { transform:translateX(0) rotate(0); } 25% { transform:translateX(-1.5px) rotate(-.6deg); } 75% { transform:translateX(1.5px) rotate(.6deg); } }
+
+@media(prefers-reduced-motion:reduce) {
+  .ab-dealer-art,.ab-gold.is-bump,.ab-triple-stamp { animation:none!important; transition:none!important; }
+}

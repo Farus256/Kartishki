@@ -179,7 +179,9 @@ export const AutoBattlerMinionState = schema({
 export type AutoBattlerMinionState = InstanceType<typeof AutoBattlerMinionState>;
 
 export const TavernState = schema({
-  offers: t.array(AutoBattlerMinionState).view(1),
+  // Not view-filtered: nested arrays (keywords, tribes) of items pushed into a view-filtered
+  // collection never reach the client in @colyseus/schema 3.x, so every minion list is public.
+  offers: t.array(AutoBattlerMinionState),
   frozen: t.boolean().default(false),
   size: t.number().default(3),
 }, 'AutoBattlerTavernState');
@@ -206,11 +208,18 @@ export const AutoBattlerPlayerState = schema({
   gold: t.number().default(0),
   tavernTier: t.number().default(1),
   upgradeCost: t.number().default(6),
-  board: t.array(AutoBattlerMinionState).view(1),
-  hand: t.array(AutoBattlerMinionState).view(1),
+  board: t.array(AutoBattlerMinionState),
+  hand: t.array(AutoBattlerMinionState),
   tavern: TavernState,
   tripleCounts: t.map('number').view(1),
   tripleSerial: t.number().default(0),
+  /** Highest actionId this player's recruit action applied. Clients drop optimistic ops at or below it. */
+  lastActionId: t.number().default(0),
+  /** Current prices, so anomalies and free-refresh spells reach every client check. */
+  buyCost: t.number().default(AUTO_BATTLER.BUY_COST),
+  rerollCost: t.number().default(AUTO_BATTLER.REROLL_COST),
+  freeRerolls: t.number().default(0),
+  buysThisTurn: t.number().default(0),
   nextOpponentId: t.string().default(''),
   lastOpponentId: t.string().default(''),
   swords: t.boolean().default(false),
@@ -221,7 +230,7 @@ export const AutoBattlerPlayerState = schema({
   lastCombatDamage: t.number().default(0),
   lastCombatEventCount: t.number().default(0),
   lastCombatSummary: t.string().default(''),
-  pendingDiscover: t.array(AutoBattlerMinionState).view(1),
+  pendingDiscover: t.array(AutoBattlerMinionState),
   discoverOpen: t.boolean().default(false),
   recruitReady: t.boolean().default(false),
   eliminated: t.boolean().default(false),
@@ -245,6 +254,8 @@ export const AutoBattlerRoomState = schema({
   recruitSeconds: t.number().default(0),
   heroSeconds: t.number().default(0),
   phaseEndsAt: t.number().default(0),
+  /** One rule twist for the whole table, chosen at game start (see AB_ANOMALIES). */
+  anomalyId: t.string().default(''),
 }, 'AutoBattlerRoomState');
 export type AutoBattlerRoomState = InstanceType<typeof AutoBattlerRoomState>;
 
@@ -327,6 +338,39 @@ export type AutoBattlerTribe = typeof autoBattlerTribes[number];
 export const autoBattlerBattlecries = ['ab-bc-gold'] as const;
 export const autoBattlerAuras = ['ab-aura-beasts'] as const;
 
+/**
+ * Data-driven minion effects. The server interprets them (see keywords.ts):
+ * - battlecry: when this card is played · play: whenever a friendly minion is played (onTribe filter)
+ * - buy: after you buy a minion (onTribe filter; target 'bought' buffs that card)
+ * - sell: when this card is sold (gold) or whenever any minion is sold (buff targets)
+ * - endTurn: when the recruit phase ends · triple: whenever you make a triple
+ * - startCombat: at the start of combat (that fight only) · deathrattle: in combat when this minion dies
+ * - aura: attack bonus for other friendly minions of the given tribe during combat
+ * Buff amounts double for a golden owner.
+ */
+export const autoBattlerEffectTriggers = ['battlecry', 'play', 'buy', 'sell', 'endTurn', 'triple', 'startCombat', 'deathrattle', 'aura'] as const;
+export type AutoBattlerEffectTrigger = typeof autoBattlerEffectTriggers[number];
+export const autoBattlerEffectTargets = ['self', 'adjacent', 'friendly', 'random', 'bought', 'hand'] as const;
+export type AutoBattlerEffectTarget = typeof autoBattlerEffectTargets[number];
+export type AutoBattlerEffectAction =
+  | { kind: 'buff'; attack: number; health: number }
+  | { kind: 'gold'; amount: number }
+  | { kind: 'aura'; attack: number };
+export type AutoBattlerEffect = {
+  trigger: AutoBattlerEffectTrigger;
+  /** Who receives a buff; defaults to 'self'. */
+  target?: AutoBattlerEffectTarget;
+  /** Tribe filter for 'friendly' / 'random' / 'hand' / 'aura' targets. */
+  tribe?: AutoBattlerTribe | 'all';
+  /** For play/buy: only fire when the played/bought minion has this tribe. */
+  onTribe?: AutoBattlerTribe | 'all';
+  action: AutoBattlerEffectAction;
+};
+
+export const autoBattlerSpellKinds = ['discover', 'coin', 'freeReroll', 'tonic'] as const;
+export type AutoBattlerSpellKind = typeof autoBattlerSpellKinds[number];
+export type AutoBattlerSpell = { kind: AutoBattlerSpellKind; amount?: number };
+
 export type AutoBattlerLoc = { ru: string; en: string };
 export type AutoBattlerCopyEntry = { name: AutoBattlerLoc; description?: AutoBattlerLoc };
 export type AutoBattlerCopy = {
@@ -377,6 +421,9 @@ export type AutoBattlerMinionDef = {
   battlecryId?: string;
   deathrattle?: { summonId: string; count: number };
   auraId?: string;
+  effects?: AutoBattlerEffect[];
+  /** A tavern spell: bought like a minion, played from hand for its effect, never on the board. */
+  spell?: AutoBattlerSpell;
   /** Custom golden stats. When omitted, attack/health double. */
   golden?: { attack: number; health: number; keywords?: AutoBattlerKeyword[] };
 };
@@ -386,7 +433,19 @@ export const autoBattlerHeroPowerPresets = {
   'ab-power-buff-tavern': { isPassive: false, goldCost: 1, targeted: true, targetDomain: 'tavern' as const },
   'ab-power-buff-board': { isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' as const },
   'ab-power-sell-gold': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
+  'ab-power-free-roll': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
+  'ab-power-discover': { isPassive: false, goldCost: 2, targeted: false, targetDomain: 'none' as const },
+  'ab-power-beast-buy': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
+  'ab-power-shield': { isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' as const },
+  'ab-power-undead-end': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
+  'ab-power-rich': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
+  'ab-power-triple-buff': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
+  'ab-power-swap': { isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' as const },
 } as const;
+
+/** One rule twist per table. Names/descriptions live in i18n (abAnomaly_<id>, abAnomalyHint_<id>). */
+export const AB_ANOMALIES = ['ab-anomaly-brawl', 'ab-anomaly-big-tavern', 'ab-anomaly-free-refresh', 'ab-anomaly-fast-start', 'ab-anomaly-deep-pockets', 'ab-anomaly-cheap-powers', 'ab-anomaly-on-the-house', 'ab-anomaly-long-recruit'] as const;
+export type AbAnomalyId = typeof AB_ANOMALIES[number];
 export type AutoBattlerHeroPowerId = keyof typeof autoBattlerHeroPowerPresets;
 
 export type AutoBattlerHeroDef = {
@@ -415,28 +474,8 @@ export type AutoBattlerCatalog = {
 /** Shop copies by tavern tier when a definition omits poolCopies. */
 export const DEFAULT_POOL_COPIES = [0, 16, 15, 13, 11, 9, 7] as const;
 
-export const starterAutoBattlerMinions: AutoBattlerMinionDef[] = [
-  { id: 'ab-token-1-1', name: { ru: 'Жетон', en: 'Token' }, tavernTier: 1, attack: 1, health: 1, keywords: [], tribes: ['neutral'], token: true, inTavern: false, inDiscover: false },
-  { id: 'ab-whelp', name: { ru: 'Змееныш', en: 'Whelp' }, tavernTier: 1, attack: 2, health: 1, keywords: [], tribes: ['beast'] },
-  { id: 'ab-ward', name: { ru: 'Страж', en: 'Ward' }, tavernTier: 1, attack: 1, health: 3, keywords: ['taunt'], tribes: ['mech'] },
-  { id: 'ab-aegis', name: { ru: 'Эгида', en: 'Aegis' }, tavernTier: 1, attack: 2, health: 2, keywords: ['divineShield'], tribes: ['mech'] },
-  { id: 'ab-broker', name: { ru: 'Маклер', en: 'Broker' }, tavernTier: 1, attack: 1, health: 2, keywords: ['battlecry'], tribes: ['pirate'], battlecryId: 'ab-bc-gold' },
-  { id: 'ab-viper', name: { ru: 'Гадюка', en: 'Viper' }, tavernTier: 2, attack: 1, health: 2, keywords: ['poisonous'], tribes: ['beast'] },
-  { id: 'ab-breeder', name: { ru: 'Заводчик', en: 'Breeder' }, tavernTier: 2, attack: 2, health: 2, keywords: ['deathrattle'], tribes: ['beast'], deathrattle: { summonId: 'ab-token-1-1', count: 1 } },
-  { id: 'ab-bruiser', name: { ru: 'Громила', en: 'Bruiser' }, tavernTier: 2, attack: 3, health: 3, keywords: [], tribes: ['neutral'] },
-  { id: 'ab-alpha', name: { ru: 'Вожак', en: 'Alpha' }, tavernTier: 2, attack: 2, health: 3, keywords: [], tribes: ['beast'], auraId: 'ab-aura-beasts' },
-  { id: 'ab-bulwark', name: { ru: 'Бастион', en: 'Bulwark' }, tavernTier: 3, attack: 2, health: 5, keywords: ['taunt'], tribes: ['mech'] },
-  { id: 'ab-fang', name: { ru: 'Клык', en: 'Fang' }, tavernTier: 3, attack: 3, health: 2, keywords: ['poisonous'], tribes: ['beast'] },
-  { id: 'ab-dervish', name: { ru: 'Дервиш', en: 'Dervish' }, tavernTier: 3, attack: 2, health: 2, keywords: ['windfury'], tribes: ['pirate'] },
-  { id: 'ab-knight', name: { ru: 'Рыцарь', en: 'Knight' }, tavernTier: 4, attack: 4, health: 4, keywords: ['divineShield'], tribes: ['mech'] },
-  { id: 'ab-howler', name: { ru: 'Ревун', en: 'Howler' }, tavernTier: 4, attack: 3, health: 6, keywords: ['taunt'], tribes: ['beast'] },
-  { id: 'ab-butcher', name: { ru: 'Мясник', en: 'Butcher' }, tavernTier: 4, attack: 3, health: 3, keywords: ['cleave'], tribes: ['undead'] },
-  { id: 'ab-hydra', name: { ru: 'Гидра', en: 'Hydra' }, tavernTier: 5, attack: 2, health: 8, keywords: ['deathrattle'], tribes: ['beast'], deathrattle: { summonId: 'ab-token-1-1', count: 2 } },
-  { id: 'ab-assassin', name: { ru: 'Убийца', en: 'Assassin' }, tavernTier: 5, attack: 6, health: 3, keywords: ['poisonous'], tribes: ['pirate'] },
-  { id: 'ab-ashes', name: { ru: 'Пепел', en: 'Ashes' }, tavernTier: 5, attack: 4, health: 2, keywords: ['reborn'], tribes: ['undead'] },
-  { id: 'ab-colossus', name: { ru: 'Колосс', en: 'Colossus' }, tavernTier: 6, attack: 8, health: 8, keywords: [], tribes: ['mech'] },
-  { id: 'ab-omen', name: { ru: 'Знамение', en: 'Omen' }, tavernTier: 6, attack: 6, health: 7, keywords: ['taunt', 'divineShield'], tribes: ['undead'] },
-];
+export { starterAutoBattlerMinions } from './autoBattlerMinions';
+import { starterAutoBattlerMinions } from './autoBattlerMinions';
 
 export const starterAutoBattlerHeroes: AutoBattlerHeroDef[] = [
   {
@@ -459,6 +498,14 @@ export const starterAutoBattlerHeroes: AutoBattlerHeroDef[] = [
     health: 40,
     power: { id: 'ab-power-buff-board', isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' },
   },
+  { id: 'ab-hero-innkeeper', name: { ru: 'Трактирщик', en: 'Innkeeper' }, portraitKey: 'ab-hero-innkeeper', health: 40, power: { id: 'ab-power-free-roll', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
+  { id: 'ab-hero-gambler', name: { ru: 'Картёжник', en: 'Gambler' }, portraitKey: 'ab-hero-gambler', health: 35, power: { id: 'ab-power-discover', isPassive: false, goldCost: 2, targeted: false, targetDomain: 'none' } },
+  { id: 'ab-hero-beastmaster', name: { ru: 'Зверолов', en: 'Beastmaster' }, portraitKey: 'ab-hero-beastmaster', health: 40, power: { id: 'ab-power-beast-buy', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
+  { id: 'ab-hero-tinker', name: { ru: 'Механик', en: 'Tinker' }, portraitKey: 'ab-hero-tinker', health: 40, power: { id: 'ab-power-shield', isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' } },
+  { id: 'ab-hero-necromancer', name: { ru: 'Некромант', en: 'Necromancer' }, portraitKey: 'ab-hero-necromancer', health: 38, power: { id: 'ab-power-undead-end', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
+  { id: 'ab-hero-tycoon', name: { ru: 'Магнат', en: 'Tycoon' }, portraitKey: 'ab-hero-tycoon', health: 35, power: { id: 'ab-power-rich', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
+  { id: 'ab-hero-collector', name: { ru: 'Собиратель', en: 'Collector' }, portraitKey: 'ab-hero-collector', health: 40, power: { id: 'ab-power-triple-buff', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
+  { id: 'ab-hero-alchemist', name: { ru: 'Алхимик', en: 'Alchemist' }, portraitKey: 'ab-hero-alchemist', health: 40, power: { id: 'ab-power-swap', isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' } },
 ];
 
 export const starterAutoBattlerCatalog: AutoBattlerCatalog = {
@@ -497,6 +544,22 @@ export function validateAutoBattlerCopy(value: unknown): value is AutoBattlerCop
     && bag(copy.auras as Record<string, AutoBattlerCopyEntry> | undefined, autoBattlerAuras);
 }
 
+export function validateAutoBattlerEffect(value: unknown): value is AutoBattlerEffect {
+  if (!value || typeof value !== 'object') return false;
+  const e = value as AutoBattlerEffect;
+  if (!autoBattlerEffectTriggers.includes(e.trigger)) return false;
+  if (e.target !== undefined && !autoBattlerEffectTargets.includes(e.target)) return false;
+  const tribeOk = (tribe: unknown) => tribe === undefined || tribe === 'all' || autoBattlerTribes.includes(tribe as AutoBattlerTribe);
+  if (!tribeOk(e.tribe) || !tribeOk(e.onTribe)) return false;
+  const a = e.action;
+  if (!a || typeof a !== 'object') return false;
+  const num = (n: unknown, min: number, max: number) => Number.isInteger(n) && (n as number) >= min && (n as number) <= max;
+  if (a.kind === 'buff') return num(a.attack, -20, 20) && num(a.health, -20, 20);
+  if (a.kind === 'gold') return num(a.amount, 1, 10);
+  if (a.kind === 'aura') return e.trigger === 'aura' && num(a.attack, 1, 10);
+  return false;
+}
+
 export function validateAutoBattlerMinion(value: unknown): value is AutoBattlerMinionDef {
   if (!value || typeof value !== 'object') return false;
   const m = value as AutoBattlerMinionDef;
@@ -516,6 +579,8 @@ export function validateAutoBattlerMinion(value: unknown): value is AutoBattlerM
   if (m.inDiscover !== undefined && typeof m.inDiscover !== 'boolean') return false;
   if (m.battlecryId !== undefined && !idOk(m.battlecryId)) return false;
   if (m.auraId !== undefined && !idOk(m.auraId)) return false;
+  if (m.effects !== undefined && (!Array.isArray(m.effects) || m.effects.length > 6 || !m.effects.every(validateAutoBattlerEffect))) return false;
+  if (m.spell !== undefined && (!m.spell || typeof m.spell !== 'object' || !autoBattlerSpellKinds.includes(m.spell.kind) || (m.spell.amount !== undefined && (!Number.isInteger(m.spell.amount) || m.spell.amount < 1 || m.spell.amount > 10)))) return false;
   if (m.deathrattle) {
     if (!idOk(m.deathrattle.summonId) || !Number.isInteger(m.deathrattle.count) || m.deathrattle.count < 1 || m.deathrattle.count > 7) return false;
   } else if (m.deathrattle !== undefined) return false;
@@ -570,6 +635,10 @@ export function resolveAutoBattlerCatalog(input: {
     })),
     copy: input.autoBattlerCopy,
   };
+}
+
+export function isSpellDef(def: Pick<AutoBattlerMinionDef, 'spell'> | undefined): boolean {
+  return !!def?.spell;
 }
 
 export function minionDefById(catalog: AutoBattlerCatalog, id: string): AutoBattlerMinionDef | undefined {

@@ -1,11 +1,17 @@
 import { AUTO_BATTLER, minionTribes, type AutoBattlerMinionDef } from '@kartishki/shared';
-import type { AutoBattlerPlayerState } from '@kartishki/shared';
+import type { AutoBattlerMinionState, AutoBattlerPlayerState } from '@kartishki/shared';
 import type { CombatContext, CombatMinion } from './combatTypes';
 import { hasTribe } from '@kartishki/shared';
+import { auraBonus, buffTavernMinion, runCombatEffects } from './effects';
+import type { SeededRng } from './rng';
 
 export type RecruitContext = {
   player: AutoBattlerPlayerState;
   nextId: () => string;
+  rng: SeededRng;
+  defFor: (baseId: string) => AutoBattlerMinionDef | undefined;
+  /** Opens a discover of the player's tier (hero powers, spells). */
+  discover: (tier: number) => boolean;
 };
 
 export type KeywordHooks = {
@@ -25,7 +31,7 @@ export type PlayEffect = {
 export type AuraHooks = {
   id: string;
   cardId?: string;
-  recalculate?(boards: [CombatMinion[], CombatMinion[]]): void;
+  recalculate?(boards: [CombatMinion[], CombatMinion[]], ctx: CombatContext): void;
 };
 
 export type HeroPowerHooks = {
@@ -33,6 +39,9 @@ export type HeroPowerHooks = {
   activate?(ctx: RecruitContext, targetId?: string): void;
   onSell?(ctx: RecruitContext): void;
   onRecruitStart?(ctx: RecruitContext): void;
+  onBuy?(ctx: RecruitContext, minion: AutoBattlerMinionState): void;
+  onTriple?(ctx: RecruitContext, golden: AutoBattlerMinionState): void;
+  onTurnEnd?(ctx: RecruitContext): void;
 };
 
 /**
@@ -87,9 +96,12 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
     id: 'deathrattle',
     onDeath(ctx, minion, index) {
       const effect = registry.effects.get(`deathrattle:${minion.cardId}`);
-      if (!effect?.deathrattle) return;
+      const def = ctx.definition(minion.baseId);
+      const buffs = def?.effects?.some(e => e.trigger === 'deathrattle');
+      if (!effect?.deathrattle && !buffs) return;
       ctx.emit({ kind: 'DEATHRATTLE', sourceId: minion.id, cardId: minion.cardId });
-      effect.deathrattle(ctx, minion, index);
+      effect?.deathrattle?.(ctx, minion, index);
+      if (buffs) runCombatEffects(ctx, 'deathrattle', minion);
     },
   });
 
@@ -129,15 +141,14 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
     },
   });
 
+  // Every aura is a data effect on its source ('aura' trigger); one hook sums them per board.
   registry.registerAura({
-    id: 'ab-aura-beasts',
-    recalculate(boards) {
+    id: 'ab-aura-effects',
+    recalculate(boards, ctx) {
       for (const board of boards) {
-        const sources = board.filter(m => m.health > 0 && m.cardId === 'ab-alpha');
-        if (!sources.length) continue;
         for (const minion of board) {
           if (minion.health <= 0) continue;
-          if (hasTribe(minion.tribes ?? [], 'beast')) minion.auraAttack += sources.filter(m => m.id !== minion.id).reduce((n, m) => n + (m.golden ? 4 : 2), 0);
+          minion.auraAttack += auraBonus(ctx, board, minion);
         }
       }
     },
@@ -179,6 +190,35 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
       ctx.player.gold += 1;
     },
   });
+
+  // Innkeeper: the first refresh each turn is free.
+  registry.registerHeroPower({ id: 'ab-power-free-roll', onRecruitStart(ctx) { ctx.player.freeRerolls = Math.max(ctx.player.freeRerolls, 1); } });
+  // Gambler: pay 2 to discover a minion of your tier.
+  registry.registerHeroPower({ id: 'ab-power-discover', activate(ctx) { ctx.discover(ctx.player.tavernTier); } });
+  // Beastmaster: bought beasts arrive with +1/+1.
+  registry.registerHeroPower({ id: 'ab-power-beast-buy', onBuy(_ctx, minion) { if (hasTribe(minion.tribes, 'beast')) buffTavernMinion(minion, 1, 1); } });
+  // Tinker: give a friendly minion Divine Shield.
+  registry.registerHeroPower({ id: 'ab-power-shield', activate(ctx, targetId) {
+    const minion = [...ctx.player.board].find(m => m.id === targetId);
+    if (minion && !minion.keywords.includes('divineShield')) minion.keywords.push('divineShield');
+  } });
+  // Necromancer: at the end of your turn a random friendly undead gets +1/+1.
+  registry.registerHeroPower({ id: 'ab-power-undead-end', onTurnEnd(ctx) {
+    const undead = [...ctx.player.board].filter(m => hasTribe(m.tribes, 'undead'));
+    if (undead.length) buffTavernMinion(ctx.rng.pick(undead), 1, 1);
+  } });
+  // Tycoon: one extra gold every turn (35 health).
+  registry.registerHeroPower({ id: 'ab-power-rich', onRecruitStart(ctx) { ctx.player.gold += 1; } });
+  // Collector: golden minions from triples get +2/+2.
+  registry.registerHeroPower({ id: 'ab-power-triple-buff', onTriple(_ctx, golden) { buffTavernMinion(golden, 2, 2); } });
+  // Alchemist: swap a friendly minion's attack and health.
+  registry.registerHeroPower({ id: 'ab-power-swap', activate(ctx, targetId) {
+    const minion = [...ctx.player.board].find(m => m.id === targetId);
+    if (!minion) return;
+    const attack = minion.attack;
+    minion.attack = minion.health;
+    minion.health = minion.maxHealth = Math.max(1, attack);
+  } });
 
   return registry;
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { HEALTH_MANUAL_MS, HEALTH_RETRY_MS, HEALTH_WAKING_MS, probeServerHealth } from '../serverReady';
-import { serverOrigin } from '../serverUrl';
+import { serverGateRequired, serverOrigin } from '../serverUrl';
 import { Backdrop } from '../ui/Backdrop';
 import { InkButton, spring } from '../ui/InkButton';
 import { Stage } from '../ui/Stage';
@@ -16,6 +16,7 @@ export function WakeScreen({ onReady }: { onReady: () => void }) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
+    if (!serverGateRequired()) { onReadyRef.current(); return; }
     let live = true;
     const wait = () => { timer.current = setTimeout(() => { void check(); }, HEALTH_RETRY_MS); };
     async function check() {

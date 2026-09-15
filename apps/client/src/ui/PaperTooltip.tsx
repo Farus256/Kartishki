@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+const HIDE_TOOLTIPS = 'paper-tooltip-hide';
+/** Close every open tooltip, e.g. when the anchors vanish under a still pointer (combat overlay, drag). */
+export function hidePaperTooltips(): void { document.dispatchEvent(new Event(HIDE_TOOLTIPS)); }
+
 /** One paper tooltip for mouse and keyboard; coordinates are browser pixels, outside Stage zoom. */
 export function PaperTooltip({ children, content, className = '', style, placement = 'above', boxClassName = 'paper-tooltip', delay = 0, ...rest }: {
   children: ReactNode;
   content: ReactNode;
   className?: string;
   style?: CSSProperties;
-  placement?: 'above' | 'right';
+  placement?: 'above' | 'right' | 'beside';
   boxClassName?: string;
   delay?: number;
   'data-buff'?: string;
@@ -24,6 +28,7 @@ export function PaperTooltip({ children, content, className = '', style, placeme
     window.addEventListener('scroll', hide, true);
     document.addEventListener('pointerdown', hide, true);
     document.addEventListener('keydown', escape);
+    document.addEventListener(HIDE_TOOLTIPS, hide);
     return () => {
       window.clearTimeout(timer.current);
       window.removeEventListener('blur', hide);
@@ -31,6 +36,7 @@ export function PaperTooltip({ children, content, className = '', style, placeme
       window.removeEventListener('scroll', hide, true);
       document.removeEventListener('pointerdown', hide, true);
       document.removeEventListener('keydown', escape);
+      document.removeEventListener(HIDE_TOOLTIPS, hide);
     };
   }, [hide]);
   const show = () => {
@@ -38,6 +44,13 @@ export function PaperTooltip({ children, content, className = '', style, placeme
     const place = () => {
       const r = anchor.current?.getBoundingClientRect();
       if (!r) return;
+      if (placement === 'beside') {
+        // Small box to the right of the anchor, top-aligned (standings rows).
+        const w = 280, h = 340, gap = 10;
+        const left = r.right + gap + w <= innerWidth - 8 ? r.right + gap : r.left - w - gap;
+        setPoint({ left: Math.max(8, left), top: Math.max(8, Math.min(innerHeight - h - 8, r.top - 4)) });
+        return;
+      }
       if (placement === 'right') {
         const w = 248, h = 380, gap = 12;
         const right = r.right + gap;
@@ -53,7 +66,7 @@ export function PaperTooltip({ children, content, className = '', style, placeme
     if (delay) timer.current = window.setTimeout(place, delay);
     else place();
   };
-  return <span ref={anchor} className={className} style={style} {...rest} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide} onPointerDown={hide} onKeyDown={e => { if (e.key === 'Escape') hide(); }} aria-describedby={point ? id : undefined}>
+  return <span ref={anchor} className={className} style={style} {...rest} onMouseEnter={show} onMouseLeave={hide} onFocus={event => { if (!(event.target instanceof Element) || event.target.matches(':focus-visible')) show(); }} onBlur={hide} onPointerDown={hide} onKeyDown={e => { if (e.key === 'Escape') hide(); }} aria-describedby={point ? id : undefined}>
     {children}{point && content ? createPortal(<div className={boxClassName} id={id} role="tooltip" style={point}>{content}</div>, document.body) : null}
   </span>;
 }

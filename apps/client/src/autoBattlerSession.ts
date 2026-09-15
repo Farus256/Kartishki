@@ -1,5 +1,6 @@
 import { Client, type Room } from '@colyseus/sdk';
 import {
+  AUTO_BATTLER,
   AUTO_BATTLER_CLIENT_EVENTS as EV,
   AUTO_BATTLER_MESSAGES as MSG,
   AutoBattlerRoomState,
@@ -15,6 +16,7 @@ import {
 } from '@kartishki/shared';
 import { playerSession } from './playerSession';
 import { serverOrigin } from './serverUrl';
+import { applyOptimistic, type OptimisticIntent } from './battlegrounds/abOptimistic';
 
 const RECONNECT_KEY = 'kartishki-ab-reconnect';
 
@@ -36,8 +38,10 @@ export type AbPlayer = {
   board: AbMinion[]; hand: AbMinion[];
   tavern: { offers: AbMinion[]; frozen: boolean; size: number };
   nextOpponentId: string; swords: boolean; eliminated: boolean; placement: number;
-  recruitReady: boolean; lastCombatResult: string; lastCombatDamage: number;
+  recruitReady: boolean; lastCombatResult: string; lastCombatDamage: number; lastCombatOpponentId: string;
   tripleSerial: number;
+  lastActionId: number;
+  buyCost: number; rerollCost: number; freeRerolls: number;
   lastCombatSummary: string; discoverOpen: boolean; pendingDiscover: AbMinion[];
 };
 
@@ -45,7 +49,7 @@ export type AbCombatBoards = { playerA: string; playerB: string; a: AbMinion[]; 
 
 export type AbSnapshot = {
   status: 'offline' | 'connecting' | 'online';
-  phase: string; turn: number; revision: number; recruitSeconds: number; heroSeconds: number; sessionId: string; error: string; winnerId: string;
+  phase: string; turn: number; revision: number; recruitSeconds: number; heroSeconds: number; sessionId: string; error: string; winnerId: string; anomalyId: string;
   players: AbPlayer[];
   catalog: AutoBattlerCatalog;
   heroOffers: AutoBattlerHeroDef[];
@@ -56,7 +60,7 @@ export type AbSnapshot = {
 };
 
 const empty = (): AbSnapshot => ({
-  status: 'offline', phase: 'LOBBY', turn: 0, revision: 0, recruitSeconds: 0, heroSeconds: 0, sessionId: '', error: '', winnerId: '',
+  status: 'offline', phase: 'LOBBY', turn: 0, revision: 0, recruitSeconds: 0, heroSeconds: 0, sessionId: '', error: '', winnerId: '', anomalyId: '',
   players: [], catalog: starterAutoBattlerCatalog, heroOffers: [], discover: null, combat: null, combatBoards: null, pairing: [],
 });
 
@@ -81,28 +85,51 @@ function toPlayer(p: AutoBattlerPlayerState): AbPlayer {
     board: [...(p.board ?? [])].map(toMinion), hand: [...(p.hand ?? [])].map(toMinion),
     tavern: { offers: [...(p.tavern.offers ?? [])].map(toMinion), frozen: p.tavern.frozen, size: p.tavern.size },
     nextOpponentId: p.nextOpponentId, swords: p.swords, eliminated: p.eliminated, placement: p.placement,
-    recruitReady: p.recruitReady, lastCombatResult: p.lastCombatResult, lastCombatDamage: p.lastCombatDamage,
+    recruitReady: p.recruitReady, lastCombatResult: p.lastCombatResult, lastCombatDamage: p.lastCombatDamage, lastCombatOpponentId: p.lastCombatOpponentId ?? '',
     lastCombatSummary: p.lastCombatSummary, discoverOpen: p.discoverOpen,
     pendingDiscover: [...(p.pendingDiscover ?? [])].map(toMinion), tripleSerial: p.tripleSerial,
+    lastActionId: p.lastActionId ?? 0,
+    buyCost: p.buyCost ?? AUTO_BATTLER.BUY_COST, rerollCost: p.rerollCost ?? AUTO_BATTLER.REROLL_COST, freeRerolls: p.freeRerolls ?? 0,
   };
 }
 
-let snapshot = empty();
+/** Authoritative server view; `snapshot` is this plus the not-yet-echoed local intents. */
+let authoritative = empty();
+let snapshot = authoritative;
 const listeners = new Set<() => void>();
 let room: Room<AutoBattlerRoomState> | undefined;
 let generation = 0;
 let actionId = Date.now();
 let errorTimer: ReturnType<typeof setTimeout> | undefined;
-const sendIntent = (message: string, data: Record<string, unknown> = {}) => room?.send(message, { ...data, turn: snapshot.turn, actionId: ++actionId });
+/** Server echo normally lands in one patch; after this the local guess is dropped. */
+const OPTIMISTIC_TTL_MS = 4000;
+let pending: { actionId: number; at: number; intent: OptimisticIntent }[] = [];
 
-const publish = (patch: Partial<AbSnapshot>) => { snapshot = { ...snapshot, ...patch }; listeners.forEach(fn => fn()); };
+function overlay(base: AbSnapshot): AbSnapshot {
+  if (!pending.length) return base;
+  const me = base.players.find(p => p.sessionId === base.sessionId);
+  const now = Date.now();
+  pending = pending.filter(op => op.actionId > (me?.lastActionId ?? 0) && now - op.at < OPTIMISTIC_TTL_MS);
+  if (!me || !pending.length) return base;
+  const guessed = pending.reduce((player, op) => applyOptimistic(player, op.intent), me);
+  return { ...base, players: base.players.map(p => p === me ? guessed : p) };
+}
+
+const publish = (patch: Partial<AbSnapshot>) => { authoritative = { ...authoritative, ...patch }; snapshot = overlay(authoritative); listeners.forEach(fn => fn()); };
+const sendIntent = (message: string, data: Record<string, unknown> = {}, intent?: OptimisticIntent) => {
+  if (!room) return;
+  const id = ++actionId;
+  room.send(message, { ...data, turn: snapshot.turn, actionId: id });
+  if (intent && snapshot.phase === 'RECRUIT_PHASE') { pending.push({ actionId: id, at: Date.now(), intent }); publish({}); }
+};
+const dropOptimistic = () => { if (pending.length) { pending = []; publish({}); } };
 
 function sync(joined: Room<AutoBattlerRoomState>) {
   if (room !== joined) return;
   const s = joined.state;
   publish({
     status: 'online', phase: s.phase, turn: s.turn, revision: s.revision, recruitSeconds: s.recruitSeconds,
-    sessionId: joined.sessionId, winnerId: s.winnerId, heroSeconds: s.heroSeconds,
+    sessionId: joined.sessionId, winnerId: s.winnerId, heroSeconds: s.heroSeconds, anomalyId: s.anomalyId ?? '',
     players: [...s.players.values()].map(toPlayer),
     pairing: [...(s.pairing ?? [])].map(p => ({ playerA: p.playerA, playerB: p.playerB, ghost: p.ghost })),
     discover: null,
@@ -123,12 +150,17 @@ export const autoBattlerSession = {
       try { table = sessionStorage.getItem('kartishki-ab-table') ?? ''; } catch { /* optional */ }
       let joined: Room<AutoBattlerRoomState>;
       const token = sessionStorage.getItem(RECONNECT_KEY);
+      const join = (auth: { playerToken?: string }) => client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table, ...auth }, AutoBattlerRoomState);
       try {
-        joined = token
-          ? await client.reconnect<AutoBattlerRoomState>(token, AutoBattlerRoomState)
-          : await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table, ...playerSession.authOptions() }, AutoBattlerRoomState);
+        joined = token ? await client.reconnect<AutoBattlerRoomState>(token, AutoBattlerRoomState) : await join(playerSession.authOptions());
       } catch {
-        joined = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table, ...playerSession.authOptions() }, AutoBattlerRoomState);
+        try {
+          joined = await join(playerSession.authOptions());
+        } catch (error) {
+          // Same account in a second tab (local testing): sit down as a guest instead of bouncing.
+          if (!(error instanceof Error && error.message.includes('alreadyInMatch'))) throw error;
+          joined = await join({});
+        }
       }
       if (attempt !== generation) { await joined.leave(); return; }
       room = joined;
@@ -149,6 +181,7 @@ export const autoBattlerSession = {
       joined.onMessage(EV.actionError, (payload: ActionErrorPayload | string) => {
         if (room !== joined) return;
         const code = typeof payload === 'string' ? payload : payload.code;
+        pending = [];
         publish({ error: code === 'REJECTED' ? 'rejected' : code });
         clearTimeout(errorTimer);
         errorTimer = setTimeout(() => { if (room === joined) publish({ error: '' }); }, 2800);
@@ -157,6 +190,7 @@ export const autoBattlerSession = {
       joined.onLeave(code => {
         if (room !== joined) return;
         room = undefined;
+        pending = [];
         if (code === 4000) {
           try { sessionStorage.removeItem(RECONNECT_KEY); } catch { /* optional */ }
           publish(empty());
@@ -174,24 +208,27 @@ export const autoBattlerSession = {
   startGame() { room?.send(MSG.startGame); },
   chooseHero(heroId: string) { room?.send(MSG.chooseHero, { heroId }); },
   buy(offerId: string) {
-    sendIntent(MSG.buy, { offerId });
+    sendIntent(MSG.buy, { offerId }, { type: 'buy', id: offerId });
   },
-  sell(minionId: string) { sendIntent(MSG.sell, { minionId }); },
+  sell(minionId: string) { sendIntent(MSG.sell, { minionId }, { type: 'sell', id: minionId }); },
   reroll() { sendIntent(MSG.reroll); },
   freeze() { sendIntent(MSG.freeze); },
   tierUp() { sendIntent(MSG.tierUp); },
   playCard(cardId: string, boardIndex?: number) {
-    sendIntent(MSG.playCard, boardIndex === undefined ? { cardId } : { cardId, boardIndex });
+    sendIntent(MSG.playCard, boardIndex === undefined ? { cardId } : { cardId, boardIndex }, { type: 'play', id: cardId, index: boardIndex });
   },
-  moveBoard(minionId: string, toIndex: number) { sendIntent(MSG.moveBoard, { minionId, toIndex }); },
+  moveBoard(minionId: string, toIndex: number) { sendIntent(MSG.moveBoard, { minionId, toIndex }, { type: 'move', id: minionId, index: toIndex }); },
   heroPower(targetId?: string) { sendIntent(MSG.heroPower, targetId ? { targetId } : {}); },
   endRecruit() { sendIntent(MSG.endRecruit); },
   cancelRecruit() { sendIntent(MSG.cancelRecruit); },
   discoverPick(optionId: string) { sendIntent(MSG.discoverPick, { optionId }); },
   clearCombat() { publish({ combat: null, combatBoards: null }); },
+  /** Forget local guesses and show the server truth (used when a gesture is abandoned). */
+  dropOptimistic,
   leave() {
     clearTimeout(errorTimer);
     generation++;
+    pending = [];
     try { sessionStorage.removeItem(RECONNECT_KEY); } catch { /* optional */ }
     const previous = room;
     room = undefined;

@@ -1,6 +1,8 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { audioManager } from '../AudioManager';
+import { spawnCoins, stageBox } from './tableFx';
 import { abCopyName, type AutoBattlerCatalog } from '@kartishki/shared';
-import { InkButton } from '../ui/InkButton';
 import { AbHeroFace } from './AbHeroFace';
 import { HeroPowerTooltip } from './HeroPowerTooltip';
 import type { AbPlayer } from '../autoBattlerSession';
@@ -15,12 +17,10 @@ type Props = {
   recruit: boolean;
   aiming: boolean;
   onPower: () => void;
-  onEnd: () => void;
-  income: number;
-  canReady?: boolean;
 };
 
-export function HeroDock({ me, catalog, recruit, aiming, onPower, onEnd, income, canReady }: Props) {
+/** Bottom-center hero: portrait with health gem, name plaque and the power gem at its right. */
+export function HeroDock({ me, catalog, recruit, aiming, onPower }: Props) {
   const { t, i18n } = useTranslation();
   const dnd = useAbDnd();
   const hero = catalog.heroes.find(h => h.id === me.heroId);
@@ -35,7 +35,7 @@ export function HeroDock({ me, catalog, recruit, aiming, onPower, onEnd, income,
       <div className="ab-hero-vitals">
         <strong>{name}</strong>
       </div>
-      <HeroPowerTooltip power={me.power} catalog={catalog}>
+      <HeroPowerTooltip power={me.power} catalog={catalog} className="ab-hero-power-anchor">
         {me.power.isPassive ? <div className="ab-power is-passive" data-testid="ab-hero-power"><b>{abCopyName(catalog.copy, 'powers', me.power.id, i18n.language, t(`abPower_${me.power.id}`))}</b><span>{t('abPassive')}</span></div> : <button type="button" className={`ab-power ${me.power.isExhausted ? 'is-exhausted' : ''} ${canPower ? 'is-ready' : ''} ${aiming || dnd?.kind === 'power' ? 'is-aiming' : ''}`}
           aria-disabled={!canPower && !aiming}
           onDragStart={event => event.preventDefault()}
@@ -48,13 +48,35 @@ export function HeroDock({ me, catalog, recruit, aiming, onPower, onEnd, income,
           <span>{me.power.goldCost}</span>
         </button>}
       </HeroPowerTooltip>
-      <div className="ab-gold" data-testid="ab-gold" aria-label={`${t('abGold')}: ${me.gold}`}>
-        <div className="ab-coins" aria-hidden>
-          {Array.from({ length: Math.max(0, Math.min(10, me.gold)) }, (_, i) => <i key={i} className="is-on" />)}
-        </div>
-        <strong><AnimatedNumber value={me.gold} /><em>/{income}</em></strong>
+    </div>
+  );
+}
+
+/** Right rail gold purse: coin stack plus the running total and this turn's income. Coins hop in and out on every change. */
+export function GoldPurse({ gold, income, turn }: { gold: number; income: number; turn: number }) {
+  const { t } = useTranslation();
+  const purse = useRef<HTMLDivElement>(null);
+  const last = useRef({ gold, turn });
+  useEffect(() => {
+    const prev = last.current;
+    last.current = { gold, turn };
+    const delta = gold - prev.gold;
+    if (!delta || !purse.current) return;
+    const here = stageBox(purse.current);
+    if (!here) return;
+    const fromHero = turn !== prev.turn && delta > 0;
+    const other = stageBox(document.querySelector(fromHero ? '[data-testid="ab-hero"] .ab-hero-face' : '[data-testid="ab-sell-zone"]'));
+    if (!other) return;
+    if (delta > 0) { spawnCoins(other, here, delta); audioManager.play(delta > 2 ? 'ab_coins' : 'ab_coin'); }
+    else { spawnCoins(here, other, -delta); audioManager.play('ab_coin_drop'); }
+    purse.current.classList.remove('is-bump'); void purse.current.offsetWidth; purse.current.classList.add('is-bump');
+  }, [gold, turn]);
+  return (
+    <div ref={purse} className="ab-gold" data-testid="ab-gold" aria-label={`${t('abGold')}: ${gold}`}>
+      <strong><AnimatedNumber value={gold} /><em>/{income}</em></strong>
+      <div className="ab-coins" aria-hidden>
+        {Array.from({ length: 10 }, (_, i) => <i key={i} className={i < gold ? 'is-on' : ''} />)}
       </div>
-      <InkButton tone={me.recruitReady ? 'ink' : 'blood'} disabled={!(canReady ?? recruit)} aria-pressed={me.recruitReady} onClick={onEnd}>{me.recruitReady ? t('abReady') : t('abEndRecruit')}</InkButton>
     </div>
   );
 }

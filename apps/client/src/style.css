@@ -518,3 +518,4 @@ main.editor .editor-grid { grid-template-columns: minmax(280px,1fr) minmax(320px
 .menu-server-spinner { display:inline-block; width:46px; height:46px; border:4px solid #1a1a1a22; border-top-color:var(--blood); border-radius:50%; animation:menu-server-spin 1s linear infinite; }
 @keyframes menu-server-spin { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .menu-server-spinner { animation:none; } }
+.menu-version { position:absolute; left:52px; bottom:8px; z-index:5; font:12px var(--font-mono); letter-spacing:3px; color:#1a1a1a99; pointer-events:none; }

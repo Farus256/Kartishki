@@ -29,6 +29,7 @@ export function resolveTriples(
   player: AutoBattlerPlayerState,
   nextId: () => string,
   defFor: (baseId: string) => AutoBattlerMinionDef | undefined,
+  onTriple?: (golden: AutoBattlerPlayerState['hand'][number]) => void,
 ): boolean {
   let merged = false;
   for (let safety = 0; safety < 8; safety++) {
@@ -91,6 +92,7 @@ export function resolveTriples(
     player.hand.push(golden);
     player.tripleSerial++;
     merged = true;
+    onTriple?.(golden);
   }
   recountTriples(player);
   return merged;

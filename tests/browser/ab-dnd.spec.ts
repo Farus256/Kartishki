@@ -213,3 +213,25 @@ test('discover cancels drag and keeps the focus trap; arrow ignores pointers', a
   await page.keyboard.press('Escape');
   await expect(page.locator('.ab-board .is-selected')).toHaveCount(0);
 });
+
+test('a drop lands the ghost on its tile at once; a late echo flies the tile in once', async ({ page }) => {
+  const open = abOpenTable();
+  const board = abFixture().players[0]!.board.slice(0, 3);
+  const hand = abFixture().players[0]!.hand.slice(0, 2);
+  open.players[0]!.board = board;
+  open.players[0]!.hand = hand;
+  await openMockAb(page, open);
+  await pointerDrag(page, page.getByTestId('ab-minion-p0-m8'), page.getByTestId('ab-board-slot-1'));
+  // The mock never applies the play locally, so the ghost glides home and hands over to the hand card.
+  await expect(page.getByTestId('ab-drag-ghost')).toBeHidden();
+  await expect(page.locator('.ab-board .is-gap')).toHaveCount(0);
+  await expect(page.locator('.ab-minion.is-parked')).toHaveCount(0);
+  await expect(page.locator('[data-ab-id="p0-m8"]')).toHaveCount(1);
+  const echo = abOpenTable();
+  echo.players[0]!.board = [board[0]!, hand[0]!, board[1]!, board[2]!];
+  echo.players[0]!.hand = hand.slice(1);
+  await setFixture(page, echo);
+  await expect(page.locator('[data-ab-id="p0-m8"]')).toHaveCount(1);
+  await expect(page.getByTestId('ab-board-slot-1').locator('[data-ab-id="p0-m8"]')).toHaveCount(1);
+  expect(await actionsOf(page)).toEqual([['play', 'p0-m8', 1]]);
+});

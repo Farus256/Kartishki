@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { AbPlayer } from '../autoBattlerSession';
 import { audioManager } from '../AudioManager';
 import { detectTavernReaction, type TavernSnap } from './tavernReaction';
+import { playVoice } from './voiceLines';
 
 function snap(me: AbPlayer): TavernSnap {
   return {
@@ -34,12 +35,19 @@ export function useTavernReaction(me: AbPlayer, error?: string) {
       if (current.tavernTier <= shownUpgrade.current) return;
       shownUpgrade.current = current.tavernTier;
     }
-    if (next === 'PLACE') { audioManager.play('card_place'); return; }
+    if (next === 'PLACE') { audioManager.play('ab_drop_board'); return; }
     setReaction(next);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setReaction(''), 2400);
-    if (next === 'BUY' || next === 'UPGRADE' || next === 'REROLL') audioManager.play('coins_spend');
-    if (next === 'SELL' || next === 'TRIPLE') audioManager.play('coins_win');
+    // Coins themselves ring from the purse; here only the action's own voice.
+    const voice = { BUY: 'ab_buy', SELL: 'ab_sell', REROLL: 'ab_reroll', FREEZE: 'ab_freeze', UPGRADE: 'ab_upgrade', TRIPLE: 'ab_triple', NO_GOLD: 'ab_error', PLAYER_WIN: 'case_win', PLAYER_LOSS: 'ab_stamp' } as const;
+    const sound = voice[next as keyof typeof voice];
+    if (sound) audioManager.play(sound);
+    if (next === 'PLAYER_WIN') playVoice('win', .6);
+    else if (next === 'PLAYER_LOSS') playVoice('loss', .8);
+    else if (next === 'TRIPLE') playVoice('triple', .7);
+    else if (next === 'SELL') playVoice('sold', .2);
+    else if (next === 'NO_GOLD') playVoice('broke', .45);
   }, [me.sessionId, me.gold, me.tavernTier, me.tripleSerial, me.lastCombatResult, me.tavern.frozen, me.tavern.offers.length, me.tavern.offers[0]?.id, me.board.length, me.hand.length, error]);
   return reaction;
 }

@@ -44,9 +44,9 @@ test('even counts split evenly around center', () => {
 });
 
 test('spacing tightens with population but never overlaps', () => {
-  assert.equal(lineGap(1), 20);
-  assert.equal(lineGap(4), 12);
-  assert.equal(lineGap(7), 6);
+  assert.equal(lineGap(1), 34);
+  assert.equal(lineGap(4), 24);
+  assert.equal(lineGap(7), 14);
   const xs = lineStarts(7, AB_LAYOUT.MINION_W, CENTER, MAX);
   for (let i = 1; i < xs.length; i++) {
     assert.ok(xs[i]! - xs[i - 1]! >= AB_LAYOUT.MINION_W + 4);

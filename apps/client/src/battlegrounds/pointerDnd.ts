@@ -88,8 +88,8 @@ export function previewBoard<T extends { id: string }>(board: readonly T[], drag
 export function hitZone(kind: AbDragKind, point: { x: number; y: number }, areas: { buy?: LocalRect; sell?: LocalRect; board?: LocalRect }): DropZone {
   if (kind === 'power') return 'none';
   if ((kind === 'board' || kind === 'hand') && areas.sell && contains(areas.sell, point.x, point.y)) return 'sell';
+  // A purchase needs a deliberate pull: only the hero/hand band buys, hovering the board does not.
   if (kind === 'shop' && areas.buy && contains(areas.buy, point.x, point.y)) return 'buy';
-  if (kind === 'shop' && areas.board && contains(areas.board, point.x, point.y)) return 'buy';
   if ((kind === 'board' || kind === 'hand') && areas.board && contains(areas.board, point.x, point.y)) return 'board';
   return 'none';
 }

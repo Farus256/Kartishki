@@ -1,6 +1,6 @@
 const LOCAL = 'http://127.0.0.1:2567';
 
-function isLoopback(origin: string): boolean {
+export function isLoopback(origin: string): boolean {
   try {
     const { hostname } = new URL(origin);
     return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
@@ -25,4 +25,9 @@ export function resolveServerOrigin(
 
 export function serverOrigin(): string {
   return resolveServerOrigin(import.meta.env.VITE_SERVER_URL);
+}
+
+/** A loopback server is never "asleep": local play must open without waiting for /health. */
+export function serverGateRequired(origin = serverOrigin()): boolean {
+  return !isLoopback(origin);
 }

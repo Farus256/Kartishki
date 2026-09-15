@@ -29,7 +29,9 @@ test('composition matrix: compact rows, independent Hero anchor, Hand region and
    await page.waitForTimeout(300);
    const g=await geometry(page);
    expect(Math.abs(g.hero.cx-g.stage.cx)).toBeLessThan(1);
-   expect(g.hand.right).toBeLessThan(g.hero.x);
+   // Hearthstone composition: hand centered under the hero, power gem at the hero's right.
+   expect(Math.abs(g.hand.cx-g.stage.cx)).toBeLessThan(2);
+   expect(g.hand.y).toBeGreaterThanOrEqual(g.hero.bottom-6);
    expect(g.power.x).toBeGreaterThan(g.hero.right);
    expect(g.scroll).toBe(false);
    const tokens=page.locator('.ab-board .ab-minion');
@@ -55,7 +57,7 @@ test('four-position reorder, five-position play, cancellation, rejection and unc
  await expect(page.getByTestId('ab-drag-ghost')).toBeHidden();
  await pointerHold(page,page.getByTestId('ab-minion-p0-m8'),page.getByTestId('ab-board-slot-2'));
  await expect(page.locator('.ab-board .ab-slot')).toHaveCount(5);
- const center=await page.locator('.ab-board').evaluate(el=>{const r=el.getBoundingClientRect(),slots=[...el.querySelectorAll('.ab-slot')].map(s=>s.getBoundingClientRect());return Math.abs((slots[0]!.left+slots.at(-1)!.right)/2-(r.left+r.width/2));});
+ const center=await page.locator('.ab-board').evaluate(el=>{const r=el.getBoundingClientRect(),slots=[...el.querySelectorAll('.ab-slot')].map(s=>s.getBoundingClientRect()).sort((a,b)=>a.left-b.left);return Math.abs((slots[0]!.left+slots.at(-1)!.right)/2-(r.left+r.width/2));});
  expect(center).toBeLessThan(1);
  await page.keyboard.press('Escape');
  await pointerDrag(page,page.getByTestId('ab-minion-p0-m0'),page.getByTestId('ab-board-slot-0'));

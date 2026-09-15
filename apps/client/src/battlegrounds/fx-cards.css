@@ -1,0 +1,91 @@
+/* fx-cards: keyword signals, full-card hover, idle breathing. Motion is transform/opacity only. */
+
+/* Taunt: a slim shield outline just outside the token, under the gems */
+.ab-taunt-frame { position:absolute; inset:-12px -9px -3px; width:calc(100% + 18px); height:calc(100% + 15px); z-index:-1; pointer-events:none; overflow:visible; }
+.ab-taunt-frame path { fill:#8a6a2b; stroke:#e6c98c; stroke-width:4; stroke-linejoin:round; filter:drop-shadow(0 3px 0 #2a1a10); }
+.ab-taunt-frame .ab-taunt-inner { display:none; }
+.ab-minion.is-full-card .ab-taunt-frame { inset:-7px -5px -2px; width:calc(100% + 10px); height:calc(100% + 9px); }
+
+/* Poisonous: a green drop badge at the top right */
+.ab-poison-drop { position:absolute; top:-10px; right:-6px; width:30px; height:38px; z-index:9; pointer-events:none; filter:drop-shadow(0 2px 1px #0008); animation:ab-drop-wobble 2.4s ease-in-out infinite; animation-delay:var(--idle-phase,0s); }
+.ab-poison-drop path { fill:#5fc94a; stroke:#1c3d18; stroke-width:3; stroke-linejoin:round; }
+.ab-poison-drop .ab-poison-shine { fill:none; stroke:#d6ffc9; stroke-width:2.5; stroke-linecap:round; }
+.ab-poison-drop .ab-poison-eye { fill:#1c3d18; stroke:none; }
+@keyframes ab-drop-wobble { 0%,100% { transform:rotate(-6deg); } 50% { transform:rotate(6deg) translateY(1px); } }
+
+/* Reborn: the portrait is cracked, the cracks breathe a cold blue light */
+.ab-reborn-sash { position:absolute; inset:5px; z-index:4; pointer-events:none; border-radius:50%; overflow:hidden; }
+.ab-reborn-sash i { display:none; }
+.ab-reborn-sash::before,.ab-reborn-sash::after { content:''; position:absolute; inset:0; pointer-events:none; }
+.ab-reborn-sash::before { background:
+  linear-gradient(112deg,transparent 47.4%,#9ef0ff 48%,#e8fbff 49%,#9ef0ff 50%,transparent 50.6%),
+  linear-gradient(28deg,transparent 60.4%,#9ef0ff 61%,#e8fbff 61.8%,transparent 62.4%),
+  linear-gradient(-40deg,transparent 33.4%,#9ef0ff 34%,#e8fbff 34.8%,transparent 35.4%),
+  linear-gradient(160deg,transparent 71.4%,#9ef0ff 72%,transparent 72.6%),
+  linear-gradient(75deg,transparent 22.4%,#9ef0ff 23%,transparent 23.6%);
+  filter:drop-shadow(0 0 4px #9ef0ff); animation:ab-crack-pulse 1.8s ease-in-out infinite; animation-delay:var(--idle-phase,0s); }
+.ab-reborn-sash::after { box-shadow:inset 0 0 22px #62d8ff88; animation:ab-crack-glow 1.8s ease-in-out infinite; animation-delay:var(--idle-phase,0s); }
+@keyframes ab-crack-pulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
+@keyframes ab-crack-glow { 0%,100% { opacity:.3; } 50% { opacity:1; } }
+.ab-minion.is-full-card .ab-reborn-sash { inset:7px 7px auto; height:100px; border-radius:0; }
+.ab-hand .ab-minion.is-full-card .ab-reborn-sash { height:86px; }
+.ab-discover-row .ab-minion.is-full-card .ab-reborn-sash { inset:8px 8px auto; height:196px; }
+
+/* Idle life: the portrait breathes, the ground shadow answers */
+.ab-screen .ab-minion.is-token { isolation:isolate; }
+.ab-token-shadow { position:absolute; left:14%; right:14%; bottom:-9px; height:16px; border-radius:50%; background:radial-gradient(ellipse,#1a0d0a88,#1a0d0a33 55%,transparent 72%); z-index:-1; pointer-events:none; animation:ab-breathe-shadow 2.8s ease-in-out infinite; animation-delay:var(--idle-phase,0s); }
+.ab-screen .ab-minion.is-token .ab-minion-art { animation:ab-breathe 2.8s ease-in-out infinite; animation-delay:var(--idle-phase,0s); transform-origin:50% 80%; }
+.ab-screen .ab-minion.is-token .ab-minion-art img { transition:transform .25s ease; }
+.ab-screen .ab-minion.is-token:hover .ab-minion-art img { transform:scale(1.06); }
+.ab-drag-ghost .ab-minion-art,.ab-combat-card .ab-minion-art { animation:none!important; }
+.ab-screen.is-combat .ab-token-shadow { animation:none; }
+@keyframes ab-breathe { 0%,100% { transform:translateY(0) scale(1); } 50% { transform:translateY(-2px) scale(1.025); } }
+@keyframes ab-breathe-shadow { 0%,100% { transform:scaleX(1); opacity:.9; } 50% { transform:scaleX(.93); opacity:.65; } }
+
+/* Hover on a token: the full card beside it */
+.paper-tooltip.is-dossier { transform-origin:0 50%; animation:ab-dossier-in .16s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes ab-dossier-in { from { opacity:0; transform:translateX(-10px) scale(.92); } to { opacity:1; transform:none; } }
+.ab-dossier { width:264px; min-height:392px; border:0; border-radius:10px; padding:10px 10px 8px; background:linear-gradient(180deg,#f6efdc,#e9dfc4); box-shadow:0 0 0 4px #3a2a20,0 0 0 6px #c9a463,10px 14px 0 #1a1a1a66; }
+.ab-dossier.is-golden { background:repeating-linear-gradient(115deg,#d9b866 0 15px,#f2e4ac 17px,#c49b48 22px,#e5cf8a 28px); box-shadow:0 0 0 4px #5a3f12,0 0 0 6px #ffd76a,0 0 24px #ffd76a88,10px 14px 0 #1a1a1a66; }
+.ab-dossier-stars { padding:0 4px 4px; font-size:15px; color:#8a6a2b; text-shadow:0 1px 0 #fff8e6; }
+.ab-dossier-art { margin:0; height:158px; border:3px solid #2a1a10; border-radius:8px 8px 40% 40% / 8px 8px 22% 22%; background:#d5cfbd; box-shadow:inset 0 0 0 2px #f6efdc; }
+.ab-dossier-name { margin:-14px 8px 0; padding:6px 10px; border:3px solid #2a1a10; border-radius:8px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; font:21px/1.1 var(--font-hand); box-shadow:0 3px 0 #1a1a1a55; }
+.ab-dossier-text { margin:10px 6px 6px; padding:8px 10px; min-height:104px; max-height:150px; border:0; border-radius:6px; background:#fff9ea; box-shadow:inset 0 0 0 1px #c9b78e; font:13px/1.45 var(--font-mono); color:#2a1f18; }
+.ab-dossier-foot { padding:0 2px 2px; }
+.ab-dossier-foot b,.ab-dossier-foot i { width:44px; height:44px; font-size:24px; }
+.ab-dossier-tribe { font-size:15px; color:#5a4030; }
+.ab-dossier.is-spell .ab-dossier-name { background:linear-gradient(180deg,#8a5a1e,#5a3a12); }
+
+/* Hand: the hovered card grows, neighbours lean away */
+.ab-hand .ab-minion-wrap { transition:translate .18s ease; }
+.ab-hand .ab-minion-wrap:hover ~ .ab-minion-wrap { translate:22px 0; }
+.ab-hand .ab-minion-wrap:has(~ .ab-minion-wrap:hover) { translate:-22px 0; }
+.ab-screen.is-ab-dragging .ab-hand .ab-minion-wrap { translate:0 0!important; }
+
+@media(prefers-reduced-motion:reduce) {
+  .ab-poison-drop,.ab-reborn-sash i,.ab-token-shadow,.ab-screen .ab-minion.is-token .ab-minion-art,.paper-tooltip.is-dossier { animation:none!important; }
+  .ab-hand .ab-minion-wrap:hover ~ .ab-minion-wrap,.ab-hand .ab-minion-wrap:has(~ .ab-minion-wrap:hover) { translate:0 0; }
+}
+
+/* Keyword icons: round ink badges at the token bottom centre, between the gems (the Hearthstone skull spot) */
+.ab-screen .ab-minion.is-token .ab-minion-keys,.ab-screen .ab-minion.is-full-card .ab-minion-keys,.ab-board .ab-minion-keys,.ab-hand .ab-minion-keys,.ab-tavern .ab-minion-keys { display:flex; justify-content:center; gap:4px; left:26px; right:26px; bottom:-14px; z-index:9; pointer-events:none; }
+.ab-minion-keys em { display:grid; place-items:center; min-width:0; width:32px; height:32px; padding:0; border-radius:50%; border:2px solid #2a1a10; background:radial-gradient(circle at 40% 35%,#4a3a30,#1a1210 70%); box-shadow:0 2px 3px #0009,inset 0 0 0 2px #b48b4e66; color:#f3d278; font:bold 16px/1 var(--font-mono); text-shadow:none; }
+.ab-minion-keys em svg { width:24px; height:24px; }
+.ab-minion-keys [data-keyword=deathrattle] { font-size:16px; }
+.ab-minion-keys [data-keyword=battlecry] { font-size:16px; letter-spacing:0; padding-right:0; }
+.ab-minion.is-full-card .ab-minion-keys { bottom:22px; }
+.ab-hand .ab-minion-keys { bottom:22px; }
+.ab-discover-row .ab-minion-keys { bottom:60px; }
+.ab-minion-keys em { animation:ab-badge-in .35s cubic-bezier(.2,.9,.3,1.4) both; }
+@keyframes ab-badge-in { from { transform:scale(.4); opacity:0; } }
+.ab-combat-card .ab-minion-keys em { animation:none; }
+
+/* Tribe plate: dark ribbon with light text, on the full card and the hover card */
+.ab-dossier-tribe { flex:none; padding:4px 12px; margin-bottom:6px; border:2px solid #2a1a10; border-radius:10px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; font:15px var(--font-hand); letter-spacing:.5px; box-shadow:0 2px 0 #1a1a1a55; }
+.ab-minion-tribe { position:absolute; left:50%; transform:translateX(-50%); bottom:14px; z-index:6; padding:2px 10px; border:2px solid #2a1a10; border-radius:9px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; font:12px/14px var(--font-hand); white-space:nowrap; box-shadow:0 2px 0 #1a1a1a55; pointer-events:none; }
+.ab-hand .ab-minion-tribe { display:none; }
+.ab-discover-row .ab-minion-tribe { bottom:14px; font-size:14px; }
+
+/* Buttons centre their content vertically; a paper card stacks from the top */
+.ab-minion.is-full-card { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; }
+.ab-minion.is-full-card > * { flex:none; }

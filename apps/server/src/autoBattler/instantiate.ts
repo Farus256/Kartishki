@@ -11,7 +11,7 @@ export function fillMinion(m: AutoBattlerMinionState, def: AutoBattlerMinionDef,
   m.id = id;
   m.cardId = def.id;
   m.baseId = def.id;
-  m.kind = 'minion';
+  m.kind = def.spell ? 'spell' : 'minion';
   m.attack = printed.attack;
   m.health = printed.health;
   m.maxHealth = printed.health;
@@ -68,7 +68,24 @@ export function isShopMinion(card: { kind: string; cardId: string }): boolean {
   return card.kind !== 'spell' && card.cardId !== AUTO_BATTLER.DISCOVER_SPELL_ID;
 }
 
-export function insertAt<T>(list: { splice: (start: number, deleteCount: number, ...items: T[]) => T[]; length: number }, index: number, item: T): void {
+type SchemaList<T> = { length: number; pop(): T | undefined; push(item: T): number; [Symbol.iterator](): Iterator<T> };
+
+/**
+ * Replace the contents of a replicated array. ArraySchema splice-inserts in the middle decode as
+ * appends on a view-filtered client (schema 3.x), so any reorder or mid-insert must be rewritten
+ * as pop-all + push in the new order — that round-trips correctly.
+ */
+export function rewriteList(list: SchemaList<AutoBattlerMinionState>, items: readonly AutoBattlerMinionState[]): void {
+  // Fresh instances: re-adding a ref the decoder just released in the same patch is dropped.
+  const clones = items.map(item => cloneMinionState(item, item.id));
+  while (list.length) list.pop();
+  for (const item of clones) list.push(item);
+}
+
+export function insertAt(list: SchemaList<AutoBattlerMinionState>, index: number, item: AutoBattlerMinionState): void {
   const at = Math.max(0, Math.min(index, list.length));
-  list.splice(at, 0, item);
+  if (at >= list.length) { list.push(item); return; }
+  const items = [...list];
+  items.splice(at, 0, item);
+  rewriteList(list, items);
 }

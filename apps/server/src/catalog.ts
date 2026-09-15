@@ -20,7 +20,7 @@ export class CatalogStore {
       }
       if (data.menuMusic && !validateMenuMusic(data.menuMusic)) throw new Error('Invalid menu music');
       if (data.shop && !validateShopConfig(data.shop)) throw new Error('Invalid shop');
-      this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: data.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: data.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling), menuMusic: data.menuMusic ?? structuredClone(emptyMenuMusic), shop: data.shop ?? structuredClone(defaultShop) };
+      this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: mergeById(starterAutoBattlerMinions, data.autoBattlerMinions), autoBattlerHeroes: mergeById(starterAutoBattlerHeroes, data.autoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling), menuMusic: data.menuMusic ?? structuredClone(emptyMenuMusic), shop: data.shop ?? structuredClone(defaultShop) };
     }
   }
   snapshot(): Catalog { return structuredClone({ ...this.catalog, autoBattlerMinions: this.catalog.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: this.catalog.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: this.catalog.playerLeveling ?? structuredClone(starterLeveling), menuMusic: this.catalog.menuMusic ?? structuredClone(emptyMenuMusic), shop: resolveShop(this.catalog.shop) }); }
@@ -49,7 +49,7 @@ export class CatalogStore {
     if (version !== this.catalog.version) throw new Error('catalogConflict');
     const current = this.catalog.autoBattlerMinions ?? starterAutoBattlerMinions;
     const minions = current.filter(m => m.id !== minion.id);
-    if (minions.length >= 40) throw new Error('catalogFull');
+    if (minions.length >= 200) throw new Error('catalogFull');
     const nextList = [...minions, structuredClone(minion)];
     if (minion.deathrattle && !nextList.some(m => m.id === minion.deathrattle!.summonId)) throw new Error('invalidCard');
     const next = { ...this.catalog, version: version + 1, autoBattlerMinions: nextList };
@@ -61,7 +61,7 @@ export class CatalogStore {
     if (version !== this.catalog.version) throw new Error('catalogConflict');
     const current = this.catalog.autoBattlerHeroes ?? starterAutoBattlerHeroes;
     const heroes = current.filter(h => h.id !== hero.id);
-    if (heroes.length >= 16) throw new Error('catalogFull');
+    if (heroes.length >= 40) throw new Error('catalogFull');
     const nextList = [...heroes, structuredClone(hero)];
     if (nextList.length < 2) throw new Error('invalidHero');
     const next = { ...this.catalog, version: version + 1, autoBattlerHeroes: nextList };
@@ -98,13 +98,26 @@ export class CatalogStore {
   }
 }
 
+/**
+ * Starters merged with what the editor published: a published entry overrides the starter's
+ * fields (art, stats, copy) but inherits the fields the editor never wrote (effects, spells);
+ * starters the editor never touched are appended.
+ */
+function mergeById<T extends { id: string }>(starters: T[], published: T[] | undefined): T[] {
+  if (!published?.length) return structuredClone(starters);
+  const base = new Map(structuredClone(starters).map(item => [item.id, item]));
+  const merged = published.map(item => ({ ...base.get(item.id), ...structuredClone(item) }));
+  const seen = new Set(published.map(item => item.id));
+  return [...merged, ...[...base.values()].filter(item => !seen.has(item.id))];
+}
+
 function validAutoBattlerMinions(list: AutoBattlerMinionDef[]) {
-  if (list.length < 1 || list.length > 40 || !list.every(validateAutoBattlerMinion) || new Set(list.map(m => m.id)).size !== list.length) return false;
+  if (list.length < 1 || list.length > 200 || !list.every(validateAutoBattlerMinion) || new Set(list.map(m => m.id)).size !== list.length) return false;
   const ids = new Set(list.map(m => m.id));
   return list.every(m => !m.deathrattle || ids.has(m.deathrattle.summonId));
 }
 
 function validAutoBattlerHeroes(list: AutoBattlerHeroDef[]) {
-  return list.length >= 2 && list.length <= 16 && list.every(validateAutoBattlerHero) && new Set(list.map(h => h.id)).size === list.length;
+  return list.length >= 2 && list.length <= 40 && list.every(validateAutoBattlerHero) && new Set(list.map(h => h.id)).size === list.length;
 }
 export const catalogStore = new CatalogStore();

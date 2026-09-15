@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { abCopyDescription, abCopyName, pickLoc, type AutoBattlerCopy, type AutoBattlerHeroDef } from '@kartishki/shared';
 import { AbHeroFace } from './AbHeroFace';
 import { localizedName } from './minionView';
+import { HeartIcon } from './MinionTile';
+import './heroSelect.css';
 
 type Props = {
   offers: AutoBattlerHeroDef[];
@@ -19,8 +21,7 @@ export function HeroSelect({ offers, chosen, copy, onChoose }: Props) {
         {offers.map(hero => (
           <button key={hero.id} disabled={!!chosen} aria-pressed={chosen === hero.id} onClick={() => onChoose(hero.id)}>
             <article className="hero-portrait">
-              <div className="hero-photo"><AbHeroFace id={hero.id} art={hero.art} /></div>
-              <span className="hero-health">♥ {hero.health}</span>
+              <div className="hero-photo"><AbHeroFace id={hero.id} art={hero.art} /><span className="ab-hero-health hero-health" aria-label={`♥ ${hero.health}`}><HeartIcon />{hero.health}</span></div>
               <h2>{localizedName(hero.name, i18n.language)}</h2>
               {hero.description && (hero.description.ru || hero.description.en) && <p>{pickLoc(hero.description, i18n.language)}</p>}
               <div className="hero-ability">

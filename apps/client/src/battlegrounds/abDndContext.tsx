@@ -8,7 +8,12 @@ export type AbDndView = {
   zone: DropZone;
   targetId: string | null;
   valid: boolean;
+  /** Pointer is down and past the drag threshold: the ghost follows it and the board shows a hole. */
   armed: boolean;
+  /** Released: the ghost is gliding onto the tile it stands for (or back home) and that tile stays concealed. */
+  settling: boolean;
+  /** Tile concealed behind the ghost while it lands; revealed in the same frame the ghost hides. */
+  hidden: string | null;
 };
 
 export type AbDndApi = AbDndView & {

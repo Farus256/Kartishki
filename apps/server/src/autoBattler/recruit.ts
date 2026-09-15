@@ -6,12 +6,13 @@ import {
   type AutoBattlerMinionDef,
   type AutoBattlerPlayerState,
 } from '@kartishki/shared';
-import { cloneMinionState, createDiscoverSpell, createMinionState, insertAt, isShopMinion } from './instantiate';
+import { cloneMinionState, createDiscoverSpell, createMinionState, insertAt, isShopMinion, rewriteList } from './instantiate';
 import type { SharedMinionPool } from './pool';
 import type { SeededRng } from './rng';
 import { resolveTriples } from './triples';
 import type { EffectRegistry, RecruitContext } from './keywords';
 import { fail, ok, type ActionResult } from './errors';
+import { buffTavernMinion, DEFAULT_RULES, runBoardEffects, runTavernEffects, type RecruitEffectDeps, type TavernRules } from './effects';
 
 export type RecruitDeps = {
   player: AutoBattlerPlayerState;
@@ -20,10 +21,49 @@ export type RecruitDeps = {
   nextId: () => string;
   registry: EffectRegistry;
   defFor: (baseId: string) => AutoBattlerMinionDef | undefined;
+  /** Anomaly-adjusted prices; DEFAULT_RULES when the room passes none. */
+  rules?: TavernRules;
 };
 
+const rulesOf = (deps: RecruitDeps): TavernRules => deps.rules ?? DEFAULT_RULES;
+
+/** Discover of the given tier: options go to pendingDiscover until the player picks. */
+function openDiscover(deps: RecruitDeps, tier: number): boolean {
+  const { player } = deps;
+  if (player.discoverOpen || player.hand.length >= AUTO_BATTLER.HAND_LIMIT) return false;
+  const options = deps.pool.sampleDiscover(tier, AUTO_BATTLER.DISCOVER_COUNT, deps.rng);
+  for (const def of options) {
+    if (!deps.pool.take(def.id)) continue;
+    const option = createMinionState(def, deps.nextId(), player.sessionId);
+    option.poolCopies = 1;
+    player.pendingDiscover.push(option);
+  }
+  player.discoverOpen = player.pendingDiscover.length > 0;
+  return player.discoverOpen;
+}
+
 function ctxOf(deps: RecruitDeps): RecruitContext {
-  return { player: deps.player, nextId: deps.nextId };
+  return { player: deps.player, nextId: deps.nextId, rng: deps.rng, defFor: deps.defFor, discover: tier => openDiscover(deps, tier) };
+}
+
+function fxOf(deps: RecruitDeps): RecruitEffectDeps {
+  return { player: deps.player, rng: deps.rng, defFor: deps.defFor, rules: rulesOf(deps) };
+}
+
+/** Prices replicated to the client: anomalies, free refreshes and the first-buy discount. */
+export function syncPrices(deps: RecruitDeps): void {
+  const { player } = deps;
+  const rules = rulesOf(deps);
+  player.buyCost = Math.max(0, rules.buyCost - (player.buysThisTurn === 0 ? rules.firstBuyDiscount : 0));
+  player.rerollCost = player.freeRerolls > 0 ? 0 : rules.rerollCost;
+}
+
+function afterTriples(deps: RecruitDeps): void {
+  const { player } = deps;
+  resolveTriples(player, deps.nextId, deps.defFor, golden => {
+    runBoardEffects(fxOf(deps), 'triple', golden);
+    deps.registry.heroPowers.get(player.hero.power.id)?.onTriple?.(ctxOf(deps), golden);
+  });
 }
 
 export function returnOffersToPool(player: AutoBattlerPlayerState, pool: SharedMinionPool): void {
@@ -34,7 +74,7 @@ export function returnOffersToPool(player: AutoBattlerPlayerState, pool: SharedM
 }
 
 export function fillTavern(deps: RecruitDeps): void {
-  const size = tavernSizeForTier(deps.player.tavernTier);
+  const size = tavernSizeForTier(deps.player.tavernTier) + rulesOf(deps).tavernBonus;
   deps.player.tavern.size = size;
   const rolled = deps.pool.roll(deps.player.tavernTier, Math.max(0, size - deps.player.tavern.offers.length), deps.rng);
   for (const def of rolled) {
@@ -46,30 +86,49 @@ export function fillTavern(deps: RecruitDeps): void {
 
 export function beginRecruitTurn(deps: RecruitDeps, turn: number): void {
   const { player, registry } = deps;
-  player.gold = goldForTurn(turn);
+  const rules = rulesOf(deps);
+  player.gold = Math.min(rules.goldCap, Math.max(0, goldForTurn(turn) + (rules.goldCap - AUTO_BATTLER.GOLD_CAP)));
   player.upgradeCost = Math.max(0, player.upgradeCost - 1);
   player.hero.power.isExhausted = false;
   player.recruitReady = false;
+  player.buysThisTurn = 0;
+  player.freeRerolls = 0;
   if (player.tavern.frozen) { player.tavern.frozen = false; fillTavern(deps); }
   else {
     returnOffersToPool(player, deps.pool);
     fillTavern(deps);
   }
   registry.heroPowers.get(player.hero.power.id)?.onRecruitStart?.(ctxOf(deps));
+  syncPrices(deps);
+}
+
+/** End of the recruit phase: end-of-turn minion effects and passive hero hooks, before boards are snapshotted. */
+export function endRecruitTurn(deps: RecruitDeps): void {
+  runBoardEffects(fxOf(deps), 'endTurn');
+  deps.registry.heroPowers.get(deps.player.hero.power.id)?.onTurnEnd?.(ctxOf(deps));
 }
 
 export function tryBuy(deps: RecruitDeps, offerId: string, boardIndex?: number): ActionResult {
   const { player } = deps;
-  if (player.gold < AUTO_BATTLER.BUY_COST) return fail('NOT_ENOUGH_GOLD');
+  syncPrices(deps);
+  const cost = player.buyCost;
+  if (player.gold < cost) return fail('NOT_ENOUGH_GOLD');
   if (player.hand.length >= AUTO_BATTLER.HAND_LIMIT) return fail('HAND_FULL');
   const index = [...player.tavern.offers].findIndex(offer => offer.id === offerId);
   if (index < 0) return fail('SHOP_SLOT_NOT_FOUND');
-  player.gold -= AUTO_BATTLER.BUY_COST;
+  player.gold -= cost;
+  player.buysThisTurn += 1;
   const [minion] = player.tavern.offers.splice(index, 1);
   if (!minion) return fail('SHOP_SLOT_NOT_FOUND');
   minion.owner = player.sessionId;
-  player.hand.push(cloneMinionState(minion,minion.id));
-  resolveTriples(player, deps.nextId, deps.defFor);
+  const bought = cloneMinionState(minion, minion.id);
+  player.hand.push(bought);
+  if (bought.kind !== 'spell') {
+    runBoardEffects(fxOf(deps), 'buy', bought);
+    deps.registry.heroPowers.get(player.hero.power.id)?.onBuy?.(ctxOf(deps), bought);
+  }
+  afterTriples(deps);
+  syncPrices(deps);
   return ok();
 }
 
@@ -92,18 +151,25 @@ export function trySell(deps: RecruitDeps, minionId: string): ActionResult {
   // extra dollar when the player starts a sale at 9 or 10.
   player.gold += AUTO_BATTLER.SELL_REWARD;
   for (let n = 0; n < card.poolCopies; n++) pool.returnCopy(card.baseId);
+  // The sold card's own "sells for more" first, then the board reacts to the sale.
+  runTavernEffects(fxOf(deps), 'sell', card, card);
+  runBoardEffects(fxOf(deps), 'sell', card);
   deps.registry.heroPowers.get(player.hero.power.id)?.onSell?.(ctxOf(deps));
-  resolveTriples(player, deps.nextId, deps.defFor);
+  afterTriples(deps);
   return ok();
 }
 
 export function tryReroll(deps: RecruitDeps): ActionResult {
   const { player } = deps;
-  if (player.gold < AUTO_BATTLER.REROLL_COST) return fail('NOT_ENOUGH_GOLD');
-  player.gold -= AUTO_BATTLER.REROLL_COST;
+  syncPrices(deps);
+  const cost = player.rerollCost;
+  if (player.gold < cost) return fail('NOT_ENOUGH_GOLD');
+  player.gold -= cost;
+  if (player.freeRerolls > 0 && cost === 0) player.freeRerolls -= 1;
   player.tavern.frozen = false;
   returnOffersToPool(player, deps.pool);
   fillTavern(deps);
+  syncPrices(deps);
   return ok();
 }
 
@@ -128,38 +194,48 @@ export function tryPlayCard(deps: RecruitDeps, cardId: string, boardIndex?: numb
   if (index < 0) return fail('INVALID_TARGET');
   const source = player.hand[index]!;
   const card = cloneMinionState(source,source.id);
-  if (card.kind === 'spell' && card.cardId === AUTO_BATTLER.DISCOVER_SPELL_ID) {
-    if (player.discoverOpen) return fail('DISCOVER_NOT_ACTIVE');
-    const options = deps.pool.sampleDiscover(
-      card.tavernTier,
-      AUTO_BATTLER.DISCOVER_COUNT,
-      deps.rng,
-    );
-    if (!options.length) return fail('INVALID_DISCOVER_OPTION');
-    player.hand.splice(index, 1);
-    for (const def of options) {
-      if (!deps.pool.take(def.id)) continue;
-      const option = createMinionState(def, deps.nextId(), player.sessionId);
-      option.poolCopies = 1;
-      player.pendingDiscover.push(option);
+  if (card.kind === 'spell') {
+    const spell = card.cardId === AUTO_BATTLER.DISCOVER_SPELL_ID ? { kind: 'discover' as const, amount: undefined } : deps.defFor(card.baseId)?.spell;
+    if (!spell) return fail('INVALID_TARGET');
+    if (spell.kind === 'discover') {
+      if (player.discoverOpen) return fail('DISCOVER_NOT_ACTIVE');
+      player.hand.splice(index, 1);
+      if (!openDiscover(deps, card.tavernTier)) { player.hand.splice(index, 0, source); return fail('INVALID_DISCOVER_OPTION'); }
+      for (let n = 0; n < source.poolCopies; n++) deps.pool.returnCopy(source.baseId);
+      return ok({ discover: true });
     }
-    player.discoverOpen = player.pendingDiscover.length > 0;
-    return player.discoverOpen ? ok({ discover: true }) : ok();
+    if (spell.kind === 'tonic') {
+      const pile = [...player.board].filter(m => m.kind !== 'spell');
+      if (!pile.length) return fail('INVALID_TARGET');
+      const target = pile[Math.max(0, Math.min(pile.length - 1, boardIndex ?? pile.length - 1))]!;
+      buffTavernMinion(target, spell.amount ?? 2, spell.amount ?? 2);
+    } else if (spell.kind === 'coin') {
+      player.gold += spell.amount ?? 1;
+    } else if (spell.kind === 'freeReroll') {
+      player.freeRerolls += spell.amount ?? 1;
+    }
+    player.hand.splice(index, 1);
+    for (let n = 0; n < source.poolCopies; n++) deps.pool.returnCopy(source.baseId);
+    syncPrices(deps);
+    return ok();
   }
   if (player.board.length >= AUTO_BATTLER.BOARD_LIMIT) return fail('BOARD_FULL');
   if (boardIndex !== undefined && (!Number.isInteger(boardIndex) || boardIndex < 0 || boardIndex > player.board.length)) return fail('INVALID_MOVE');
   player.hand.splice(index, 1);
   card.owner = player.sessionId;
   insertAt(player.board, boardIndex ?? player.board.length, card);
-  const battlecry = deps.defFor(card.baseId)?.battlecryId;
-  if (battlecry) deps.registry.effects.get(battlecry)?.battlecry?.(ctxOf(deps), card);
-  if (card.tripleReward) {
-    card.tripleReward = false;
+  // A mid-board insert rewrites the array with fresh instances: work on the placed one, not the stale clone.
+  const placed = [...player.board].find(m => m.id === card.id) ?? card;
+  // Battlecry of the played card, then the rest of the board reacting to the play.
+  runTavernEffects(fxOf(deps), 'battlecry', placed, placed);
+  for (const other of [...player.board]) if (other.id !== placed.id) runTavernEffects(fxOf(deps), 'play', other, placed);
+  if (placed.tripleReward) {
+    placed.tripleReward = false;
     const reward = createDiscoverSpell(deps.nextId(), player.sessionId);
     reward.tavernTier = Math.min(AUTO_BATTLER.MAX_TIER, player.tavernTier + 1);
     player.hand.push(reward);
   }
-  resolveTriples(player, deps.nextId, deps.defFor);
+  afterTriples(deps);
   return ok();
 }
 
@@ -169,9 +245,11 @@ export function tryMoveBoard(player: AutoBattlerPlayerState, minionId: string, t
   if (from < 0) return fail('INVALID_MOVE');
   const dest = Math.max(0, Math.min(Math.floor(toIndex), player.board.length - 1));
   if (from === dest) return ok();
-  const [card] = player.board.splice(from, 1);
+  const items = [...player.board];
+  const [card] = items.splice(from, 1);
   if (!card) return fail('INVALID_MOVE');
-  insertAt(player.board, dest, cloneMinionState(card,card.id));
+  items.splice(dest, 0, card);
+  rewriteList(player.board, items);
   return ok();
 }
 
@@ -187,7 +265,7 @@ export function tryDiscoverPick(deps: RecruitDeps, optionId: string): ActionResu
   while (player.pendingDiscover.length) player.pendingDiscover.pop();
   player.hand.push(cloneMinionState(option,option.id));
   player.discoverOpen = false;
-  resolveTriples(player, deps.nextId, deps.defFor);
+  afterTriples(deps);
   return ok();
 }
 

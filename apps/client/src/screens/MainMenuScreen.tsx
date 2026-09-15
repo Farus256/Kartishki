@@ -10,6 +10,7 @@ import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
 import { apiBase, usePlayerLeveling } from '../ui/useCatalog';
 import { useServerReady } from '../ui/useServerReady';
+import { GAME_VERSION } from '../version';
 
 type Props = { onPlay: () => void; onBattlegrounds: () => void; onDeck: () => void; onShop: () => void; onSettings: () => void; onExit: () => void };
 const TROPHY = { 1: '#c9a227', 2: '#9aa0a6', 3: '#b87333' } as const;
@@ -120,6 +121,7 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
         </tbody>
       </table>
     </section>
+    <span className="menu-version" data-testid="menu-version">{GAME_VERSION}</span>
     </div>
     {!serverReady && <div className="menu-server-loading" data-testid="menu-server-loading">
       <div role="status" aria-live="polite" className="menu-server-card">

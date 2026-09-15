@@ -59,7 +59,7 @@ test('hit zones prefer sell then board; shop buys on hero or board; miss cancels
   const sell = { x: 400, y: 40, w: 80, h: 80 };
   const board = { x: 200, y: 280, w: 800, h: 160 };
   assert.equal(hitZone('shop', { x: 300, y: 560 }, { buy, sell, board }), 'buy');
-  assert.equal(hitZone('shop', { x: 500, y: 320 }, { buy, sell, board }), 'buy');
+  assert.equal(hitZone('shop', { x: 500, y: 320 }, { buy, sell, board }), 'none', 'board alone never buys');
   assert.equal(hitZone('shop', { x: 420, y: 60 }, { buy, sell, board }), 'none');
   assert.equal(hitZone('board', { x: 420, y: 60 }, { buy, sell, board }), 'sell');
   assert.equal(hitZone('board', { x: 10, y: 10 }, { buy, sell, board }), 'none');
