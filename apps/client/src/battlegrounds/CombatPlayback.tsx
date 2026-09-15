@@ -490,9 +490,9 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     rate.current=1;
     if(transition.current.recruitAfter){
      setResult(null);setSettled(false);
-     setRecruit(true);await pause(reduced?100:1300);
+     setRecruit(true);await pause(reduced?100:750);
      if(!cancelled)setLeaving(true);
-     await pause(reduced?20:450);
+     await pause(reduced?20:300);
     }
     // Flush the final presentation once, including when Skip consumes the queue
     // synchronously. No simulation or network state is changed here.

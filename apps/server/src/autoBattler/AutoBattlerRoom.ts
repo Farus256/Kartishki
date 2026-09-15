@@ -562,6 +562,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     const currentBoards = new Map([...this.state.players.values()].filter(p => !p.eliminated).map(p => [p.sessionId, snapshot(p)]));
     for (const [id, board] of currentBoards) this.lastBoards.set(id, board);
     let presentationMs = 2500;
+    let shortestMs = Infinity;
     const initialHealth = Object.fromEntries([...this.state.players.values()].map(p => [p.sessionId, p.hero.health]));
 
     if (!this.state.pairing.length) this.assignPairing();
@@ -624,6 +625,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
       this.lastCombat.set(pair.playerA, payload);
       presentationMs = Math.max(presentationMs, payload.durationMs);
+      shortestMs = Math.min(shortestMs, payload.durationMs);
       if (!pair.ghost) this.lastCombat.set(pair.playerB, payload);
       this.broadcastCombat(pair.playerA, pair.playerB, payload);
       this.writeCombatSummary(playerA, pair.playerB, result.seed, payload.events.length, payload.summary);
@@ -640,6 +642,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     for (const player of dying) this.eliminate(player);
 
     const stampMs = this.testCombatMs ? 0 : AUTO_BATTLER.RESULT_STAMP_MS;
+    // Nobody waits for the slowest table: recruit opens shortly after the quickest fight; the rest finish on screen while the clock runs.
+    if (Number.isFinite(shortestMs)) presentationMs = Math.min(presentationMs, shortestMs + AUTO_BATTLER.COMBAT_GRACE_MS);
     presentationMs = (this.testCombatMs ?? presentationMs) + stampMs;
     this.state.phaseEndsAt = Date.now() + presentationMs;
     // Result is already final. This server clock is a shared presentation window,

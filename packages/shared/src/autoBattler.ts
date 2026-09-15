@@ -29,7 +29,9 @@ export const AUTO_BATTLER = {
   RECONNECT_GRACE_SECONDS: 45,
   MAX_COMBAT_ACTIONS: 512,
   MAX_COMBAT_MS: 23_000,
-  RESULT_STAMP_MS: 1100,
+  RESULT_STAMP_MS: 700,
+  /** Recruit opens this long after the shortest fight of the round ends; longer fights keep playing on their own clients. */
+  COMBAT_GRACE_MS: 4_000,
   DAMAGE_CAP_ENABLED: true,
   DAMAGE_CAP: 15,
 } as const;
