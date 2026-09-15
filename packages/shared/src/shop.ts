@@ -56,7 +56,7 @@ export function resolveShop(value: unknown): ShopConfig {
   return { products: structuredClone(c.products), slots: structuredClone(c.slots), sellPrices: [...c.sellPrices] };
 }
 export const SLOT_BETS = [25, 50, 75, 100, 125, 150, 175, 200] as const;
-export const WHEEL_MANUAL_COST = 1000;
+export const WHEEL_MANUAL_COST = 400;
 export function slotStake(value: unknown, fallback = 50) {
   return (SLOT_BETS as readonly number[]).includes(value as number) ? value as number
     : (SLOT_BETS as readonly number[]).includes(fallback) ? fallback : 50;
