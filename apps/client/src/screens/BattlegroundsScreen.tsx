@@ -26,6 +26,7 @@ import { AbDndProvider } from '../battlegrounds/abDndContext';
 import { useAbPointerDnd } from '../battlegrounds/useAbPointerDnd';
 import { intentKey, type AbIntent } from '../battlegrounds/pointerDnd';
 import { AB_LAYOUT } from '../battlegrounds/battlegroundsLayout';
+import { FuseRope, SandClock, useDeadline } from '../battlegrounds/PhaseClock';
 import { useCardLerp } from '../battlegrounds/useCardLerp';
 import { InkButton } from '../ui/InkButton';
 import { hidePaperTooltips } from '../ui/PaperTooltip';
@@ -194,16 +195,9 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     setSelected(current => current === id ? null : id);
   }
 
-  // Sand level: seconds left over the longest reading seen this turn (turn length is server-side).
-  const sandRef = useRef({ turn: -1, total: 1 });
-  if (sandRef.current.turn !== state.turn) sandRef.current = { turn: state.turn, total: Math.max(1, state.recruitSeconds) };
-  else if (state.recruitSeconds > sandRef.current.total) sandRef.current.total = state.recruitSeconds;
-  const sand = state.phase === 'RECRUIT_PHASE' && !combatTable ? Math.max(0, Math.min(1, state.recruitSeconds / sandRef.current.total)) : 0;
-  const timer = !combatTable && state.phase === 'RECRUIT_PHASE'
-    ? t('abTimer', { n: state.recruitSeconds })
-    : state.phase === 'HERO_SELECTION'
-      ? t('abTimer', { n: state.heroSeconds })
-      : '—';
+  // One pinned deadline per phase; FuseRope and SandClock tick on their own so the table does not re-render each second.
+  const clockActive = (state.phase === 'RECRUIT_PHASE' || state.phase === 'HERO_SELECTION') && !combatTable;
+  const deadline = useDeadline(state.phase, state.turn, state.phaseEndsAt, state.phase === 'HERO_SELECTION' ? state.heroSeconds : state.recruitSeconds, clockActive);
 
   return (
     <AbDndProvider value={dnd.api}>
@@ -228,13 +222,10 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
         </header>
 
         <div className="ab-layout">
-          <Leaderboard players={leaderboardPlayers} meId={state.sessionId} catalog={state.catalog} turn={state.turn} />
+          {/* Standings history is pinned to the combat turn: the recruit patch (new turn, new results) can land while the fight still plays. */}
+          <Leaderboard players={leaderboardPlayers} meId={state.sessionId} catalog={state.catalog} turn={combatTable ? lastCombat.current?.combat.turn ?? state.turn : state.turn} />
           <div className="ab-stage">
-            {!combatTable && state.phase === 'RECRUIT_PHASE' && state.recruitSeconds > 0 && (
-              <div className={`ab-rope ${state.recruitSeconds <= 10 ? 'is-short' : ''}`} data-testid="ab-rope" aria-label={timer}>
-                <div className="ab-rope-remaining" style={{ width: `${sand * 100}%` }}><span className="ab-rope-ember"><i /><i /><i /></span></div>
-              </div>
-            )}
+            <FuseRope deadline={deadline} active={clockActive && state.phase === 'RECRUIT_PHASE'} />
             <section className="ab-zone-tavern" data-testid="ab-zone-tavern">
               {me && (
                 <TavernRow me={me} catalog={state.catalog} recruit={recruit} aimingTavern={aim === 'tavern'}
@@ -265,10 +256,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
             {combatTable && lastCombat.current && <CombatPlayback combat={lastCombat.current.combat} boards={lastCombat.current.boards} waiting={!playing} phaseReady={state.phase !== 'COMBAT_PHASE'} recruitAfter={state.phase === 'RECRUIT_PHASE' && !me?.eliminated} meId={state.sessionId} catalog={state.catalog} players={state.players} pairing={state.pairing} initialHeroes={recruitHeroes.current} onDone={() => { setPlaying(false); setStruck({}); autoBattlerSession.clearCombat(); }} onHeroHealth={(id, health) => setStruck(current => ({ ...current, [id]: health }))} />}
             <AnomalyBadge id={state.anomalyId} />
             <aside className="ab-rail" data-testid="ab-rail">
-              <div className={`ab-clock ${state.phase === 'RECRUIT_PHASE' && state.recruitSeconds <= 5 ? 'is-critical' : state.phase === 'RECRUIT_PHASE' && state.recruitSeconds <= 10 ? 'is-urgent' : ''}`} data-testid="ab-timer" aria-label={timer} data-running={sand > 0 ? '1' : '0'} style={{ '--sand': sand } as CSSProperties}>
-                <svg viewBox="0 0 60 80" aria-hidden><g stroke="#2a1a10" strokeWidth="4" strokeLinejoin="round"><path d="M10 6h40M10 74h40M14 6c0 20 14 26 16 34-2 8-16 14-16 34M46 6c0 20-14 26-16 34 2 8 16 14 16 34" fill="none" /><path className="ab-clock-sand" d="M17 10h26c0 12-9 22-13 30-4-8-13-18-13-30Z" fill="#e8c27a" stroke="none" /><path className="ab-clock-stream" d="M30 42v26" stroke="#e8c27a" strokeWidth="3" strokeDasharray="3 4" /><path className="ab-clock-heap" d="M16 70h28c0-10-8-16-14-22-6 6-14 12-14 22Z" fill="#e8c27a" stroke="none" /></g></svg>
-                <b>{timer}</b>
-              </div>
+              <SandClock deadline={deadline} active={clockActive} urgent={state.phase === 'RECRUIT_PHASE'} />
               {me && !combatTable && <GoldPurse gold={me.gold} income={goldForTurn(state.turn)} turn={state.turn} />}
             </aside>
           </div>

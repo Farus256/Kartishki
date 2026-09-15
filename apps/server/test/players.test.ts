@@ -97,7 +97,7 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     assert.equal(bg[playerId]!.elo, bg[playerId]!.beerMl);
     assert.equal(bg[playerId]!.gained, 400);
     assert.equal(bg[playerId]!.currency, beforeBg.profile.currency + battlegroundsCurrencyReward(1));
-    assert.equal(bg[bob.library.profile.id]!.gained, 200);
+    assert.equal(bg[bob.library.profile.id]!.gained, battlegroundsCurrencyReward(2, 2));
     assert.equal(bg[playerId]!.xp, beforeBg.profile.xp + MATCH_WIN_XP);
     assert.ok(bg[playerId]!.beerMl >= beforeBg.profile.beerMl + BEER_WIN_MIN && bg[playerId]!.beerMl <= beforeBg.profile.beerMl + BEER_WIN_MAX);
     assert.equal(bg[bob.library.profile.id]!.xp, MATCH_LOSS_XP + MATCH_LOSS_XP);

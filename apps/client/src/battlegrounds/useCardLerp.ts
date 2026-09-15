@@ -58,8 +58,11 @@ export function useCardLerp(
       const sy = from.h / Math.max(1, here.h);
       const far = Math.abs(dy) > 24 || Math.abs(dx) > 10 || Math.abs(sx - 1) > 0.08;
       if (!far) return;
-      el.getAnimations().forEach(animation => animation.cancel());
       const flying = Math.abs(dy) > 24;
+      // BoardRow already slid its tiles while the drag hole moved; replaying that here from the
+      // pre-drag positions would snap every neighbour back and slide it again after the drop.
+      if (!flying && el.closest('.ab-board')) return;
+      el.getAnimations().forEach(animation => animation.cancel());
       // A flight between rows arcs upward like a tossed card; a slide within a row stays flat.
       const frames: Keyframe[] = flying
         ? [

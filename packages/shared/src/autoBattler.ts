@@ -179,9 +179,8 @@ export const AutoBattlerMinionState = schema({
 export type AutoBattlerMinionState = InstanceType<typeof AutoBattlerMinionState>;
 
 export const TavernState = schema({
-  // Not view-filtered: nested arrays (keywords, tribes) of items pushed into a view-filtered
-  // collection never reach the client in @colyseus/schema 3.x, so every minion list is public.
-  offers: t.array(AutoBattlerMinionState),
+  // Owner-only. Nested keyword/tribe arrays need the explicit view.add in AutoBattlerRoom.onBeforePatch.
+  offers: t.array(AutoBattlerMinionState).view(1),
   frozen: t.boolean().default(false),
   size: t.number().default(3),
 }, 'AutoBattlerTavernState');
@@ -208,8 +207,8 @@ export const AutoBattlerPlayerState = schema({
   gold: t.number().default(0),
   tavernTier: t.number().default(1),
   upgradeCost: t.number().default(6),
-  board: t.array(AutoBattlerMinionState),
-  hand: t.array(AutoBattlerMinionState),
+  board: t.array(AutoBattlerMinionState).view(1),
+  hand: t.array(AutoBattlerMinionState).view(1),
   tavern: TavernState,
   tripleCounts: t.map('number').view(1),
   tripleSerial: t.number().default(0),
@@ -230,7 +229,7 @@ export const AutoBattlerPlayerState = schema({
   lastCombatDamage: t.number().default(0),
   lastCombatEventCount: t.number().default(0),
   lastCombatSummary: t.string().default(''),
-  pendingDiscover: t.array(AutoBattlerMinionState),
+  pendingDiscover: t.array(AutoBattlerMinionState).view(1),
   discoverOpen: t.boolean().default(false),
   recruitReady: t.boolean().default(false),
   eliminated: t.boolean().default(false),
@@ -298,6 +297,8 @@ export type CombatEvent = {
   tie?: boolean;
   minion?: CombatVisualMinion;
   attack?: number;
+  /** STATS: the target's keywords after a combat-time grant (Divine Shield, Taunt…). */
+  keywords?: string[];
 };
 
 export type CombatVisualMinion = {
@@ -333,7 +334,7 @@ export type DiscoverOptionsMessage = {
 export const autoBattlerKeywords = ['taunt', 'divineShield', 'poisonous', 'deathrattle', 'battlecry', 'windfury', 'reborn', 'cleave', 'immune', 'cannotAttack', 'humiliate', 'bait'] as const;
 export type AutoBattlerKeyword = typeof autoBattlerKeywords[number];
 
-export const autoBattlerTribes = ['beast', 'mech', 'pirate', 'undead', 'neutral'] as const;
+export const autoBattlerTribes = ['beast', 'mech', 'pirate', 'undead', 'dragon', 'neutral'] as const;
 export type AutoBattlerTribe = typeof autoBattlerTribes[number];
 export const autoBattlerBattlecries = ['ab-bc-gold'] as const;
 export const autoBattlerAuras = ['ab-aura-beasts'] as const;
@@ -346,24 +347,37 @@ export const autoBattlerAuras = ['ab-aura-beasts'] as const;
  * - endTurn: when the recruit phase ends · triple: whenever you make a triple
  * - startCombat: at the start of combat (that fight only) · deathrattle: in combat when this minion dies
  * - aura: attack bonus for other friendly minions of the given tribe during combat
+ * - reroll: after you refresh the tavern · friendlyDeath: in combat, whenever another friendly minion dies
+ * - shieldPop: in combat, whenever a friendly minion loses Divine Shield · friendlyAttack: in combat, after a friendly minion attacks
  * Buff amounts double for a golden owner.
  */
-export const autoBattlerEffectTriggers = ['battlecry', 'play', 'buy', 'sell', 'endTurn', 'triple', 'startCombat', 'deathrattle', 'aura'] as const;
+export const autoBattlerEffectTriggers = ['battlecry', 'play', 'buy', 'sell', 'endTurn', 'triple', 'startCombat', 'deathrattle', 'aura', 'reroll', 'friendlyDeath', 'shieldPop', 'friendlyAttack'] as const;
 export type AutoBattlerEffectTrigger = typeof autoBattlerEffectTriggers[number];
-export const autoBattlerEffectTargets = ['self', 'adjacent', 'friendly', 'random', 'bought', 'hand'] as const;
+export const autoBattlerEffectTargets = ['self', 'adjacent', 'friendly', 'random', 'bought', 'hand', 'tavern', 'subject'] as const;
 export type AutoBattlerEffectTarget = typeof autoBattlerEffectTargets[number];
 export type AutoBattlerEffectAction =
   | { kind: 'buff'; attack: number; health: number }
   | { kind: 'gold'; amount: number }
-  | { kind: 'aura'; attack: number };
+  | { kind: 'aura'; attack: number }
+  /** Grants a keyword to the targets (no duplicates). */
+  | { kind: 'keyword'; keyword: AutoBattlerKeyword }
+  /** Summons tokens: onto your tavern board (battlecry/endTurn/…) or into combat (startCombat/deathrattle/friendlyDeath). */
+  | { kind: 'summon'; summonId: string; count: number };
+export const autoBattlerEffectScales = ['tribes', 'minions'] as const;
 export type AutoBattlerEffect = {
   trigger: AutoBattlerEffectTrigger;
-  /** Who receives a buff; defaults to 'self'. */
+  /** Who receives a buff; defaults to 'self'. 'subject' = the minion that caused the trigger (played/bought/dying/attacking). */
   target?: AutoBattlerEffectTarget;
   /** Tribe filter for 'friendly' / 'random' / 'hand' / 'aura' targets. */
   tribe?: AutoBattlerTribe | 'all';
-  /** For play/buy: only fire when the played/bought minion has this tribe. */
+  /** For play/buy/sell/friendlyDeath/shieldPop/friendlyAttack: only fire when the subject minion has this tribe. */
   onTribe?: AutoBattlerTribe | 'all';
+  /** Same, by keyword (e.g. only when a Deathrattle minion dies). */
+  onKeyword?: AutoBattlerKeyword;
+  /** Multiply buff amounts: 'tribes' = distinct tribes on your board (menagerie), 'minions' = friendly minions matching perTribe/perKeyword. */
+  per?: typeof autoBattlerEffectScales[number];
+  perTribe?: AutoBattlerTribe | 'all';
+  perKeyword?: AutoBattlerKeyword;
   action: AutoBattlerEffectAction;
 };
 
@@ -550,13 +564,18 @@ export function validateAutoBattlerEffect(value: unknown): value is AutoBattlerE
   if (!autoBattlerEffectTriggers.includes(e.trigger)) return false;
   if (e.target !== undefined && !autoBattlerEffectTargets.includes(e.target)) return false;
   const tribeOk = (tribe: unknown) => tribe === undefined || tribe === 'all' || autoBattlerTribes.includes(tribe as AutoBattlerTribe);
-  if (!tribeOk(e.tribe) || !tribeOk(e.onTribe)) return false;
+  if (!tribeOk(e.tribe) || !tribeOk(e.onTribe) || !tribeOk(e.perTribe)) return false;
+  const keywordOk = (k: unknown) => k === undefined || autoBattlerKeywords.includes(k as AutoBattlerKeyword);
+  if (!keywordOk(e.onKeyword) || !keywordOk(e.perKeyword)) return false;
+  if (e.per !== undefined && !autoBattlerEffectScales.includes(e.per)) return false;
   const a = e.action;
   if (!a || typeof a !== 'object') return false;
   const num = (n: unknown, min: number, max: number) => Number.isInteger(n) && (n as number) >= min && (n as number) <= max;
   if (a.kind === 'buff') return num(a.attack, -20, 20) && num(a.health, -20, 20);
   if (a.kind === 'gold') return num(a.amount, 1, 10);
   if (a.kind === 'aura') return e.trigger === 'aura' && num(a.attack, 1, 10);
+  if (a.kind === 'keyword') return autoBattlerKeywords.includes(a.keyword);
+  if (a.kind === 'summon') return idOk(a.summonId) && num(a.count, 1, 7);
   return false;
 }
 

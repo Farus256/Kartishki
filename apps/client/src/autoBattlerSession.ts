@@ -49,7 +49,7 @@ export type AbCombatBoards = { playerA: string; playerB: string; a: AbMinion[]; 
 
 export type AbSnapshot = {
   status: 'offline' | 'connecting' | 'online';
-  phase: string; turn: number; revision: number; recruitSeconds: number; heroSeconds: number; sessionId: string; error: string; winnerId: string; anomalyId: string;
+  phase: string; turn: number; revision: number; recruitSeconds: number; heroSeconds: number; phaseEndsAt: number; sessionId: string; error: string; winnerId: string; anomalyId: string;
   players: AbPlayer[];
   catalog: AutoBattlerCatalog;
   heroOffers: AutoBattlerHeroDef[];
@@ -60,7 +60,7 @@ export type AbSnapshot = {
 };
 
 const empty = (): AbSnapshot => ({
-  status: 'offline', phase: 'LOBBY', turn: 0, revision: 0, recruitSeconds: 0, heroSeconds: 0, sessionId: '', error: '', winnerId: '', anomalyId: '',
+  status: 'offline', phase: 'LOBBY', turn: 0, revision: 0, recruitSeconds: 0, heroSeconds: 0, phaseEndsAt: 0, sessionId: '', error: '', winnerId: '', anomalyId: '',
   players: [], catalog: starterAutoBattlerCatalog, heroOffers: [], discover: null, combat: null, combatBoards: null, pairing: [],
 });
 
@@ -129,6 +129,7 @@ function sync(joined: Room<AutoBattlerRoomState>) {
   const s = joined.state;
   publish({
     status: 'online', phase: s.phase, turn: s.turn, revision: s.revision, recruitSeconds: s.recruitSeconds,
+    phaseEndsAt: s.phaseEndsAt ?? 0,
     sessionId: joined.sessionId, winnerId: s.winnerId, heroSeconds: s.heroSeconds, anomalyId: s.anomalyId ?? '',
     players: [...s.players.values()].map(toPlayer),
     pairing: [...(s.pairing ?? [])].map(p => ({ playerA: p.playerA, playerB: p.playerB, ghost: p.ghost })),

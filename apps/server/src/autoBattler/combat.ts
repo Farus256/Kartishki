@@ -3,7 +3,7 @@ import { createRng } from './rng';
 import { TriggerQueue } from './TriggerQueue';
 import type { EffectRegistry } from './keywords';
 import type { CombatContext, CombatMinion, CombatResult, CombatantSnapshot } from './combatTypes';
-import { runCombatEffects } from './effects';
+import { runCombatEffects, runSideEffects } from './effects';
 
 export type { CombatContext, CombatMinion, CombatResult, CombatantSnapshot } from './combatTypes';
 
@@ -76,7 +76,8 @@ function applyDamage(
   if (target.keywords.includes('immune')) return;
   ctx.currentSourceId = source.id;
   let incoming = amount;
-  if (target.keywords.includes('divineShield')) {
+  const shielded = target.keywords.includes('divineShield');
+  if (shielded) {
     const hook = ctx.registry.keywords.get('divineShield');
     incoming = hook?.onIncomingDamage?.(ctx, target, incoming, source) ?? 0;
     if (!hook?.onIncomingDamage) {
@@ -84,6 +85,7 @@ function applyDamage(
       ctx.emit({ kind: 'DIVINE_SHIELD_POP', targetId: target.id, sourceId: source.id });
       incoming = 0;
     }
+    if (!target.keywords.includes('divineShield')) { const side = ctx.sideOf(target.owner); if (side >= 0) runSideEffects(ctx, 'shieldPop', side as 0 | 1, target); }
   }
   if (incoming <= 0) return;
   if (source.keywords.includes('poisonous')) target.health = 0;
@@ -93,7 +95,8 @@ function applyDamage(
     targetId: target.id,
     sourceId: source.id,
     amount: incoming,
-    remainingHealth: Math.max(0, target.health),
+    // Below zero on purpose: the client shows overkill while the strike settles.
+    remainingHealth: target.health,
   });
 }
 
@@ -139,6 +142,7 @@ function resolveDeathQueue(ctx: CombatContext, preferred: CombatMinion[]): void 
       // deaths consequently preserve the left-to-right order of their summons.
       const nextRight = right.map(id => board.findIndex(m => m.id === id)).find(i => i >= 0);
       resolveDeath(ctx, minion, nextRight ?? board.length);
+      runSideEffects(ctx, 'friendlyDeath', side, minion);
     });
     ctx.triggers.drain();
     if (ctx.triggers.exhausted) { ctx.emit({ kind: 'LIMIT_REACHED' }); return; }
@@ -308,6 +312,7 @@ export function resolveCombat(
         }
       }
 
+      runSideEffects(ctx, 'friendlyAttack', side, attacker);
       const other: 0 | 1 = side === 0 ? 1 : 0;
       resolveDeathQueue(ctx, [...boards[side], ...boards[other]]);
     }

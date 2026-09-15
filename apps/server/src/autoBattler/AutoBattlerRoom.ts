@@ -20,6 +20,7 @@ import {
   type ActionErrorCode,
   type AutoBattlerHeroDef,
   type BattlegroundsRewards,
+  type CombatEvent,
   type CombatEventsMessage,
   type DiscoverOptionsMessage,
 } from '@kartishki/shared';
@@ -116,7 +117,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     };
   }
 
-  onCreate(options: { recruitMs?: unknown; heroMs?: unknown; debug?: unknown; table?: unknown } = {}) {
+  onCreate(options: { recruitMs?: unknown; heroMs?: unknown; debug?: unknown; table?: unknown; anomaly?: unknown } = {}) {
     this.clock.start();
     this.setMetadata({ table: typeof options.table === 'string' ? options.table.slice(0, 64) : '' });
     const testMode = process.env.AB_TEST_MODE === '1' && process.env.NODE_ENV !== 'production';
@@ -130,6 +131,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.combatSeed = randomInt(1, 0xffffffff);
     // One seeded rule twist per table, visible from the lobby on.
     this.state.anomalyId = AB_ANOMALIES[createRng(hashSeed(['anomaly', this.state.combatSeed])).int(AB_ANOMALIES.length)] ?? '';
+    // Tests pin the twist ('' = none) so turn-one gold and prices are predictable.
+    if (testMode && typeof options.anomaly === 'string') this.state.anomalyId = options.anomaly;
     if (this.state.anomalyId === 'ab-anomaly-long-recruit' && !testMode) this.recruitMs = Math.max(this.recruitMs, 55_000);
     this.pool.syncToState(this.state);
     abLog('room.create', { seed: this.state.combatSeed, anomaly: this.state.anomalyId });
@@ -264,9 +267,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     player.upgradeCost = initialUpgradeCost(1);
     player.tavern.size = tavernSizeForTier(1);
     this.state.players.set(client.sessionId, player);
-    client.view = new StateView();
-    client.view.add(player, 1);
-    client.view.add(player.tavern, 1);
+    this.grantPrivateView(client, player);
     this.state.playerOrder.push(client.sessionId);
     this.heroOffers.set(client.sessionId, this.dealHeroes());
     abLog('player.join', { id: client.sessionId, name: player.displayName });
@@ -278,9 +279,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     const player = this.state.players.get(client.sessionId);
     if (player) {
       player.connected = true;
-      client.view = new StateView();
-      client.view.add(player, 1);
-      client.view.add(player.tavern, 1);
+      this.grantPrivateView(client, player);
     }
     // The client's ready handshake requests private messages after handlers attach.
     this.readyClients.delete(client.sessionId);
@@ -304,21 +303,38 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
     const consented = code === CloseCode.CONSENTED;
     player.connected = false;
-    if (consented || this.state.phase === 'GAME_OVER') {
-      if (!player.eliminated && this.state.phase !== 'GAME_OVER') this.eliminate(player);
-      if (!this.finishIfNeeded() && this.state.phase === 'RECRUIT_PHASE') this.assignPairing();
-      return;
+    if (!consented && this.state.phase !== 'GAME_OVER') {
+      try {
+        await this.allowReconnection(client, AUTO_BATTLER.RECONNECT_GRACE_SECONDS);
+        player.connected = true;
+        return;
+      } catch { /* grace expired: the seat is forfeited below */ }
     }
+    if (!player.eliminated && this.state.phase !== 'GAME_OVER') this.eliminate(player);
+    this.settleAfterLeave();
+  }
 
-    try {
-      await this.allowReconnection(client, AUTO_BATTLER.RECONNECT_GRACE_SECONDS);
-      player.connected = true;
-    } catch {
-      if (!player.eliminated) this.eliminate(player);
-      this.finishIfNeeded();
-      if (this.state.phase === 'RECRUIT_PHASE') this.assignPairing();
-      if (this.state.phase === 'RECRUIT_PHASE' && this.allRecruitLocked()) this.beginCombat();
-      if (this.state.phase === 'HERO_SELECTION' && this.everyoneHasHero()) this.beginRecruit();
+  /** A forfeited seat may have been the last thing the phase waited on. */
+  private settleAfterLeave(): void {
+    if (this.finishIfNeeded()) return;
+    if (this.state.phase === 'HERO_SELECTION' && this.everyoneHasHero()) this.beginRecruit();
+    else if (this.state.phase === 'RECRUIT_PHASE') {
+      this.assignPairing();
+      if (this.allRecruitLocked()) this.beginCombat();
+    }
+  }
+
+  /** Owner-only zones (hand, board, tavern offers, discover): everyone else gets undefined. */
+  private grantPrivateView(client: Client, player: AutoBattlerPlayerState): void {
+    client.view = new StateView();
+    client.view.add(player, 1);
+    client.view.add(player.tavern, 1);
+  }
+
+  onBeforePatch(): void {
+    for (const client of this.clients) {
+      const player = this.state.players.get(client.sessionId);
+      if (player && client.view) syncPrivateView(client.view, player);
     }
   }
 
@@ -508,14 +524,22 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.recruitSeconds = 0;
     this.state.phase = 'COMBAT_PHASE';
     this.state.revision++;
-    // End-of-turn effects land on the tavern board (permanent) before anything is snapshotted.
-    for (const player of this.state.players.values()) if (!player.eliminated) endRecruitTurn(this.deps(player));
     const brawl = this.rules().combatBuff;
     const snapshot = (player: AutoBattlerPlayerState) => {
       const snap = snapshotBoard(player);
       if (brawl) for (const minion of snap.board) { minion.attack += brawl; minion.health += brawl; }
       return snap;
     };
+    // End-of-turn effects land on the tavern board (permanent). The table shows the pre-effect boards and
+    // replays each buff as a STATS event once both sides are revealed; combat resolves on the buffed boards.
+    const shownBoards = new Map([...this.state.players.values()].filter(p => !p.eliminated).map(p => [p.sessionId, snapshot(p)]));
+    const endTurnEvents = new Map<string, CombatEvent[]>();
+    for (const player of this.state.players.values()) {
+      if (player.eliminated) continue;
+      const events: CombatEvent[] = [];
+      endRecruitTurn(this.deps(player), (owner, target) => events.push({ id: 0, kind: 'STATS', sourceId: owner.id, targetId: target.id, attack: target.attack + brawl, remainingHealth: target.health + brawl }));
+      if (events.length) endTurnEvents.set(player.sessionId, events);
+    }
     // Capture every player before resolving any pair, so ghosts cannot depend on pair order.
     const previousBoards = new Map(this.lastBoards);
     const currentBoards = new Map([...this.state.players.values()].filter(p => !p.eliminated).map(p => [p.sessionId, snapshot(p)]));
@@ -540,6 +564,9 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
       const seed = hashSeed([this.state.combatSeed, this.state.turn, pair.playerA, pair.playerB, pairIndex]);
       const result = resolveCombat(snapA, snapB, seed, this.registry, this.defFor);
+      const shownA = shownBoards.get(pair.playerA) ?? snapA, shownB = pair.ghost ? snapB : shownBoards.get(pair.playerB) ?? snapB;
+      const shownIds = new Set([...shownA.board, ...shownB.board].map(m => m.id));
+      const prelude = [...endTurnEvents.get(pair.playerA) ?? [], ...(pair.ghost ? [] : endTurnEvents.get(pair.playerB) ?? [])].filter(e => shownIds.has(e.targetId ?? ''));
       const payload: CombatEventsMessage = {
         turn: this.state.turn,
         pairIndex,
@@ -547,10 +574,10 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         playerB: pair.playerB,
         ghost: pair.ghost,
         seed,
-        events: result.events,
-        boards: { a: snapA.board, b: snapB.board },
+        events: [...prelude, ...result.events].map((event, index) => ({ ...event, id: index + 1 })),
+        boards: { a: shownA.board, b: shownB.board },
         initialHealth,
-        durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 4_500 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 1_100 + result.events.length * 220),
+        durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 4_500 + prelude.length * 420 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 2_100 + result.events.length * 220),
         summary: { winnerId: result.winnerId, loserId: result.loserId, damage: result.damage, tie: result.tie },
       };
 
@@ -729,4 +756,14 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
 export function autoBattlerRoomWithPlayers(store: PlayerStore) {
   return class extends AutoBattlerRoom { protected playerStore = store; };
+}
+
+/**
+ * @colyseus/schema 5.0.x ships a minion pushed into a view-filtered array without its nested
+ * keyword/tribe arrays; an explicit view.add(minion) after the push does. Run before every patch.
+ */
+export function syncPrivateView(view: StateView, player: AutoBattlerPlayerState): void {
+  for (const list of [player.hand, player.board, player.tavern.offers, player.pendingDiscover]) {
+    for (const minion of list) if (!view.has(minion.keywords) || !view.has(minion.tribes)) view.add(minion);
+  }
 }

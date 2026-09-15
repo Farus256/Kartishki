@@ -30,7 +30,7 @@
 .ab-combat-card .ab-combat-flip { will-change:transform; }
 
 /* Hero hit: big stamp and a sharper wobble */
-.ab-combat-hero-damage { top:26px; right:auto; left:-70px; font-size:76px; letter-spacing:-2px; color:#ff3b2e; -webkit-text-stroke:2px #3a0a08; text-shadow:0 4px 0 #3a0a08,0 0 22px #ff5b47aa; animation:ab-hero-stamp .8s cubic-bezier(.2,.9,.3,1.2) both; }
+.ab-combat-hero-damage { top:30px; right:auto; left:calc(50% - 90px); width:180px; text-align:center; font-size:76px; letter-spacing:-2px; color:#ff3b2e; -webkit-text-stroke:2px #3a0a08; text-shadow:0 4px 0 #3a0a08,0 0 22px #ff5b47aa; animation:ab-hero-stamp .8s cubic-bezier(.2,.9,.3,1.2) both; }
 @keyframes ab-hero-stamp { 0% { opacity:0; transform:scale(2.4) rotate(-14deg); } 30% { opacity:1; transform:scale(1) rotate(-6deg); } 75% { transform:scale(1.04) rotate(-6deg); } 100% { opacity:1; transform:scale(1) rotate(-6deg); } }
 .ab-hero-tally { animation:ab-tally-in .3s ease-out; }
 @keyframes ab-tally-in { from { opacity:0; transform:scale(.6); } }
@@ -38,13 +38,9 @@
 @media(prefers-reduced-motion:reduce) {
   .ab-combat-card { transition:none; }
   .ab-combat.is-duel .ab-combat-card { opacity:1; filter:none; scale:1; }
-  .ab-combat-hero-damage,.ab-combat-veil { animation:none; }
+  .ab-combat-hero-damage,.ab-combat-veil,.ab-combat-skull,.ab-combat-bone { animation:none; }
 }
 
-/* Hero name plaques: mine under the portrait like the recruit dock, the foe one beside it (the enemy row starts right below) */
-.ab-combat-foe > strong,.ab-combat-me > strong { display:inline-block; padding:2px 12px; border:2px ridge #b48b4e; border-radius:10px; background:#2a1d18e0; color:#ffdfab; font:19px var(--font-hand); white-space:nowrap; }
-.ab-combat-me > strong { margin-top:-24px; position:relative; z-index:2; }
-.ab-combat-foe > strong { position:absolute; right:calc(100% - 4px); top:52px; }
 
 /* Death variants: a slash flash for the splits */
 .ab-combat-slash { position:absolute; pointer-events:none; z-index:11; background:linear-gradient(90deg,transparent,#fff6d2,#ffd66b,#fff6d2,transparent); filter:drop-shadow(0 0 8px #ffb347); }
@@ -54,3 +50,20 @@
 .ab-combat-shard.is-reborn { filter:none; }
 .ab-combat-hero-shard { border-radius:38% 38% 8% 8%; filter:brightness(.85) sepia(.3); }
 .ab-combat-foe.is-lethal,.ab-combat-me.is-lethal { outline:0; }
+.ab-combat-chip { position:absolute; width:12px; height:8px; margin:-4px 0 0 -6px; border-radius:2px; background:linear-gradient(135deg,#f6ecd4,#d9c39a); box-shadow:0 1px 1px #0008; pointer-events:none; z-index:10; will-change:transform,opacity; }
+.ab-combat-drop { width:14px; height:17px; margin:-8px 0 0 -7px; background:radial-gradient(circle at 35% 30%,#ff6a55,#b3150e 55%,#5a0805); box-shadow:inset -1px -2px 0 #3a0503,0 0 6px #7a0f0c88; }
+
+/* Impact debris: drops stretch along their flight, chips tumble, sparks flare */
+.ab-combat-drop { transform-origin:50% 50%; }
+.ab-combat-spark { position:absolute; width:16px; height:5px; margin:-2px 0 0 -8px; border-radius:3px; background:linear-gradient(90deg,#fff6c8,#ffd66b 60%,transparent); box-shadow:0 0 8px 2px #ffb347aa; pointer-events:none; z-index:11; will-change:transform,opacity; }
+
+/* Deathrattle: a skull with crossed bones rises from the grave, bone chips scatter */
+.ab-combat-skull { position:absolute; width:96px; height:96px; margin:0; pointer-events:none; z-index:13; filter:drop-shadow(0 4px 0 #1a1a1a66) drop-shadow(0 0 14px #e9dfc4aa); will-change:transform,opacity; }
+.ab-combat-skull svg { width:100%; height:100%; overflow:visible; }
+.ab-combat-bone { position:absolute; width:18px; height:6px; margin:0; border-radius:4px; background:#f4ecd6; box-shadow:0 0 0 2px #1a1a1a,inset 0 -2px 0 #c9b48a; pointer-events:none; z-index:12; will-change:transform,opacity; }
+.ab-combat-bone::before,.ab-combat-bone::after { content:''; position:absolute; top:-3px; width:7px; height:12px; border-radius:50%; background:#f4ecd6; box-shadow:0 0 0 2px #1a1a1a; }
+.ab-combat-bone::before { left:-4px; }
+.ab-combat-bone::after { right:-4px; }
+
+/* Hero damage: survivor tiers fly from their tiles into the tally */
+.ab-tier-fly { position:absolute; z-index:22; pointer-events:none; width:44px; height:44px; display:grid; place-items:center; border:3px solid var(--ink); background:var(--gold); color:var(--ink); font:26px/1 var(--font-stencil); box-shadow:0 0 18px #ffd76a,3px 4px 0 #1a1a1a70; will-change:transform,opacity; }

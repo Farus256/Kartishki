@@ -47,6 +47,10 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
   const rank = player.beerRank;
   const dark = rank.league === 'dark';
   const serverReady = useServerReady();
+  // The module-load /me fails while a sleeping backend wakes; fetch it again once /health answers.
+  useEffect(() => {
+    if (serverReady && !player.library && !player.loading && playerSession.authOptions().playerToken) void playerSession.refresh();
+  }, [serverReady]);
   const ladder = useLadder(serverReady);
   const leveling = usePlayerLeveling();
   const dailyReady = !!profile?.dailyAvailable;

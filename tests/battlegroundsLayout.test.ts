@@ -11,7 +11,7 @@ test('adding Hand cards does not shrink the group or invade Hero controls', () =
   for (let count = 1; count <= 10; count++) {
     const width = count * AB_LAYOUT.HAND_W - (count - 1) * handOverlap(count);
     assert.ok(width >= previous - .01);
-    assert.ok(width <= 460.01);
+    assert.ok(width <= 700.01);
     previous = width;
   }
 });
@@ -44,9 +44,9 @@ test('even counts split evenly around center', () => {
 });
 
 test('spacing tightens with population but never overlaps', () => {
-  assert.equal(lineGap(1), 34);
-  assert.equal(lineGap(4), 24);
-  assert.equal(lineGap(7), 14);
+  assert.equal(lineGap(1), 42);
+  assert.equal(lineGap(4), 30);
+  assert.equal(lineGap(7), 18);
   const xs = lineStarts(7, AB_LAYOUT.MINION_W, CENTER, MAX);
   for (let i = 1; i < xs.length; i++) {
     assert.ok(xs[i]! - xs[i - 1]! >= AB_LAYOUT.MINION_W + 4);

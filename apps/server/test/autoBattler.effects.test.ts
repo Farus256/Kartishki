@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AutoBattlerPlayerState, initialUpgradeCost, starterAutoBattlerCatalog } from '@kartishki/shared';
+import { AutoBattlerPlayerState, initialUpgradeCost, starterAutoBattlerCatalog, validateAutoBattlerMinion } from '@kartishki/shared';
 import { SharedMinionPool } from '../src/autoBattler/pool';
 import { createRng } from '../src/autoBattler/rng';
 import { createDefaultRegistry } from '../src/autoBattler/keywords';
@@ -53,7 +53,9 @@ test('battlecry buffs, buy-tribe buffs and end-of-turn buffs are permanent taver
   tryBuy(d, mech);
   assert.equal(cub.attack, 2, 'a mech does not feed the cub');
   tryPlayCard(d, mech, 0);
-  endRecruitTurn(d);
+  const seen: string[] = [];
+  endRecruitTurn(d, (owner, target) => seen.push(`${owner.cardId}>${target.cardId}`));
+  assert.deepEqual(seen, ['ab-deckhand>ab-deckhand'], 'end-of-turn buffs are reported for the combat prelude');
   // Mid-board inserts rewrite the array, so read the board again instead of trusting old refs.
   const live = (id: string) => [...p.board].find(m => m.cardId === id)!;
   assert.equal(live('ab-deckhand').attack, 3, 'deckhand gains attack at the end of the turn');
@@ -144,4 +146,59 @@ test('combat: start-of-combat buffs, data auras and deathrattle buffs are determ
   assert.ok(stats.some(e => e.targetId === 'a2' && e.attack === 4), 'whelp gets the alpha aura');
   assert.ok(result.events.some(e => e.kind === 'DEATHRATTLE' && e.sourceId === 'a3'), 'gravedigger deathrattle fires');
   assert.deepEqual(result.events, resolveCombat(a, b, 9, registry, def).events);
+});
+
+test('expansion catalog: every minion validates and every summon token exists', () => {
+  const ids = new Set(catalog.minions.map(m => m.id));
+  for (const m of catalog.minions) {
+    assert.ok(validateAutoBattlerMinion(m), `invalid def ${m.id}`);
+    if (m.deathrattle) assert.ok(ids.has(m.deathrattle.summonId), `${m.id} summons unknown ${m.deathrattle.summonId}`);
+    for (const e of m.effects ?? []) if (e.action.kind === 'summon') assert.ok(ids.has(e.action.summonId), `${m.id} summons unknown ${e.action.summonId}`);
+  }
+  assert.ok(catalog.minions.filter(m => !m.token && !m.spell && !m.generated).length >= 140);
+});
+
+test('expansion tavern triggers: refresh, menagerie scaling, in-hand buffs, keyword grants and battlecry summons', () => {
+  const p = player();
+  const d = deps(p);
+  const sword = onBoard(p, 'ab-sellsword');
+  const hoarder = onBoard(p, 'ab-gear-hoarder');
+  const ward = createMinionState(def('ab-ward')!, 'hand-ward', p.sessionId); p.hand.push(ward);
+  assert.equal(tryReroll(d).ok, true);
+  assert.equal(sword.attack, 2, 'sellsword grows on refresh');
+  assert.equal(p.hand[0]!.attack, 2, 'mech in hand grows on refresh');
+  assert.equal(hoarder.attack, 2, 'hoarder itself is not a hand card');
+  onBoard(p, 'ab-whelp'); onBoard(p, 'ab-broker');
+  const keeper = createMinionState(def('ab-zookeeper')!, 'hand-keeper', p.sessionId); p.hand.push(keeper);
+  assert.equal(tryPlayCard(d, keeper.id).ok, true);
+  const placed = [...p.board].find(m => m.cardId === 'ab-zookeeper')!;
+  assert.equal(placed.attack, 5, 'zookeeper: +1 per tribe (mech, beast, pirate)');
+  const soldier = createMinionState(def('ab-tin-soldier')!, 'hand-tin', p.sessionId); p.hand.push(soldier);
+  tryPlayCard(d, soldier.id);
+  assert.ok([...p.board].some(m => m.cardId !== 'ab-tin-soldier' && m.tribes.includes('mech') && m.keywords.includes('divineShield')), 'a mech gained Divine Shield');
+  const scribe = onBoard(p, 'ab-scribe');
+  const rat = createMinionState(def('ab-rat-pack')!, 'hand-rat', p.sessionId); p.hand.push(rat);
+  endRecruitTurn(d);
+  assert.equal(p.hand[p.hand.length - 1]!.attack, 2, 'scribe buffs the hand at end of turn');
+  assert.equal(scribe.attack, 1);
+});
+
+test('expansion combat triggers: shield pops, friendly deaths, friendly attacks, keyword grants and summons', () => {
+  const side = (owner: string, ids: string[]) => ({ playerId: owner, tavernTier: 3, board: ids.map((id, i) => { const m = createMinionState(def(id)!, `${owner}${i}`, owner); return { id: m.id, cardId: m.cardId, baseId: m.baseId, attack: m.attack, health: m.health, tavernTier: m.tavernTier, keywords: [...m.keywords], tribes: [...m.tribes], golden: false, owner, auraAttack: 0 }; }) });
+  const a = side('a', ['ab-shield-mite', 'ab-aegis', 'ab-hyena', 'ab-rat-pack', 'ab-grave-titan', 'ab-holy-mech']);
+  const b = side('b', ['ab-golem', 'ab-golem', 'ab-golem', 'ab-golem']);
+  const result = resolveCombat(a, b, 5, registry, def);
+  const stats = result.events.filter(e => e.kind === 'STATS');
+  const holy = resolveCombat(side('h', ['ab-holy-mech', 'ab-ward']), side('g', ['ab-golem']), 1, registry, def);
+  assert.ok(holy.events.some(e => e.kind === 'STATS' && e.targetId === 'h1' && e.keywords?.includes('divineShield')), 'holy mech grants a shield at start of combat');
+  assert.ok(result.events.some(e => e.kind === 'DIVINE_SHIELD_POP'), 'a shield popped');
+  assert.ok(stats.some(e => e.targetId === 'a0' && e.sourceId === 'a0' && (e.attack ?? 0) >= 2), 'shield mite grows on a pop');
+  const pack = resolveCombat(side('k', ['ab-kennel', 'ab-hyena']), side('g', ['ab-golem']), 1, registry, def);
+  assert.ok(pack.events.some(e => e.kind === 'STATS' && e.targetId === 'k1' && e.sourceId === 'k1' && e.attack === 4), 'hyena grows when a beast dies');
+  assert.ok(result.events.some(e => e.kind === 'SUMMON' && e.cardId === 'ab-token-skel' && e.sourceId === 'a4'), 'grave titan summons on a friendly death');
+  const c = side('c', ['ab-glyph-guardian', 'ab-hangry-dragon']);
+  const drakes = resolveCombat(c, side('d', ['ab-ward', 'ab-ward', 'ab-ward']), 2, registry, def);
+  assert.ok(drakes.events.some(e => e.kind === 'STATS' && e.targetId === 'c1' && e.sourceId === 'c1'), 'hangry dragon grows after another dragon attacks');
+  assert.ok(drakes.events.some(e => e.kind === 'STATS' && e.sourceId === 'c0' && e.targetId === 'c1'), 'glyph guardian buffs the attacking dragon');
+  assert.deepEqual(result.events, resolveCombat(a, b, 5, registry, def).events);
 });

@@ -28,10 +28,10 @@ test('composition matrix: compact rows, independent Hero anchor, Hand region and
    await expect.poll(async()=>page.locator('.ab-board').evaluate(el=>{const b=el.getBoundingClientRect(),r=[...el.querySelectorAll('.ab-minion')].map(n=>n.getBoundingClientRect());return Math.abs((r[0]!.left+r.at(-1)!.right)/2-(b.x+b.width/2));})).toBeLessThan(2);
    await page.waitForTimeout(300);
    const g=await geometry(page);
-   expect(Math.abs(g.hero.cx-g.stage.cx)).toBeLessThan(1);
-   // Hearthstone composition: hand centered under the hero, power gem at the hero's right.
-   expect(Math.abs(g.hand.cx-g.stage.cx)).toBeLessThan(2);
-   expect(g.hand.y).toBeGreaterThanOrEqual(g.hero.bottom-6);
+   // Recruit: portrait stands right, over the purse; the hand owns the left of the table.
+   expect(g.hero.cx - g.stage.cx).toBeGreaterThan(g.stage.width * 0.25);
+   expect(g.hand.cx).toBeLessThan(g.stage.cx);
+   expect(g.hand.right).toBeLessThanOrEqual(g.hero.x + 2);
    expect(g.power.x).toBeGreaterThan(g.hero.right);
    expect(g.scroll).toBe(false);
    const tokens=page.locator('.ab-board .ab-minion');
@@ -142,7 +142,7 @@ test('Skip keeps the settled Combat table until the authoritative Recruit phase'
  await expect(page.locator('.ab-combat-wrap')).toHaveClass(/is-settled/);
  await expect(page.locator('.ab-combat-hero-image')).toHaveCount(2);
  await expect(page.locator('.ab-zone-tavern')).toHaveCSS('visibility','hidden');
- await expect(page.locator('.ab-zone-player')).toHaveCSS('visibility','hidden');
+ await expect(page.locator('.ab-board')).toHaveCSS('visibility','hidden');
  await expect(page.getByTestId('ab-recruit-stamp')).toHaveCount(0);
  const recruit=abFixture();recruit.turn++;
  await setFixture(page,recruit);

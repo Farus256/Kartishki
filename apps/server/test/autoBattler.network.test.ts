@@ -36,7 +36,7 @@ test('two clients start an auto-battler, recruit, and receive combat events', { 
   assert.ok(address && typeof address === 'object');
   const client = new Client(`http://127.0.0.1:${address.port}`);
   try {
-    const a = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', {}, AutoBattlerRoomState);
+    const a = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { anomaly: '' }, AutoBattlerRoomState);
     let offersA: AutoBattlerHeroDef[] = [];
     let combatA: CombatEventsMessage | undefined;
     a.onMessage(EV.heroOffers, offers => { offersA = offers; });
@@ -45,7 +45,7 @@ test('two clients start an auto-battler, recruit, and receive combat events', { 
     a.onMessage(EV.actionError, () => {});
     a.send(MSG.ready);
 
-    const b = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', {}, AutoBattlerRoomState);
+    const b = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { anomaly: '' }, AutoBattlerRoomState);
     let offersB: AutoBattlerHeroDef[] = [];
     b.onMessage(EV.heroOffers, offers => { offersB = offers; });
     b.onMessage(EV.catalog, () => {});
@@ -60,18 +60,20 @@ test('two clients start an auto-battler, recruit, and receive combat events', { 
     a.send(MSG.startGame);
     await until(() => a.state.phase === 'HERO_SELECTION');
 
-    a.send(MSG.chooseHero, { heroId: offersA[0]!.id });
+    // A passive-gold hero (Tycoon) would skew the turn-one gold check.
+    const heroA = offersA.find(hero => hero.power.id !== 'ab-power-rich') ?? offersA[0]!;
+    a.send(MSG.chooseHero, { heroId: heroA.id });
     b.send(MSG.chooseHero, { heroId: offersB[0]!.id });
     await until(() => a.state.phase === 'RECRUIT_PHASE' && a.state.turn === 1);
 
     const me = a.state.players.get(a.sessionId)!;
     assert.equal(me.gold, 3);
     assert.equal(me.upgradeCost, 5);
-    assert.equal(me.hero.heroId, offersA[0]!.id);
+    assert.equal(me.hero.heroId, heroA.id);
     assert.ok(me.tavern.offers.length >= 1);
     assert.ok(me.nextOpponentId);
 
-    const offerId = me.tavern.offers[0]!.id;
+    const offerId = (me.tavern.offers.find(offer => offer.kind === 'minion') ?? me.tavern.offers[0]!).id;
     intent(a, MSG.buy, { offerId });
     await until(() => (a.state.players.get(a.sessionId)?.hand.length ?? 0) === 1);
     const afterBuy = a.state.players.get(a.sessionId)!;
@@ -115,7 +117,7 @@ test('recruit timer force-ends and emits combatEvents', { timeout: 15000 }, asyn
     a.onMessage(EV.catalog, () => {});
     a.onMessage(EV.combatEvents, payload => { combatA = payload; });
     a.send(MSG.ready);
-    const b = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', {}, AutoBattlerRoomState);
+    const b = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { anomaly: '' }, AutoBattlerRoomState);
     let offersB: AutoBattlerHeroDef[] = [];
     b.onMessage(EV.heroOffers, offers => { offersB = offers; });
     b.onMessage(EV.catalog, () => {});
@@ -149,7 +151,7 @@ test('invalid recruit actions are rejected with structured codes', { timeout: 15
   assert.ok(address && typeof address === 'object');
   const client = new Client(`http://127.0.0.1:${address.port}`);
   try {
-    const a = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', {}, AutoBattlerRoomState);
+    const a = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { anomaly: '' }, AutoBattlerRoomState);
     let offersA: AutoBattlerHeroDef[] = [];
     let lastError = '';
     a.onMessage(EV.heroOffers, offers => { offersA = offers; });
@@ -158,7 +160,7 @@ test('invalid recruit actions are rejected with structured codes', { timeout: 15
       lastError = typeof payload === 'string' ? payload : payload.code ?? '';
     });
     a.send(MSG.ready);
-    const b = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', {}, AutoBattlerRoomState);
+    const b = await client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { anomaly: '' }, AutoBattlerRoomState);
     let offersB: AutoBattlerHeroDef[] = [];
     b.onMessage(EV.heroOffers, offers => { offersB = offers; });
     b.onMessage(EV.catalog, () => {});

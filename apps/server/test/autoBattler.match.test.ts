@@ -15,11 +15,11 @@ async function harness(count:number){
  const address=http.address() as {port:number};const client=new Client(`http://127.0.0.1:${address.port}`);
  const rooms:Room<AutoBattlerRoomState>[]=[];const offers=new Map<string,AutoBattlerHeroDef[]>();const events=new Map<string,CombatEventsMessage>();const errors=new Map<string,string>();const combatCounts=new Map<string,number>();
  function attach(r:Room<AutoBattlerRoomState>){r.onMessage(EV.discoverOptions,()=>{});r.onMessage(EV.catalog,()=>{});r.onMessage(EV.heroOffers,o=>offers.set(r.sessionId,o));r.onMessage(EV.combatEvents,e=>{events.set(r.sessionId,e);const key=`${r.sessionId}:${e.turn}`;combatCounts.set(key,(combatCounts.get(key)??0)+1);});r.onMessage(EV.actionError,e=>errors.set(r.sessionId,e.code));r.send(MSG.ready);}
- for(let i=0;i<count;i++){const r=await client.joinOrCreate<AutoBattlerRoomState>('autoBattler',{displayName:`Player ${i}`,heroMs:2000,recruitMs:120000},AutoBattlerRoomState);rooms.push(r);attach(r);}
+ for(let i=0;i<count;i++){const r=await client.joinOrCreate<AutoBattlerRoomState>('autoBattler',{displayName:`Player ${i}`,heroMs:2000,recruitMs:120000,anomaly:''},AutoBattlerRoomState);rooms.push(r);attach(r);}
  await until(()=>rooms[0]!.state.players.size===count&&offers.size===count);
  if(count<8)rooms[0]!.send(MSG.startGame);
  await until(()=>rooms[0]!.state.phase==='HERO_SELECTION');
- for(const r of rooms)r.send(MSG.chooseHero,{heroId:offers.get(r.sessionId)![0]!.id});
+ for(const r of rooms){const mine=offers.get(r.sessionId)!;r.send(MSG.chooseHero,{heroId:(mine.find(h=>h.power.id!=='ab-power-rich')??mine[0]!).id});}
  await until(()=>rooms.every(r=>r.state.phase==='RECRUIT_PHASE'));
  const send=async(r:Room<AutoBattlerRoomState>,message:string,data:Record<string,unknown>={})=>{const revision=r.state.revision;errors.delete(r.sessionId);r.send(message,{...data,turn:r.state.turn,actionId:++serial});await until(()=>r.state.revision>revision||errors.has(r.sessionId));};
  return {server,client,rooms,events,errors,combatCounts,attach,send,host:matchMaker.getLocalRoomById(rooms[0]!.roomId) as AutoBattlerRoom};
@@ -58,9 +58,10 @@ test('private zones, replay payload, duplicate actions, fake stats, stale turns 
   const [a,b]=h.rooms as [Room<AutoBattlerRoomState>,Room<AutoBattlerRoomState>];
   const me=()=>a.state.players.get(a.sessionId)!;
   assert.equal(b.state.players.get(a.sessionId)!.hand,undefined);assert.equal(b.state.players.get(a.sessionId)!.tavern.offers,undefined);assert.equal(b.state.players.get(a.sessionId)!.board,undefined);
+  assert.ok(me().tavern.offers.every(o=>o.tribes.length>0),"nested arrays reach the owner through the view filter");
   const enemy=h.host.state.players.get(b.sessionId)!;
   await h.send(a,MSG.buy,{offerId:enemy.tavern.offers[0]!.id});assert.equal(h.errors.get(a.sessionId),'SHOP_SLOT_NOT_FOUND');
-  const offer=me().tavern.offers[0]!;await h.send(a,MSG.buy,{offerId:offer.id,health:999,gold:999,attack:999});assert.equal(me().hero.health,40);assert.equal(me().gold,0);assert.equal(me().hand[0]!.attack,offer.attack);
+  const offer=me().tavern.offers[0]!,hp=me().hero.health;await h.send(a,MSG.buy,{offerId:offer.id,health:999,gold:999,attack:999});assert.equal(me().hero.health,hp);assert.equal(me().gold,0);assert.equal(me().hand[0]!.attack,offer.attack);assert.deepEqual([...me().hand[0]!.tribes],[...h.host.state.players.get(a.sessionId)!.hand[0]!.tribes]);
   await h.send(a,MSG.playCard,{cardId:me().hand[0]!.id});
   const boardId=me().board[0]!.id;
   for(const [message,data] of [[MSG.sell,{minionId:boardId}],[MSG.moveBoard,{minionId:boardId,toIndex:0}],[MSG.playCard,{cardId:boardId}],[MSG.discoverPick,{optionId:boardId}]] as const){
@@ -77,5 +78,17 @@ test('private zones, replay payload, duplicate actions, fake stats, stale turns 
   assert.equal(h.events.get(id)!.boards.a.length+h.events.get(id)!.boards.b.length,1);
   await until(()=>rejoined.state.turn===2);const cash=rejoined.state.players.get(id)!.gold;
   rejoined.send(MSG.reroll,{turn:1,actionId:++serial});await until(()=>h.errors.get(id)==='ACTION_TOO_LATE');assert.equal(rejoined.state.players.get(id)!.gold,cash);
+ }finally{await h.server.gracefullyShutdown(false);}
+});
+
+test('a consented leave settles the phase the table was waiting on',{timeout:20000},async()=>{
+ const h=await harness(3);try{
+  const [a,b,c]=h.rooms as [Room<AutoBattlerRoomState>,Room<AutoBattlerRoomState>,Room<AutoBattlerRoomState>];
+  await h.send(a,MSG.endRecruit);await h.send(b,MSG.endRecruit);
+  assert.equal(h.host.state.phase,'RECRUIT_PHASE');
+  await c.leave(true);
+  await until(()=>h.host.state.phase!=='RECRUIT_PHASE');
+  assert.ok(h.host.state.players.get(c.sessionId)!.eliminated);
+  assert.equal(h.host.state.players.get(c.sessionId)!.placement,3);
  }finally{await h.server.gracefullyShutdown(false);}
 });

@@ -7,6 +7,7 @@ import { tryMoveBoard, tryPlayCard, type RecruitDeps } from '../src/autoBattler/
 import { SharedMinionPool } from '../src/autoBattler/pool';
 import { createRng } from '../src/autoBattler/rng';
 import { createDefaultRegistry } from '../src/autoBattler/keywords';
+import { syncPrivateView } from '../src/autoBattler/AutoBattlerRoom';
 
 const catalog = starterAutoBattlerCatalog;
 const def = (id: string) => catalog.minions.find(m => m.id === id)!;
@@ -24,7 +25,7 @@ function table() {
   const it = { offset: 0 };
   const full = encoder.encodeAll(it);
   decoder.decode(encoder.encodeAllView(view, full.length, it)); encoder.discardChanges();
-  const tick = () => { const it2 = { offset: 0 }; const shared = encoder.encode(it2); decoder.decode(encoder.encodeView(view, shared.length, it2)); encoder.discardChanges(); };
+  const tick = () => { syncPrivateView(view, p); const it2 = { offset: 0 }; const shared = encoder.encode(it2); decoder.decode(encoder.encodeView(view, shared.length, it2)); encoder.discardChanges(); };
   const ids = () => ({ server: [...p.board].map(m => m.id), client: [...client.players.get('me')!.board].map(m => m.id) });
   const clientOffers = () => [...client.players.get('me')!.tavern.offers].map(m => ({ id: m.id, keywords: [...m.keywords], tribes: [...m.tribes] }));
   let n = 0;
@@ -53,7 +54,7 @@ test('a card played into the middle of the board lands there on the client too',
   assert.deepEqual(client, server);
 });
 
-test('keywords and tribes of freshly rolled minions reach the client (lists must stay public)', () => {
+test('keywords and tribes of freshly rolled minions reach the client (view-filtered)', () => {
   const { p, tick, clientOffers } = table();
   p.tavern.offers.push(createMinionState(def('ab-omen'), 'o', 'me')); tick();
   assert.deepEqual(clientOffers(), [{ id: 'o', keywords: ['taunt', 'divineShield'], tribes: ['undead'] }]);

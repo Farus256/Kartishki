@@ -1,4 +1,4 @@
-/* fx-cards: keyword signals, full-card hover, idle breathing. Motion is transform/opacity only. */
+/* fx-cards: keyword signals, full-card hover. Motion is transform/opacity only. */
 
 /* Taunt: a slim shield outline just outside the token, under the gems */
 .ab-taunt-frame { position:absolute; inset:-12px -9px -3px; width:calc(100% + 18px); height:calc(100% + 15px); z-index:-1; pointer-events:none; overflow:visible; }
@@ -31,16 +31,12 @@
 .ab-hand .ab-minion.is-full-card .ab-reborn-sash { height:86px; }
 .ab-discover-row .ab-minion.is-full-card .ab-reborn-sash { inset:8px 8px auto; height:196px; }
 
-/* Idle life: the portrait breathes, the ground shadow answers */
+/* Ground shadow under the round token (static; --idle-phase still staggers the keyword signals) */
 .ab-screen .ab-minion.is-token { isolation:isolate; }
-.ab-token-shadow { position:absolute; left:14%; right:14%; bottom:-9px; height:16px; border-radius:50%; background:radial-gradient(ellipse,#1a0d0a88,#1a0d0a33 55%,transparent 72%); z-index:-1; pointer-events:none; animation:ab-breathe-shadow 2.8s ease-in-out infinite; animation-delay:var(--idle-phase,0s); }
-.ab-screen .ab-minion.is-token .ab-minion-art { animation:ab-breathe 2.8s ease-in-out infinite; animation-delay:var(--idle-phase,0s); transform-origin:50% 80%; }
+.ab-token-shadow { position:absolute; left:14%; right:14%; bottom:-9px; height:16px; border-radius:50%; background:radial-gradient(ellipse,#1a0d0a88,#1a0d0a33 55%,transparent 72%); z-index:-1; pointer-events:none; }
 .ab-screen .ab-minion.is-token .ab-minion-art img { transition:transform .25s ease; }
 .ab-screen .ab-minion.is-token:hover .ab-minion-art img { transform:scale(1.06); }
 .ab-drag-ghost .ab-minion-art,.ab-combat-card .ab-minion-art { animation:none!important; }
-.ab-screen.is-combat .ab-token-shadow { animation:none; }
-@keyframes ab-breathe { 0%,100% { transform:translateY(0) scale(1); } 50% { transform:translateY(-2px) scale(1.025); } }
-@keyframes ab-breathe-shadow { 0%,100% { transform:scaleX(1); opacity:.9; } 50% { transform:scaleX(.93); opacity:.65; } }
 
 /* Hover on a token: the full card beside it */
 .paper-tooltip.is-dossier { transform-origin:0 50%; animation:ab-dossier-in .16s cubic-bezier(.2,.9,.3,1.2) both; }
@@ -50,7 +46,7 @@
 .ab-dossier-stars { padding:0 4px 4px; font-size:15px; color:#8a6a2b; text-shadow:0 1px 0 #fff8e6; }
 .ab-dossier-art { margin:0; height:158px; border:3px solid #2a1a10; border-radius:8px 8px 40% 40% / 8px 8px 22% 22%; background:#d5cfbd; box-shadow:inset 0 0 0 2px #f6efdc; }
 .ab-dossier-name { margin:-14px 8px 0; padding:6px 10px; border:3px solid #2a1a10; border-radius:8px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; font:21px/1.1 var(--font-hand); box-shadow:0 3px 0 #1a1a1a55; }
-.ab-dossier-text { margin:10px 6px 6px; padding:8px 10px; min-height:104px; max-height:150px; border:0; border-radius:6px; background:#fff9ea; box-shadow:inset 0 0 0 1px #c9b78e; font:13px/1.45 var(--font-mono); color:#2a1f18; }
+.ab-dossier-text { margin:10px 6px 6px; padding:8px 10px; min-height:104px; max-height:150px; border:0; border-radius:6px; background:#fff9ea; box-shadow:inset 0 0 0 1px #c9b78e; font:15px/1.3 var(--font-hand); text-align:center; color:#2a1f18; }
 .ab-dossier-foot { padding:0 2px 2px; }
 .ab-dossier-foot b,.ab-dossier-foot i { width:44px; height:44px; font-size:24px; }
 .ab-dossier-tribe { font-size:15px; color:#5a4030; }
@@ -89,3 +85,23 @@
 /* Buttons centre their content vertically; a paper card stacks from the top */
 .ab-minion.is-full-card { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; }
 .ab-minion.is-full-card > * { flex:none; }
+
+/* Hand: each card is the hover dossier itself, zoomed to the 170×252 hand slot (ghost too) */
+.ab-minion.is-dossier { height:auto; padding:0; border:0; background:transparent; box-shadow:none; }
+.ab-minion.is-dossier::after { content:none; }
+.ab-minion.is-dossier .ab-dossier { zoom:.644; }
+.ab-minion.is-dossier .ab-minion-act { z-index:2; }
+.ab-hand .ab-minion:hover .ab-dossier,.ab-hand .ab-minion:focus-visible .ab-dossier { box-shadow:0 0 0 4px #3a2a20,0 0 0 8px var(--gold),0 0 34px #ffd76a,10px 14px 0 #1a1a1a66; }
+
+/* Tavern refresh: new offers fade in under a divine flash and a burst of stars; the card never changes size */
+.ab-tavern-row .ab-minion-wrap.is-arrive { animation:ab-tavern-arrive .5s ease-out both; }
+.ab-tavern-row .ab-minion-wrap.is-arrive:not([data-buff]) .ab-minion { animation:ab-divine-glow .9s ease-out both; animation-delay:inherit; }
+.ab-tavern-row .ab-minion-wrap.is-arrive:not([data-buff])::after { content:'★'; position:absolute; left:50%; top:50%; z-index:9; pointer-events:none; color:#fff6c8; font:26px/1 var(--font-stencil); text-shadow:0 0 0 #ffd76a,0 0 0 #fff,0 0 0 #ffd76a,0 0 0 #fff,0 0 0 #ffe9a8,0 0 0 #ffd76a; animation:ab-tavern-stars .8s ease-out both; animation-delay:inherit; }
+@keyframes ab-tavern-arrive { from { opacity:0; } to { opacity:1; } }
+@keyframes ab-divine-glow { 0% { filter:brightness(2.4) drop-shadow(0 0 0 #fff6c8); } 35% { filter:brightness(1.7) drop-shadow(0 0 30px #ffd76a); } 100% { filter:none; } }
+@keyframes ab-tavern-stars {
+  0% { opacity:0; transform:translate(-50%,-50%) rotate(0deg); text-shadow:0 0 0 #ffd76a,0 0 0 #fff,0 0 0 #ffd76a,0 0 0 #fff,0 0 0 #ffe9a8,0 0 0 #ffd76a; }
+  25% { opacity:1; }
+  100% { opacity:0; transform:translate(-50%,-50%) rotate(40deg); text-shadow:-64px -58px 0 #ffd76a,66px -48px 0 #fff,-58px 62px 0 #ffd76a,62px 66px 0 #fff,0 -84px 0 #ffe9a8,0 82px 0 #ffd76a; }
+}
+@media(prefers-reduced-motion:reduce) { .ab-tavern-row .ab-minion-wrap.is-arrive::after { display:none; } }

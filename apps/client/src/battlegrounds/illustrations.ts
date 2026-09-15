@@ -3,8 +3,8 @@ const cache = new Map<string, string>();
 export function illustrationUrl(id: string): string {
  if (cache.has(id)) return cache.get(id)!;
  const seed = [...id].reduce((n,c)=>n+c.charCodeAt(0),0);
- const mech = /ward|aegis|knight|colossus|omen|bulwark/.test(id);
- const beast = /whelp|viper|alpha|fang|hydra|howler|breeder/.test(id);
+ const mech = /ward|aegis|knight|colossus|omen|bulwark|bot|mech|module|gear|shield|tin-|cobalt|omega|reaper|deflector|rover|junk|annoyer|magnetron|forge|welder|tinkerer|overclock/.test(id);
+ const beast = /whelp|viper|alpha|fang|hydra|howler|breeder|hyena|hound|bear|rat|frog|raptor|boar|spider|egg|kennel|goldrinn|hunter|brood|magpie|poison|drake|dragon|drakonid|razorgore|tarecgosa|aspect|many-heads|leviathan|cub|nest|primal|scavenger|den-mother|bilge/.test(id);
  const colors = ['#9a9b79','#bd9567','#899c92','#b98568','#9c9290'];
  const fill = colors[seed%colors.length];
  const face = mech

@@ -32,7 +32,6 @@ function FightLog({ player, players, log, meId, ru, catalog }: { player: AbPlaye
     <dl className="ab-lb-log-facts">
       <div><dt>{ru ? 'Таверна' : 'Tavern'}</dt><dd>{t('abTier', { tier: player.tavernTier })}</dd></div>
       <div><dt>{ru ? 'Собирает' : 'Building'}</dt><dd>{likelyTribe(player, catalog, i18n.language, t, ru)}</dd></div>
-      <div><dt>{ru ? 'На столе' : 'Board'}</dt><dd>{player.board.length}/7</dd></div>
     </dl>
     <strong className="ab-lb-log-title">{ru ? 'Последние бои' : 'Recent fights'}</strong>
     {!recent.length && <p>{ru ? 'Боёв ещё не было.' : 'No fights yet.'}</p>}

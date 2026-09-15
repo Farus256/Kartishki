@@ -47,7 +47,7 @@ function ctxOf(deps: RecruitDeps): RecruitContext {
 }
 
 function fxOf(deps: RecruitDeps): RecruitEffectDeps {
-  return { player: deps.player, rng: deps.rng, defFor: deps.defFor, rules: rulesOf(deps) };
+  return { player: deps.player, rng: deps.rng, defFor: deps.defFor, rules: rulesOf(deps), nextId: deps.nextId };
 }
 
 /** Prices replicated to the client: anomalies, free refreshes and the first-buy discount. */
@@ -103,8 +103,8 @@ export function beginRecruitTurn(deps: RecruitDeps, turn: number): void {
 }
 
 /** End of the recruit phase: end-of-turn minion effects and passive hero hooks, before boards are snapshotted. */
-export function endRecruitTurn(deps: RecruitDeps): void {
-  runBoardEffects(fxOf(deps), 'endTurn');
+export function endRecruitTurn(deps: RecruitDeps, onBuff?: RecruitEffectDeps['onBuff']): void {
+  runBoardEffects({ ...fxOf(deps), onBuff }, 'endTurn');
   deps.registry.heroPowers.get(deps.player.hero.power.id)?.onTurnEnd?.(ctxOf(deps));
 }
 
@@ -169,6 +169,7 @@ export function tryReroll(deps: RecruitDeps): ActionResult {
   player.tavern.frozen = false;
   returnOffersToPool(player, deps.pool);
   fillTavern(deps);
+  runBoardEffects(fxOf(deps), 'reroll');
   syncPrices(deps);
   return ok();
 }

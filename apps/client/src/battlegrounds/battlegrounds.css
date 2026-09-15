@@ -3,8 +3,8 @@
    Layout: 38px header, then a 160 | 1440 grid: standings | table. Timer, end-turn plate,
    anomaly gem and gold purse overlay the right edge of the table (.ab-rail inside .ab-stage).
    Table bands (table-local px, see AB_LAYOUT):
-     tavern head 8–148 · tavern row 152–322 · divider 332 · board 372–542
-     hero dock 552–702 · hand 706–862. Combat overlays the same bands.
+     tavern head 8–148 · table frame 156–590 · tavern row 168–338 · band 354 · fuse 382 · board 404–574
+     hero dock 608–788 (below the 604 frame edge) · purse 800 · hand 588–862 (dossier cards, 170×252). Combat overlays the same bands.
    ───────────────────────────────────────────────────────────────────────────── */
 
 /* Tokens */
@@ -51,7 +51,7 @@
 /* Table surface */
 .ab-stage { position:relative; min-width:0; min-height:0; }
 .ab-stage::before {
-  content:''; position:absolute; inset:144px 22px 306px 26px; pointer-events:none;
+  content:''; position:absolute; inset:156px 14px 272px 14px; pointer-events:none;
   border-radius:22% 22% 12% 12% / 16% 16% 10% 10%; border:12px ridge #735244;
   background:radial-gradient(ellipse at 50% 35%,var(--ab-felt-light),var(--ab-felt) 70%,var(--ab-felt-dark));
   box-shadow:0 0 0 7px #34262c,0 0 0 14px #876449,inset 0 0 50px #5d352b,0 15px 35px #140d16aa;
@@ -60,16 +60,16 @@
 .ab-tavern,.ab-tavern-row,.ab-tavern-row .ab-minion-wrap,.ab-board,.ab-slot,.ab-hand,.ab-hand .ab-minion-wrap { overflow:visible; }
 
 /* Tavern head: [tier][upgrade]  bartender  [reroll][freeze] — one centered line */
-.ab-tavern { position:absolute; inset:0 0 auto; height:332px; pointer-events:auto; }
+.ab-tavern { position:absolute; inset:0 0 auto; height:348px; pointer-events:auto; }
 .ab-tavern-head { position:absolute; top:8px; left:0; right:0; height:140px; z-index:3; display:flex; align-items:center; justify-content:center; gap:18px; }
 .ab-tier-sign { flex:1 0 0; display:flex; align-items:center; justify-content:flex-end; gap:12px; }
 .ab-tier-sign strong { display:block; padding:6px 12px; border:3px ridge var(--ab-ridge); border-radius:12px; color:var(--ab-amber); background:linear-gradient(180deg,#3d2c22,#2a1d18); box-shadow:0 0 0 3px var(--ab-ring),0 6px 12px #0007; font:19px var(--font-hand); text-align:center; line-height:1.1; }
 .ab-tier-sign small { display:block; color:var(--gold); font-size:13px; letter-spacing:1px; }
 .ab-tavern-ops { flex:1 0 0; display:flex; align-items:center; justify-content:flex-start; gap:34px; }
-.ab-bartender { position:relative; display:flex; flex-direction:column; align-items:center; width:136px; height:130px; padding:0; border-radius:40%; z-index:1; }
+.ab-bartender { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; width:260px; height:140px; padding:0; border-radius:40%; z-index:1; }
 .ab-dealer-art { width:120px; height:116px; }
-.ab-bartender > span { position:absolute; top:8px; right:-8px; padding:3px 7px; font:14px var(--font-hand); background:var(--paper); border:2px solid var(--ink); transform:rotate(6deg); }
-.ab-bartender small { display:none; position:absolute; top:112px; padding:3px 6px; white-space:nowrap; font:11px var(--font-mono); background:var(--ink); color:var(--paper); }
+.ab-bartender > span { position:absolute; top:8px; right:24px; padding:3px 7px; font:14px var(--font-hand); background:var(--paper); border:2px solid var(--ink); transform:rotate(6deg); }
+.ab-bartender small { display:none; position:absolute; top:118px; padding:3px 6px; white-space:nowrap; font:11px var(--font-mono); background:var(--ink); color:var(--paper); }
 .ab-bartender:hover small,.ab-bartender.is-sell-ready small { display:block; }
 .ab-bartender.is-sell-ready { outline:3px dashed var(--blood); background:#d1ad5660; }
 .ab-bartender.is-hot { outline:4px solid var(--ab-green); background:#62df8533; box-shadow:0 0 0 10px #62df8533,0 0 44px 16px #62df8588; transform:translateY(-4px) scale(1.06); }
@@ -96,7 +96,7 @@
 .ab-tavern-btn.is-upgrade:disabled span { top:auto; bottom:-14px; font-size:11px; }
 
 /* Tavern row */
-.ab-tavern-row { position:absolute; top:152px; left:0; right:0; height:170px; display:flex; justify-content:center; align-items:flex-start; gap:var(--ab-tavern-gap,12px); transition:filter .45s; }
+.ab-tavern-row { position:absolute; top:168px; left:0; right:0; height:170px; display:flex; justify-content:center; align-items:flex-start; gap:var(--ab-tavern-gap,12px); transition:filter .45s; }
 .ab-tavern.is-frozen .ab-tavern-row { filter:drop-shadow(0 0 12px #a4e1ed); }
 .ab-tavern.is-frozen .ab-minion-art { filter:saturate(.6); }
 .ab-frozen-stamp { position:absolute; top:118px; left:calc(50% - 65px); z-index:4; padding:3px 10px; color:#3e626c; background:#e0e3d7dd; border:3px double #3e626c; transform:rotate(-7deg); font:18px var(--font-stencil); pointer-events:none; animation:ab-freeze-in .65s ease-out; }
@@ -106,17 +106,17 @@
 @keyframes ab-upgrade-glow { 40% { filter:drop-shadow(0 0 22px #e4ba55); transform:scale(1.08); } }
 
 /* Divider band + rope timer */
-.ab-round-band { position:absolute; top:338px; left:0; right:0; height:30px; display:flex; align-items:center; justify-content:center; gap:22px; font:12px var(--font-mono); color:#422c24; text-shadow:0 1px #e8bb86; opacity:.85; }
+.ab-round-band { position:absolute; top:354px; left:0; right:0; height:30px; display:flex; align-items:center; justify-content:center; gap:22px; font:12px var(--font-mono); color:#422c24; text-shadow:0 1px #e8bb86; opacity:.85; }
 .ab-round-band b { margin-left:6px; padding:3px 9px; background:var(--blood); color:var(--paper); font:17px var(--font-hand); }
 .ab-round-band > span:nth-child(2),.ab-round-band > small { display:none; }
-.ab-rope { position:absolute; top:364px; left:40px; right:132px; height:7px; z-index:8; pointer-events:none; background:#31251c55; border-radius:50%; }
-.ab-rope-remaining { position:relative; height:7px; background:repeating-linear-gradient(115deg,#6e3b19 0 3px,#dbac60 4px 7px); box-shadow:0 2px 3px #3a201b; transition:width 1s linear; }
+.ab-rope { position:absolute; top:382px; left:40px; right:132px; height:7px; z-index:8; pointer-events:none; background:#31251c55; border-radius:50%; }
+.ab-rope-remaining { position:relative; height:7px; background:repeating-linear-gradient(115deg,#6e3b19 0 3px,#dbac60 4px 7px); box-shadow:0 2px 3px #3a201b; }
 .ab-rope-ember { position:absolute; right:-8px; top:-8px; width:20px; height:20px; border-radius:50%; background:#fff8c1; box-shadow:0 0 8px 4px #ffcc39,0 0 23px 8px #ff641b; animation:ab-ember .18s infinite alternate; }
 .ab-rope-ember::after { content:'✦'; position:absolute; top:-21px; left:-4px; color:#ffd769; font-size:32px; }
 @keyframes ab-ember { to { transform:scale(.8,1.3) rotate(25deg); filter:brightness(1.3); } }
 
 /* Board */
-.ab-zone-player .ab-board { position:absolute; top:372px; left:0; right:0; height:170px; min-height:170px; display:flex; align-items:center; justify-content:center; gap:var(--ab-line-gap,12px); pointer-events:auto; touch-action:none; --ab-card:150px; }
+.ab-zone-player .ab-board { position:absolute; top:404px; left:0; right:0; height:170px; min-height:170px; display:flex; align-items:center; justify-content:center; gap:var(--ab-line-gap,12px); pointer-events:auto; touch-action:none; --ab-card:150px; }
 .ab-slot { position:relative; width:var(--ab-card); height:170px; flex-shrink:0; }
 .ab-slot:not(:empty)::before { content:''; position:absolute; width:74%; height:8px; background:#1a1a1a12; bottom:0; left:13%; transform:skew(-25deg); }
 .ab-slot.is-gap { background:transparent; }
@@ -126,22 +126,26 @@
 .ab-board-end { position:absolute; inset:0 0 0 auto; width:18%; pointer-events:none; flex:none; }
 .ab-screen[data-ab-zone=board]:not(.is-invalid) .ab-board { background:radial-gradient(ellipse,#c4a35c45,transparent 72%); }
 .ab-screen[data-ab-zone=board].is-invalid .ab-board { background:radial-gradient(ellipse,#b3342645,transparent 72%); }
-.ab-selection-tools { position:absolute; top:330px; left:50%; transform:translateX(-50%); z-index:12; display:flex; gap:10px; pointer-events:auto; }
+.ab-selection-tools { position:absolute; top:362px; left:50%; transform:translateX(-50%); z-index:12; display:flex; gap:10px; pointer-events:auto; }
 .ab-selection-tools button,.ab-combat-speed button { border:2px solid var(--ink); border-radius:10px; box-shadow:3px 3px var(--ink); background:var(--paper); padding:5px 12px; font:17px var(--font-hand); cursor:pointer; }
 .ab-selection-tools button:first-child { background:var(--gold); }
 
-/* Hero dock (bottom center) */
-.ab-buy-zone { position:absolute; top:552px; left:0; right:0; height:150px; pointer-events:auto; }
-.ab-hero-dock { position:relative; width:100%; height:150px; }
-.ab-hero-face { position:absolute; left:calc(50% - 68px); top:0; width:136px; height:146px; padding:4px; overflow:visible; border:5px ridge #b18c55; border-radius:38% 38% 8% 8%; background:#493329; box-shadow:0 0 0 4px var(--ab-ring),0 8px 20px #21141ca0; }
+/* Hero dock (400×180, shared by recruit and combat): portrait 0–172 with the health gem on its bottom-right corner,
+   name plaque at its left and the power gem at its right, both centred on the portrait. Recruit slides it right so the hand owns the center. */
+.ab-buy-zone { position:absolute; top:608px; left:0; right:0; height:180px; pointer-events:auto; }
+.ab-hero-dock { position:relative; width:400px; height:180px; margin:0 auto; transition:translate .45s cubic-bezier(.22,.61,.36,1); will-change:translate; }
+/* translate, not transform: a zoom change re-computes a transform matrix and would animate it. */
+.ab-screen:not(.is-combat) .ab-hero-dock { translate:504px 0; }
+.ab-screen.is-combat .ab-hero-dock { translate:0 0; }
+.ab-hero-face { position:absolute; left:calc(50% - 80px); top:0; width:160px; height:172px; padding:4px; overflow:visible; border:5px ridge #b18c55; border-radius:38% 38% 8% 8%; background:#493329; box-shadow:0 0 0 4px var(--ab-ring),0 8px 20px #21141ca0; }
 .ab-hero-face img { width:100%; height:100%; object-fit:cover; border-radius:34% 34% 5% 5%; }
 .ab-screen[data-ab-zone=buy] .ab-hero-face { box-shadow:0 0 0 4px var(--ab-ring),0 0 0 8px var(--ab-green),0 0 24px var(--ab-green); }
-.ab-hero-health { position:absolute; right:-18px; bottom:10px; width:46px; height:48px; display:grid; place-items:center; isolation:isolate; color:#fff; font:30px var(--font-stencil); text-shadow:2px 2px #441719,-1px -1px #441719; z-index:3; }
+.ab-hero-health { position:absolute; right:-16px; bottom:-8px; width:46px; height:48px; display:grid; place-items:center; isolation:isolate; color:#fff; font:30px var(--font-stencil); text-shadow:2px 2px #441719,-1px -1px #441719; z-index:3; }
 .ab-hero-health .ab-stat-icon { inset:-5px -5px; width:calc(100% + 10px); height:calc(100% + 10px); }
 .ab-hero-health .ab-stat-icon.is-heart { fill:#c82935; }
-.ab-hero-vitals { position:absolute; top:122px; left:calc(50% - 90px); width:180px; text-align:center; color:#ffdfab; text-shadow:0 2px 3px #221720; }
-.ab-hero-vitals strong { display:inline-block; padding:2px 12px; border:2px ridge var(--ab-ridge); border-radius:10px; background:#2a1d18e0; font:19px var(--font-hand); white-space:nowrap; }
-.ab-hero-power-anchor { position:absolute; left:calc(50% + 84px); top:22px; }
+.ab-hero-vitals { position:absolute; top:70px; right:calc(50% + 92px); max-width:190px; text-align:right; color:#ffdfab; text-shadow:0 2px 3px #221720; }
+.ab-hero-vitals strong { display:inline-block; max-width:100%; padding:2px 12px; border:2px ridge var(--ab-ridge); border-radius:10px; background:#2a1d18e0; font:19px/23px var(--font-hand); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:top; }
+.ab-hero-power-anchor { position:absolute; left:calc(50% + 96px); top:34px; }
 .ab-power { position:relative; width:104px; height:104px; min-height:104px; display:flex; flex-direction:column; justify-content:center; padding:8px; border:7px ridge var(--ab-ridge); border-radius:50%; color:#fff0c5; text-align:center; font:17px var(--font-hand); background:radial-gradient(circle at 40% 35%,#84afb3,#355561 55%,#202b3a); box-shadow:0 0 0 4px var(--ab-ring),0 7px 13px #24151aaa; touch-action:none; }
 .ab-power b { font-size:14px; line-height:1.05; overflow-wrap:anywhere; }
 .ab-power span { position:absolute; top:-23px; left:50%; transform:translateX(-50%); margin:0; padding:5px 8px; border:3px ridge #d9b46b; border-radius:50%; background:#a57529; color:white; font:13px var(--font-stencil); white-space:nowrap; }
@@ -155,17 +159,16 @@
 .ab-rail { position:absolute; top:0; right:0; width:170px; height:100%; pointer-events:none; z-index:6; }
 .ab-rail > * { position:absolute; pointer-events:auto; }
 /* Hourglass clock carved into the right edge of the frame, level with the board */
-.ab-clock { top:298px; right:10px; width:108px; height:106px; display:grid; grid-template-rows:1fr auto; place-items:center; padding:8px 6px 6px; border:5px ridge #b48b4e; border-radius:26px 26px 26px 26px / 30px 30px 30px 30px; background:radial-gradient(circle at 40% 30%,#6a4a34,#3d2c22 60%,#241b18); box-shadow:0 0 0 4px var(--ab-ring),0 8px 16px #0009,inset 0 0 18px #0008; }
+.ab-clock { top:298px; right:16px; width:108px; height:106px; display:grid; grid-template-rows:1fr auto; place-items:center; padding:8px 6px 6px; border:5px ridge #b48b4e; border-radius:26px 26px 26px 26px / 30px 30px 30px 30px; background:radial-gradient(circle at 40% 30%,#6a4a34,#3d2c22 60%,#241b18); box-shadow:0 0 0 4px var(--ab-ring),0 8px 16px #0009,inset 0 0 18px #0008; }
 .ab-clock svg { width:40px; height:52px; filter:drop-shadow(0 2px 0 #0008); }
 .ab-clock b { font:24px var(--font-stencil); color:var(--ab-amber); text-shadow:0 2px 0 #3a2410; letter-spacing:1px; }
-.ab-clock-sand { transform-origin:50% 100%; animation:ab-sand 40s linear infinite; }
-@keyframes ab-sand { to { transform:scaleY(.05); } }
+.ab-clock-sand { transform-origin:50% 100%; }
 .ab-clock.is-urgent b { color:#ffb347; }
 .ab-clock.is-critical { animation:ab-wait-pulse .6s ease-in-out infinite; box-shadow:0 0 0 4px var(--ab-ring),0 0 24px #ff5b47aa,0 8px 16px #0009; }
 .ab-clock.is-critical b { color:#ff7b6b; }
 .ab-screen.is-combat .ab-clock { display:none; }
 /* Gold purse in the bottom-right corner of the table: number plus ten coin slots */
-.ab-gold { top:792px; right:26px; width:392px; height:58px; display:flex; align-items:center; gap:12px; padding:0 14px 0 12px; border:4px ridge #c4a15a; border-radius:30px; background:linear-gradient(180deg,#3d2c22,#2a1d18); box-shadow:0 0 0 3px var(--ab-ring),0 6px 12px #0007; color:#ffe3a3; }
+.ab-gold { top:800px; right:16px; width:max-content; height:58px; display:flex; align-items:center; gap:12px; padding:0 14px 0 12px; border:4px ridge #c4a15a; border-radius:30px; background:linear-gradient(180deg,#3d2c22,#2a1d18); box-shadow:0 0 0 3px var(--ab-ring),0 6px 12px #0007; color:#ffe3a3; }
 .ab-gold small { display:none; }
 .ab-gold strong { min-width:72px; font:30px var(--font-stencil); color:var(--ab-amber); text-shadow:0 2px 0 #3a2410; white-space:nowrap; text-align:center; }
 .ab-gold em { font:14px var(--font-mono); color:#d7b56a; margin-left:2px; }
@@ -175,24 +178,25 @@
 .ab-coins i.is-on::after { content:'$'; display:grid; place-items:center; height:100%; color:#7a4a12; font:11px/20px var(--font-stencil); }
 @keyframes ab-coin-fill { from { transform:translateY(-15px) rotateY(180deg); opacity:.2; } to { transform:none; opacity:1; } }
 /* Anomaly gem at the right end of the tavern; the lobby shows it too */
-.ab-anomaly-anchor { position:absolute; top:22px; right:34px; z-index:49; }
+.ab-anomaly-anchor { position:absolute; top:22px; right:24px; z-index:49; }
 .ab-anomaly { position:relative; display:grid; place-items:center; width:92px; height:92px; border:7px ridge #b48bff; border-radius:50%; background:radial-gradient(circle at 40% 35%,#8a63b8,#4b2f6a 60%,#241a30); box-shadow:0 0 0 4px var(--ab-ring),0 0 18px #b48bff88,0 7px 13px #24151aaa; cursor:help; animation:ab-anomaly-aura 3s ease-in-out infinite; }
 .ab-anomaly svg { width:56px; height:56px; filter:drop-shadow(0 2px 0 #0008); }
 .ab-anomaly small { position:absolute; top:100%; left:50%; margin-top:8px; transform:translateX(-50%); width:150px; text-align:center; font:14px/1.1 var(--font-hand); color:#e9d6ff; text-shadow:0 2px 3px #221720; }
 @keyframes ab-anomaly-aura { 50% { box-shadow:0 0 0 4px var(--ab-ring),0 0 30px #d9b4ffcc,0 7px 13px #24151aaa; } }
 
 /* Hand (bottom center, in front of everything on the table) */
-.ab-zone-player .ab-hand { position:absolute; top:706px; left:0; right:0; height:156px; display:flex; justify-content:center; align-items:flex-start; padding:0 10px; --ab-card:124px; pointer-events:auto; z-index:4; }
+.ab-zone-player .ab-hand { position:absolute; top:588px; left:0; right:400px; height:274px; display:flex; justify-content:center; align-items:flex-start; padding:0 10px; --ab-card:170px; pointer-events:auto; z-index:4; transition:translate .42s cubic-bezier(.4,0,.2,1),opacity .35s ease; will-change:translate; }
 .ab-hand .ab-minion-wrap + .ab-minion-wrap { margin-left:calc(var(--ab-hand-overlap, 28px) * -1); }
 .ab-hand .ab-minion-wrap { transform:translateY(calc(var(--fan-y,0) * 1px)) rotate(calc(var(--fan-r,0) * 1deg)); transform-origin:50% 100%; animation:none; }
 .ab-hand .ab-minion-wrap:hover,.ab-hand .ab-minion-wrap:focus-within { z-index:15; }
-.ab-hand .ab-minion { height:150px; transform:none; }
+.ab-hand .ab-minion { height:auto; transform:none; transform-origin:50% 100%; transition:none; }
 .ab-hand .ab-minion-art { height:86px; }
 .ab-hand .ab-minion-name { font-size:15px; line-height:18px; }
 .ab-hand .ab-minion-stats { font-size:19px; bottom:6px; }
 .ab-hand .ab-minion-stats b,.ab-hand .ab-minion-stats i { width:28px; height:28px; }
 .ab-hand .ab-minion-keys { bottom:26px; }
-.ab-hand .ab-minion:hover,.ab-hand .ab-minion:focus-visible { transform:translateY(-62px) scale(1.32); }
+/* Hover re-lays out via zoom (crisp text), not a transform scale (blurry raster). Width is pinned: a percent width would shrink back under zoom. */
+.ab-hand .ab-minion:hover,.ab-hand .ab-minion:focus-visible { zoom:1.4; width:var(--ab-card); transform:translate(-24px,-115px); outline:0; }
 .ab-hand:empty::before { content:''; }
 
 /* Minion tile (paper card) */
@@ -272,7 +276,7 @@
 .ab-screen.is-ab-dragging { cursor:grabbing; }
 .ab-screen.is-ab-dragging.is-invalid { cursor:not-allowed; }
 .ab-screen.is-ab-dragging .ab-minion:hover,.ab-screen.is-ab-dragging .ab-minion:focus-visible { transform:none; outline:none; }
-.ab-screen.is-ab-dragging .ab-hand .ab-minion:hover,.ab-screen.is-ab-dragging .ab-hand .ab-minion:focus-visible { transform:none; }
+.ab-screen.is-ab-dragging .ab-hand .ab-minion:hover,.ab-screen.is-ab-dragging .ab-hand .ab-minion:focus-visible { transform:none; zoom:1; }
 .ab-dnd-layer { position:absolute; inset:0; z-index:20; pointer-events:none; }
 .ab-drag-ghost { position:absolute; left:0; top:0; pointer-events:none; filter:drop-shadow(8px 12px #1a1a1a55); will-change:transform; }
 .ab-drag-ghost,.ab-drag-ghost * { pointer-events:none!important; }
@@ -300,7 +304,7 @@
 .ab-dossier-art { margin:4px 10px 0; height:148px; overflow:hidden; border:1px solid var(--ink); background:#d5cfbd; }
 .ab-dossier-art img { width:100%; height:100%; object-fit:cover; }
 .ab-dossier-name { margin:-12px 16px 0; padding:6px 10px; border:2px solid var(--ink); background:#efe6c9; font:22px/1.1 var(--font-hand); text-align:center; position:relative; z-index:1; }
-.ab-dossier-text { flex:1; margin:10px 12px 8px; padding:8px 10px; min-height:96px; max-height:140px; overflow:hidden; border:1px solid #1a1a1a44; background:#f4efe0; font:13px/1.4 var(--font-mono); }
+.ab-dossier-text { flex:1; margin:10px 12px 8px; padding:8px 10px; min-height:96px; max-height:140px; overflow:hidden; border:1px solid #1a1a1a44; background:#f4efe0; font:15px/1.3 var(--font-hand); text-align:center; }
 .ab-dossier-text p { margin:0 0 8px; }
 .ab-dossier-text p:last-child { margin:0; }
 .ab-dossier-foot { display:flex; align-items:flex-end; justify-content:space-between; padding:0 6px 8px; font:13px var(--font-mono); }
@@ -368,22 +372,33 @@
 @keyframes ab-buff-card-ring { 0% { box-shadow:0 0 0 0 #2e8b57aa; } 40% { box-shadow:0 0 0 10px #2e8b5744; } to { box-shadow:0 0 0 18px #2e8b5700; } }
 
 /* Combat: same bands as recruit, enemy hero where the bartender stood */
-.ab-screen.is-combat .ab-zone-tavern,.ab-screen.is-combat .ab-zone-player { visibility:hidden; pointer-events:none; }
-.ab-screen.is-combat .ab-zone-tavern { animation:ab-tavern-retract .28s ease-in both; }
+.ab-screen.is-combat .ab-zone-tavern { visibility:hidden; pointer-events:none; animation:ab-tavern-retract .28s ease-in both; }
+.ab-screen.is-combat .ab-zone-player { visibility:visible; pointer-events:none; }
+.ab-screen.is-combat .ab-board,
+.ab-screen.is-combat .ab-round-band,
+.ab-screen.is-combat .ab-selection-tools,
+.ab-screen.is-combat .ab-triple-stamp,
+.ab-screen.is-combat .ab-empty { visibility:hidden; opacity:0; }
+.ab-screen.is-combat .ab-hand { translate:0 280px; opacity:0; z-index:35; }
+.ab-screen.is-combat .ab-buy-zone { z-index:35; animation:ab-buy-fade .5s ease .05s forwards; }
 @keyframes ab-tavern-retract { from { visibility:visible; opacity:1; translate:0 0; } to { visibility:hidden; opacity:0; translate:0 -22px; } }
+@keyframes ab-buy-fade { to { opacity:0; visibility:hidden; } }
 .ab-combat-wrap { position:absolute; inset:0; z-index:30; --ab-card:150px; animation:ab-combat-reveal .2s ease-out; }
 @keyframes ab-combat-reveal { from { opacity:.65; } to { opacity:1; } }
 .ab-combat { position:absolute; inset:0; }
-.ab-combat-foe,.ab-combat-me { position:absolute; left:50%; transform:translateX(-50%); width:180px; height:184px; margin:0; text-align:center; font:20px var(--font-hand); color:#f5dcb2; text-shadow:0 2px 3px #221720; pointer-events:none; }
-.ab-combat-foe { top:0; }
-.ab-combat-me { top:552px; }
-.ab-combat-portrait { position:relative; width:136px; height:146px; margin:0 auto 8px; }
-.ab-combat-hero-image { display:block; width:136px; height:146px; margin:0; padding:4px; object-fit:cover; border:5px ridge #b18c55; border-radius:38% 38% 8% 8%; background:var(--paper); box-shadow:0 0 0 4px var(--ab-ring),0 8px 20px #21141ca0; }
-.ab-combat-hero-vitals.ab-hero-health { font:30px var(--font-stencil); }
+/* Both heroes reuse the dock skeleton (.ab-hero-face / .ab-hero-vitals / .ab-hero-power-anchor). Mine sits on the dock band.
+   The foe has only the 0–150 band above the enemy row, so its portrait is smaller and the name plaque flanks it on the left. */
+.ab-combat-foe,.ab-combat-me { position:absolute; left:calc(50% - 200px); width:400px; height:180px; margin:0; pointer-events:none; }
+.ab-combat-foe { top:2px; height:148px; }
+.ab-combat-foe .ab-hero-face { left:calc(50% - 64px); width:128px; height:138px; }
+.ab-combat-foe .ab-hero-vitals { top:54px; right:calc(50% + 76px); }
+.ab-combat-foe .ab-hero-power-anchor { left:calc(50% + 78px); top:17px; }
+.ab-combat-me { top:608px; animation:ab-combat-me-in .2s ease .38s both; }
+@keyframes ab-combat-me-in { from { opacity:0; } to { opacity:1; } }
+.ab-combat-power-anchor { pointer-events:auto; }
 .ab-combat-hero-damage { position:absolute; top:48px; right:-22px; font:42px var(--font-stencil); color:var(--blood); text-shadow:2px 2px var(--paper); }
-.ab-combat-foe.is-lethal,.ab-combat-me.is-lethal { filter:grayscale(1); outline:3px solid var(--blood); }
-.ab-combat-power-anchor { position:absolute; left:calc(50% + 84px); top:22px; pointer-events:auto; }
-.ab-combat-banner { position:absolute; left:50%; top:347px; transform:translate(-50%,-50%); margin:0; font:32px var(--font-hand); color:var(--ab-cream); text-shadow:0 2px 3px #221720; pointer-events:none; z-index:5; }
+.ab-combat-foe.is-lethal,.ab-combat-me.is-lethal { filter:grayscale(1); }
+.ab-combat-banner { position:absolute; left:50%; top:371px; transform:translate(-50%,-50%); margin:0; font:32px var(--font-hand); color:var(--ab-cream); text-shadow:0 2px 3px #221720; pointer-events:none; z-index:5; }
 .ab-combat-card { position:absolute; width:var(--ab-card); height:170px; pointer-events:none; transform-origin:center center; perspective:600px; transform-style:preserve-3d; overflow:visible; transition:left .13s ease-out; }
 .ab-combat-card .ab-minion-wrap { pointer-events:auto; }
 .ab-combat-card.is-rip .ab-combat-flip { visibility:hidden; }
@@ -406,7 +421,7 @@
 .ab-combat-card[data-attack-style=slam].is-attacking { filter:drop-shadow(0 10px 12px #c44); }
 .ab-combat-card.is-hit .ab-combat-flip { animation:ab-card-impact .38s ease-out; }
 .ab-combat-card.is-hit .ab-minion-art::after { content:''; position:absolute; inset:0; background:var(--blood); pointer-events:none; opacity:0; animation:ab-hit .22s ease-out; }
-.ab-combat-card.is-hit .ab-minion-stats i { animation:ab-health-hit .22s ease-out; }
+.ab-combat-card.is-hp-drop .ab-minion-stats i { animation:ab-health-hit .3s ease-out; }
 @keyframes ab-card-impact { 15% { transform:translate(-9px,5px) rotate(-7deg); } 40% { transform:translate(10px,-4px) rotate(6deg); } 65% { transform:translate(-6px,3px) rotate(-3deg); } to { transform:none; } }
 @keyframes ab-hit { from { opacity:.65; } to { opacity:0; } }
 @keyframes ab-health-hit { 40% { scale:1.4; filter:brightness(1.35) drop-shadow(0 0 8px #ff5b47); } }
@@ -422,11 +437,14 @@
 .ab-combat-card.is-debuff .ab-minion-art { animation:ab-debuff .65s ease-out; }
 @keyframes ab-shield-shatter { from { opacity:1; scale:1; } to { opacity:0; scale:1.35; border-style:dashed; } }
 @keyframes ab-debuff { 30% { filter:sepia(.7) saturate(3) hue-rotate(300deg); } to { filter:none; } }
-.ab-combat-pop { position:absolute; z-index:12; pointer-events:none; min-width:72px; padding:16px 18px 14px; font:36px/1 var(--font-stencil); color:var(--ink); text-align:center; text-shadow:1px 1px #fff; background:#f2d24a; border:3px solid var(--ink); clip-path:polygon(48% 0,62% 12%,84% 4%,78% 26%,100% 36%,84% 50%,98% 72%,76% 68%,70% 100%,50% 82%,32% 100%,28% 70%,0 74%,14% 50%,0 28%,20% 24%,12% 4%,36% 14%); transform:translate(-50%,-50%) rotate(-8deg); animation:ab-pop .9s ease-out forwards; }
-@keyframes ab-pop { from { opacity:0; transform:translate(-50%,-40%) scale(.35) rotate(-20deg); } 10% { opacity:1; transform:translate(-50%,-58%) scale(1.18) rotate(-6deg); } 74% { opacity:1; transform:translate(-50%,-64%) scale(1.04) rotate(-5deg); } to { opacity:0; transform:translate(-50%,-100%) scale(.95) rotate(-2deg); } }
-.ab-hero-tally { position:absolute; left:58%; z-index:21; padding:8px 16px; color:var(--ink); background:var(--gold); border:3px solid var(--ink); font:40px var(--font-stencil); box-shadow:0 0 24px #e9bc59; }
-.ab-hero-tally.is-mine { bottom:100px; }
-.ab-hero-tally.is-foe { top:100px; }
+.ab-combat-pop { position:absolute; z-index:12; pointer-events:none; min-width:72px; padding:16px 18px 14px; font:36px/1 var(--font-stencil); color:var(--ink); text-align:center; text-shadow:1px 1px #fff; background:#f2d24a; border:3px solid var(--ink); clip-path:polygon(48% 0,62% 12%,84% 4%,78% 26%,100% 36%,84% 50%,98% 72%,76% 68%,70% 100%,50% 82%,32% 100%,28% 70%,0 74%,14% 50%,0 28%,20% 24%,12% 4%,36% 14%); transform:translate(-50%,-50%) rotate(-8deg); animation:ab-pop .5s ease-out forwards; }
+.ab-combat-pop.is-leave { animation:ab-pop-out .28s ease-in forwards; }
+/* The cloud pops in and hangs at rest until the hit settles (JS adds .is-leave), then floats off. */
+@keyframes ab-pop { from { opacity:0; transform:translate(-50%,-40%) scale(.35) rotate(-20deg); } 25% { opacity:1; transform:translate(-50%,-58%) scale(1.18) rotate(-6deg); } to { opacity:1; transform:translate(-50%,-64%) scale(1.04) rotate(-5deg); } }
+@keyframes ab-pop-out { from { opacity:1; transform:translate(-50%,-64%) scale(1.04) rotate(-5deg); } to { opacity:0; transform:translate(-50%,-110%) scale(.9) rotate(-2deg); } }
+.ab-hero-tally { position:absolute; left:calc(50% + 208px); z-index:21; padding:8px 16px; color:var(--ink); background:var(--gold); border:3px solid var(--ink); font:40px var(--font-stencil); box-shadow:0 0 24px #e9bc59; }
+.ab-hero-tally.is-mine { top:646px; }
+.ab-hero-tally.is-foe { top:36px; }
 .ab-combat-speed { position:absolute; top:12px; left:12px; z-index:2; display:flex; gap:8px; padding:6px; border:1px solid #d3b87577; border-radius:12px; background:#18241ff2; box-shadow:0 4px 18px #0005; }
 .ab-combat-speed button { min-height:36px; min-width:44px; border-radius:7px; font-variant-numeric:tabular-nums; transition:transform .18s ease,filter .18s ease,box-shadow .18s ease; }
 .ab-combat-speed button[aria-pressed=true] { background:#dec384; color:#18241f; box-shadow:inset 0 0 0 1px #fff5; }
@@ -454,8 +472,12 @@
 /* Reduced motion */
 @media(prefers-reduced-motion:reduce) {
   .ab-screen *,.ab-screen *::before,.ab-screen *::after { animation:none!important; transition:none!important; }
-  .ab-hand .ab-minion:hover,.ab-hand .ab-minion:focus-visible { transform:scale(1.1); }
+  .ab-hand .ab-minion:hover,.ab-hand .ab-minion:focus-visible { zoom:1.15; transform:translate(-11px,-30px); }
   .ab-tavern-btn:hover:enabled,.ab-tavern-btn:hover:enabled svg,.ab-tavern-btn:active:enabled,.ab-combat-speed button:hover:enabled,.ab-combat-speed button:active:enabled { transform:none; }
   .ab-combat-card.is-shield-breaking::before,.ab-combat-card.is-debuff .ab-minion-art { opacity:0; }
   .ab-rope-remaining { transition:none; }
+  .ab-hero-dock,.ab-hand { transition:none!important; }
+  .ab-screen:not(.is-combat) .ab-hero-dock { translate:504px 0!important; }
+  .ab-screen.is-combat .ab-hero-dock { translate:0 0!important; }
+  .ab-screen.is-combat .ab-hand { translate:0 280px!important; opacity:0; }
 }

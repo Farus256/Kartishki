@@ -66,7 +66,7 @@ test('hero power tooltips and roster clear the frame without blinking or overlap
     await page.setViewportSize({ width, height: Math.round(width * 9 / 16) });
     const boxes = await page.evaluate(() => {
       const rect = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-      const stage = rect('.ab-stage'), roster = rect('.ab-leaderboard'), vitals = rect('.ab-hero-vitals'), hand = rect('.ab-hand');
+      const stage = rect('.ab-stage'), roster = rect('.ab-leaderboard'), vitals = rect('.ab-hero-face'), hand = rect('.ab-hand');
       const scale = rect('.ab-screen').width / 1600;
       const before = getComputedStyle(document.querySelector('.ab-stage')!, '::before');
       return { frameLeft: stage.left + (parseFloat(before.left) - 14) * scale, rosterRight: roster.right, vitalsLeft: vitals.left, handRight: hand.right };
@@ -112,7 +112,7 @@ test('keyword visuals, final ten-second fuse and real card clicks', async ({ pag
   await expect(card.locator('[data-keyword=deathrattle]')).toBeVisible();
   await expect(card.locator('[data-keyword=battlecry]')).toBeVisible();
   await expect(page.getByTestId('ab-minion-p0-m27').locator('[data-keyword=taunt]')).toBeVisible();
-  await expect(page.getByTestId('ab-minion-p0-m8').locator('[data-keyword=taunt]')).toBeVisible();
+  await expect(page.getByTestId('ab-minion-p0-m8').locator('.ab-dossier')).toBeVisible();
   await expect(page.getByTestId('ab-gold').locator('.ab-coins i')).toHaveCount(8);
   const reroll = await page.getByTestId('ab-reroll').boundingBox();
   const freeze = await page.getByTestId('ab-freeze').boundingBox();
@@ -121,6 +121,7 @@ test('keyword visuals, final ten-second fuse and real card clicks', async ({ pag
   expect(Math.abs(freeze!.width - freeze!.height)).toBeLessThan(3);
   expect(Math.abs(tierUp!.width - tierUp!.height)).toBeLessThan(3);
   await expect(page.getByTestId('ab-rope')).toBeVisible();
+  await expect(page.getByTestId('ab-rope')).toHaveClass(/is-short/);
   await card.click();
   await expect(page.locator('.ab-selection-tools')).toBeVisible();
   const hero = await page.locator('.ab-hero-face').boundingBox();
@@ -129,9 +130,10 @@ test('keyword visuals, final ten-second fuse and real card clicks', async ({ pag
   expect(Math.abs(power!.width - power!.height)).toBeLessThan(2);
   await page.mouse.move(2, 2);
   await page.screenshot({ path: 'artifacts/ab-keywords-rope.png' });
-  state.recruitSeconds = 11;
+  state.recruitSeconds = 25;
   await setFixture(page, state);
-  await expect(page.getByTestId('ab-rope')).toHaveCount(0);
+  await expect(page.getByTestId('ab-rope')).toBeVisible();
+  await expect(page.getByTestId('ab-rope')).not.toHaveClass(/is-short/);
 });
 
 test('tavern upgrade flourish matches the new tier', async ({ page }) => {

@@ -60,7 +60,7 @@ export function HeartIcon() {
   </svg>;
 }
 
-function MinionDossier({ minion, catalog }: { minion: AbMinion; catalog: AutoBattlerCatalog }) {
+function MinionDossier({ minion, catalog, inline = false }: { minion: AbMinion; catalog: AutoBattlerCatalog; inline?: boolean }) {
   const { i18n, t } = useTranslation();
   const spell = isSpell(minion);
   const def = catalog.minions.find(m => m.id === minion.cardId);
@@ -71,7 +71,7 @@ function MinionDossier({ minion, catalog }: { minion: AbMinion; catalog: AutoBat
   const lines = minionDossierLines(minion, catalog, i18n.language, t);
   const tone = (now: number, base?: number) => base === undefined || now === base ? '' : now > base ? ' is-buffed' : ' is-nerfed';
   return (
-    <article className={`ab-dossier ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''}`} data-testid="ab-dossier">
+    <article className={`ab-dossier ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''}`} data-testid={inline ? undefined : 'ab-dossier'}>
       <span className="ab-dossier-stars">{'★'.repeat(minion.tavernTier)}</span>
       <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" />}</div>
       <h3 className="ab-dossier-name">{name}</h3>
@@ -122,10 +122,12 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
   const parked = !ghost && dnd?.hidden === minion.id;
   const isTarget = !ghost && dnd?.kind === 'power' && dnd.targetId === minion.id;
   const dim = !ghost && dnd?.kind === 'power' && dnd.armed && !isTarget;
+  // Hand cards are the hover dossier itself; the discover window keeps the compact full card (dossier off).
+  const asDossier = fullCard && dossier;
   return (
-    <PaperTooltip className={`ab-minion-wrap ${!ghost && arrive ? 'is-arrive' : ''} ${flash ? `is-buff-${flash}` : ''}`} data-buff={flash} style={{ animationDelay: `${arriveDelay}ms`, '--fan-r': fan * 1.1, '--fan-y': Math.abs(fan) * 1.5, '--idle-phase': `${(-idlePhase(minion.id) * 2.8).toFixed(2)}s` } as CSSProperties} placement="right" boxClassName="paper-tooltip is-dossier" delay={220} content={ghost || !dossier || dnd?.armed ? null : <MinionDossier minion={minion} catalog={catalog} />}>
+    <PaperTooltip className={`ab-minion-wrap ${!ghost && arrive ? 'is-arrive' : ''} ${flash ? `is-buff-${flash}` : ''}`} data-buff={flash} style={{ animationDelay: `${arriveDelay}ms`, '--fan-r': fan * 1.1, '--fan-y': Math.abs(fan) * 1.5, '--idle-phase': `${(-idlePhase(minion.id) * 2.8).toFixed(2)}s` } as CSSProperties} placement="right" boxClassName="paper-tooltip is-dossier" delay={220} content={ghost || !dossier || asDossier || dnd?.armed ? null : <MinionDossier minion={minion} catalog={catalog} />}>
       <button type="button" aria-label={`${name}${actionLabel ? ' · ' + actionLabel : ''}`}
-        className={`ab-minion ${fullCard ? 'is-full-card' : 'is-token'} ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''} ${selected ? 'is-selected' : ''} ${canDrag ? 'is-draggable' : ''} ${lifted ? 'is-lifted' : ''} ${shopLift ? 'is-shop-lift' : ''} ${parked ? 'is-parked' : ''} ${isTarget ? 'is-target' : ''} ${dim ? 'is-dim' : ''}`}
+        className={`ab-minion ${fullCard ? 'is-full-card' : 'is-token'} ${asDossier ? 'is-dossier' : ''} ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''} ${selected ? 'is-selected' : ''} ${canDrag ? 'is-draggable' : ''} ${lifted ? 'is-lifted' : ''} ${shopLift ? 'is-shop-lift' : ''} ${parked ? 'is-parked' : ''} ${isTarget ? 'is-target' : ''} ${dim ? 'is-dim' : ''}`}
         aria-disabled={!!disabled}
         data-ab-id={minion.id}
         data-keywords={minion.keywords.join(' ')}
@@ -137,6 +139,10 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
         }}
         onClick={event => { if (!disabled && !dnd?.didDrag(event.currentTarget)) onClick?.(); }}
         data-testid={ghost ? `ab-ghost-${minion.id}` : `ab-minion-${minion.id}`}>
+        {asDossier ? <>
+          <MinionDossier minion={minion} catalog={catalog} inline />
+          {actionLabel && <span className="ab-minion-act">{actionLabel}</span>}
+        </> : <>
         {!fullCard && !ghost && <i className="ab-token-shadow" aria-hidden />}
         <span className="ab-minion-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" draggable={false} />}</span>
         <span className="ab-minion-tier">{spell ? '★' : minion.tavernTier}</span>
@@ -163,6 +169,7 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
           {[...minion.keywords].filter(key => !SIGNAL_KEYWORDS.has(key)).map(key => <em key={key} data-keyword={key} aria-label={abCopyName(catalog.copy, 'keywords', key, i18n.language, t(`abKeyword_${key}`))}><KeywordIcon keyword={key} />{KEYWORD_MARK[key] && !['battlecry', 'deathrattle', 'cleave', 'immune', 'cannotAttack', 'humiliate', 'bait', 'poisonous'].includes(key) ? KEYWORD_MARK[key] : null}</em>)}
         </span>
         {actionLabel && <span className="ab-minion-act">{actionLabel}</span>}
+        </>}
       </button>
     </PaperTooltip>
   );
