@@ -33,10 +33,10 @@ test('slots pay currency pairs and triples from the shop table', () => {
   assert.equal(invalid.cost, 50);
 });
 
-test('wheel manual land costs 200 and uses the chosen sector', () => {
+test('wheel manual land costs 1000 and uses the chosen sector', () => {
   const land = resolveShopAction(defaultShop, demoCards, wallet, { type: 'buy', productId: 'wheel', land: 3 }, () => 0.99);
   assert.equal(land.kind, 'wheel');
-  assert.equal(land.cost, 200);
+  assert.equal(land.cost, 1000);
   assert.equal(land.prizeIndex, 3);
   assert.deepEqual(land.rewards, [{ kind: 'currency', amount: 500 }]);
 });

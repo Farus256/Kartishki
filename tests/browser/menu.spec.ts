@@ -64,7 +64,7 @@ test('guest menu keeps bottle, daily reward and actions inside the 16:9 stage', 
   await page.goto('/'); await page.getByRole('button', { name: 'Играть как гость' }).click();
   await expect(page.getByTestId('beer-bottle')).toHaveAttribute('data-ml', '0');
   await expect(page.getByTestId('player-level')).toContainText('Ур. 1');
-  await expect(page.getByTestId('player-level')).toContainText('Новичок');
+  await expect(page.getByTestId('player-level')).toContainText('Объебыш');
   await expect(page.getByTestId('player-level')).toContainText('0 / 40');
   await expect(page.getByTestId('beer-league')).toContainText('СВЕТЛОЕ');
   await expect(page.getByTestId('beer-volume')).toContainText('мл');
