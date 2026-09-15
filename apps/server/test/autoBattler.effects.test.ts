@@ -132,8 +132,8 @@ test('passive hero hooks: innkeeper free roll, tycoon gold, collector triples', 
   const d = deps(col);
   for (let i = 0; i < 3; i++) tryBuy(d, offer(col, 'ab-whelp'));
   const golden = [...col.hand].find(m => m.golden)!;
-  assert.equal(golden.attack, 6, '2×2 golden whelp +2');
-  assert.equal(golden.health, 4);
+  assert.equal(golden.attack, 7, '2×2 golden whelp +3');
+  assert.equal(golden.health, 5);
 });
 
 test('combat: start-of-combat buffs, data auras and deathrattle buffs are deterministic', () => {

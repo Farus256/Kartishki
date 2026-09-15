@@ -4,7 +4,7 @@
    anomaly gem and gold purse overlay the right edge of the table (.ab-rail inside .ab-stage).
    Table bands (table-local px, see AB_LAYOUT):
      tavern head 8–148 · table frame 156–590 · tavern row 168–338 · band 354 · fuse 382 · board 404–574
-     hero dock 608–788 (below the 604 frame edge) · purse 800 · hand 588–862 (dossier cards, 170×252). Combat overlays the same bands.
+     hero dock 608–788 (below the 604 frame edge) · purse 800 · hand 636–862 (dossier cards, 140×208). Combat overlays the same bands.
    ───────────────────────────────────────────────────────────────────────────── */
 
 /* Tokens */
@@ -185,7 +185,7 @@
 @keyframes ab-anomaly-aura { 50% { box-shadow:0 0 0 4px var(--ab-ring),0 0 30px #d9b4ffcc,0 7px 13px #24151aaa; } }
 
 /* Hand (bottom center, in front of everything on the table) */
-.ab-zone-player .ab-hand { position:absolute; top:588px; left:0; right:400px; height:274px; display:flex; justify-content:center; align-items:flex-start; padding:0 10px; --ab-card:170px; pointer-events:auto; z-index:4; transition:translate .42s cubic-bezier(.4,0,.2,1),opacity .35s ease; will-change:translate; }
+.ab-zone-player .ab-hand { position:absolute; top:636px; left:0; right:400px; height:226px; display:flex; justify-content:center; align-items:flex-start; padding:0 10px; --ab-card:140px; pointer-events:auto; z-index:4; transition:translate .42s cubic-bezier(.4,0,.2,1),opacity .35s ease; will-change:translate; }
 .ab-hand .ab-minion-wrap + .ab-minion-wrap { margin-left:calc(var(--ab-hand-overlap, 28px) * -1); }
 .ab-hand .ab-minion-wrap { transform:translateY(calc(var(--fan-y,0) * 1px)) rotate(calc(var(--fan-r,0) * 1deg)); transform-origin:50% 100%; animation:none; }
 .ab-hand .ab-minion-wrap:hover,.ab-hand .ab-minion-wrap:focus-within { z-index:15; }
@@ -196,7 +196,7 @@
 .ab-hand .ab-minion-stats b,.ab-hand .ab-minion-stats i { width:28px; height:28px; }
 .ab-hand .ab-minion-keys { bottom:26px; }
 /* Hover re-lays out via zoom (crisp text), not a transform scale (blurry raster). Width is pinned: a percent width would shrink back under zoom. */
-.ab-hand .ab-minion:hover,.ab-hand .ab-minion:focus-visible { zoom:1.55; width:var(--ab-card); transform:translate(-30px,-118px); outline:0; }
+.ab-hand .ab-minion:hover,.ab-hand .ab-minion:focus-visible { zoom:1.88; width:var(--ab-card); transform:translate(-33px,-118px); outline:0; }
 .ab-hand:empty::before { content:''; }
 
 /* Minion tile (paper card) */

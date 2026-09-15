@@ -445,16 +445,16 @@ export type AutoBattlerMinionDef = {
 export const autoBattlerHeroPowerPresets = {
   'ab-power-heal': { isPassive: false, goldCost: 1, targeted: false, targetDomain: 'none' as const },
   'ab-power-buff-tavern': { isPassive: false, goldCost: 1, targeted: true, targetDomain: 'tavern' as const },
-  'ab-power-buff-board': { isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' as const },
+  'ab-power-buff-board': { isPassive: false, goldCost: 1, targeted: true, targetDomain: 'board' as const },
   'ab-power-sell-gold': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
   'ab-power-free-roll': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
   'ab-power-discover': { isPassive: false, goldCost: 2, targeted: false, targetDomain: 'none' as const },
   'ab-power-beast-buy': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
-  'ab-power-shield': { isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' as const },
+  'ab-power-shield': { isPassive: false, goldCost: 1, targeted: true, targetDomain: 'board' as const },
   'ab-power-undead-end': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
   'ab-power-rich': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
   'ab-power-triple-buff': { isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' as const },
-  'ab-power-swap': { isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' as const },
+  'ab-power-swap': { isPassive: false, goldCost: 1, targeted: true, targetDomain: 'board' as const },
 } as const;
 
 /** One rule twist per table. Names/descriptions live in i18n (abAnomaly_<id>, abAnomalyHint_<id>). */
@@ -510,16 +510,16 @@ export const starterAutoBattlerHeroes: AutoBattlerHeroDef[] = [
   {
     id: 'ab-hero-brute', name: { ru: 'Зверь', en: 'Brute' }, portraitKey: 'ab-hero-brute',
     health: 40,
-    power: { id: 'ab-power-buff-board', isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' },
+    power: { id: 'ab-power-buff-board', isPassive: false, goldCost: 1, targeted: true, targetDomain: 'board' },
   },
   { id: 'ab-hero-innkeeper', name: { ru: 'Трактирщик', en: 'Innkeeper' }, portraitKey: 'ab-hero-innkeeper', health: 40, power: { id: 'ab-power-free-roll', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
   { id: 'ab-hero-gambler', name: { ru: 'Картёжник', en: 'Gambler' }, portraitKey: 'ab-hero-gambler', health: 35, power: { id: 'ab-power-discover', isPassive: false, goldCost: 2, targeted: false, targetDomain: 'none' } },
   { id: 'ab-hero-beastmaster', name: { ru: 'Зверолов', en: 'Beastmaster' }, portraitKey: 'ab-hero-beastmaster', health: 40, power: { id: 'ab-power-beast-buy', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
-  { id: 'ab-hero-tinker', name: { ru: 'Механик', en: 'Tinker' }, portraitKey: 'ab-hero-tinker', health: 40, power: { id: 'ab-power-shield', isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' } },
+  { id: 'ab-hero-tinker', name: { ru: 'Механик', en: 'Tinker' }, portraitKey: 'ab-hero-tinker', health: 40, power: { id: 'ab-power-shield', isPassive: false, goldCost: 1, targeted: true, targetDomain: 'board' } },
   { id: 'ab-hero-necromancer', name: { ru: 'Некромант', en: 'Necromancer' }, portraitKey: 'ab-hero-necromancer', health: 38, power: { id: 'ab-power-undead-end', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
   { id: 'ab-hero-tycoon', name: { ru: 'Магнат', en: 'Tycoon' }, portraitKey: 'ab-hero-tycoon', health: 35, power: { id: 'ab-power-rich', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
   { id: 'ab-hero-collector', name: { ru: 'Собиратель', en: 'Collector' }, portraitKey: 'ab-hero-collector', health: 40, power: { id: 'ab-power-triple-buff', isPassive: true, goldCost: 0, targeted: false, targetDomain: 'none' } },
-  { id: 'ab-hero-alchemist', name: { ru: 'Алхимик', en: 'Alchemist' }, portraitKey: 'ab-hero-alchemist', health: 40, power: { id: 'ab-power-swap', isPassive: false, goldCost: 2, targeted: true, targetDomain: 'board' } },
+  { id: 'ab-hero-alchemist', name: { ru: 'Алхимик', en: 'Alchemist' }, portraitKey: 'ab-hero-alchemist', health: 40, power: { id: 'ab-power-swap', isPassive: false, goldCost: 1, targeted: true, targetDomain: 'board' } },
 ];
 
 export const starterAutoBattlerCatalog: AutoBattlerCatalog = {

@@ -157,7 +157,7 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
   registry.registerHeroPower({
     id: 'ab-power-heal',
     activate(ctx) {
-      ctx.player.hero.health = Math.min(ctx.player.hero.maxHealth, ctx.player.hero.health + 1);
+      ctx.player.hero.health = Math.min(ctx.player.hero.maxHealth, ctx.player.hero.health + 3);
     },
   });
 
@@ -166,11 +166,7 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
     activate(ctx, targetId) {
       const offer = [...ctx.player.tavern.offers].find(m => m.id === targetId);
       if (!offer) return;
-      offer.attack += 2;
-      offer.health += 1;
-      offer.maxHealth += 1;
-      offer.bonusAttack += 2;
-      offer.bonusHealth += 1;
+      buffTavernMinion(offer, 2, 2);
     },
   });
 
@@ -179,8 +175,7 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
     activate(ctx, targetId) {
       const minion = [...ctx.player.board].find(m => m.id === targetId);
       if (!minion) return;
-      minion.attack += 2;
-      minion.bonusAttack += 2;
+      buffTavernMinion(minion, 3, 0);
     },
   });
 
@@ -196,7 +191,7 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
   // Gambler: pay 2 to discover a minion of your tier.
   registry.registerHeroPower({ id: 'ab-power-discover', activate(ctx) { ctx.discover(ctx.player.tavernTier); } });
   // Beastmaster: bought beasts arrive with +1/+1.
-  registry.registerHeroPower({ id: 'ab-power-beast-buy', onBuy(_ctx, minion) { if (hasTribe(minion.tribes, 'beast')) buffTavernMinion(minion, 1, 1); } });
+  registry.registerHeroPower({ id: 'ab-power-beast-buy', onBuy(_ctx, minion) { if (hasTribe(minion.tribes, 'beast')) buffTavernMinion(minion, 2, 1); } });
   // Tinker: give a friendly minion Divine Shield.
   registry.registerHeroPower({ id: 'ab-power-shield', activate(ctx, targetId) {
     const minion = [...ctx.player.board].find(m => m.id === targetId);
@@ -205,12 +200,12 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
   // Necromancer: at the end of your turn a random friendly undead gets +1/+1.
   registry.registerHeroPower({ id: 'ab-power-undead-end', onTurnEnd(ctx) {
     const undead = [...ctx.player.board].filter(m => hasTribe(m.tribes, 'undead'));
-    if (undead.length) buffTavernMinion(ctx.rng.pick(undead), 1, 1);
+    if (undead.length) buffTavernMinion(ctx.rng.pick(undead), 2, 2);
   } });
   // Tycoon: one extra gold every turn (35 health).
   registry.registerHeroPower({ id: 'ab-power-rich', onRecruitStart(ctx) { ctx.player.gold += 1; } });
   // Collector: golden minions from triples get +2/+2.
-  registry.registerHeroPower({ id: 'ab-power-triple-buff', onTriple(_ctx, golden) { buffTavernMinion(golden, 2, 2); } });
+  registry.registerHeroPower({ id: 'ab-power-triple-buff', onTriple(ctx, golden) { buffTavernMinion(golden, 3, 3); ctx.player.gold += 1; } });
   // Alchemist: swap a friendly minion's attack and health.
   registry.registerHeroPower({ id: 'ab-power-swap', activate(ctx, targetId) {
     const minion = [...ctx.player.board].find(m => m.id === targetId);

@@ -315,7 +315,7 @@ test('untargeted hero power fires without a target', () => {
   beginRecruitTurn(d, 1);
   p.gold = 3;
   assert.equal(tryHeroPower(d).ok, true);
-  assert.equal(p.hero.health, 36);
+  assert.equal(p.hero.health, 38);
   assert.equal(p.hero.power.isExhausted, true);
   assert.equal(tryHeroPower(d).ok, false);
   p.hero.health = p.hero.maxHealth;

@@ -89,7 +89,7 @@
 /* Hand: each card is the hover dossier itself, zoomed to the 170×252 hand slot (ghost too) */
 .ab-minion.is-dossier { height:auto; padding:0; border:0; background:transparent; box-shadow:none; }
 .ab-minion.is-dossier::after { content:none; }
-.ab-minion.is-dossier .ab-dossier { zoom:.644; }
+.ab-minion.is-dossier .ab-dossier { zoom:.53; }
 .ab-minion.is-dossier .ab-minion-act { z-index:2; }
 .ab-hand .ab-minion:hover .ab-dossier,.ab-hand .ab-minion:focus-visible .ab-dossier { box-shadow:0 0 0 4px #3a2a20,0 0 0 8px var(--gold),0 0 34px #ffd76a,10px 14px 0 #1a1a1a66; }
 

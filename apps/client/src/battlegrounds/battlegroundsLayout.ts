@@ -2,7 +2,7 @@
  * One 1600×900 source of truth for Battlegrounds spacing. CSS and Pixi both read this.
  * The table is a 160 | 1440 grid under the 38px header (controls overlay the table's right edge); every row below is in
  * table-local pixels (0,0 = table top-left), and combat rows overlay the same bands:
- *   tavern head 8–148 · tavern/enemy row 168 · fuse 382 · board/my row 404 · hero dock 608 · hand 588.
+ *   tavern head 8–148 · tavern/enemy row 168 · fuse 382 · board/my row 404 · hero dock 608 · hand 636.
  */
 export const AB_LAYOUT = {
   STAGE_W: 1600,
@@ -14,8 +14,8 @@ export const AB_LAYOUT = {
   MINION_H: 170,
   TAVERN_W: 150,
   TAVERN_H: 170,
-  HAND_W: 170,
-  HAND_H: 252,
+  HAND_W: 140,
+  HAND_H: 208,
   DISCOVER_W: 230,
   HERO: 136,
   POWER_W: 104,
