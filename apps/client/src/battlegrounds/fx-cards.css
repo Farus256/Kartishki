@@ -46,7 +46,7 @@
 .ab-dossier-stars { padding:0 4px 4px; font-size:15px; color:#8a6a2b; text-shadow:0 1px 0 #fff8e6; }
 .ab-dossier-art { margin:0; height:158px; border:3px solid #2a1a10; border-radius:8px 8px 40% 40% / 8px 8px 22% 22%; background:#d5cfbd; box-shadow:inset 0 0 0 2px #f6efdc; }
 .ab-dossier-name { margin:-14px 8px 0; padding:6px 10px; border:3px solid #2a1a10; border-radius:8px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; font:21px/1.1 var(--font-hand); box-shadow:0 3px 0 #1a1a1a55; }
-.ab-dossier-text { margin:10px 6px 6px; padding:8px 10px; min-height:104px; max-height:150px; border:0; border-radius:6px; background:#fff9ea; box-shadow:inset 0 0 0 1px #c9b78e; font:bold 17px/1.25 var(--font-hand); text-align:center; color:#2a1f18; }
+.ab-dossier-text { margin:10px 6px 6px; padding:8px 10px; min-height:104px; max-height:150px; border:0; border-radius:6px; background:#fff9ea; box-shadow:inset 0 0 0 1px #c9b78e; font:bold 18px/1.25 var(--font-hand); text-align:center; color:#2a1f18; }
 .ab-dossier-foot { padding:0 2px 2px; }
 .ab-dossier-foot b,.ab-dossier-foot i { width:44px; height:44px; font-size:24px; }
 .ab-dossier-tribe { font-size:15px; color:#5a4030; }

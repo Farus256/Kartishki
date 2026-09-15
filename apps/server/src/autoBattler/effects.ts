@@ -15,8 +15,8 @@ import type { CombatContext, CombatMinion } from './combatTypes';
 import { createMinionState } from './instantiate';
 
 /** Anomaly-adjusted prices a room hands to every recruit action. */
-export type TavernRules = { buyCost: number; rerollCost: number; goldCap: number; tavernBonus: number; firstBuyDiscount: number; combatBuff: number };
-export const DEFAULT_RULES: TavernRules = { buyCost: AUTO_BATTLER.BUY_COST, rerollCost: AUTO_BATTLER.REROLL_COST, goldCap: AUTO_BATTLER.GOLD_CAP, tavernBonus: 0, firstBuyDiscount: 0, combatBuff: 0 };
+export type TavernRules = { buyCost: number; rerollCost: number; goldCap: number; tavernBonus: number; firstBuyDiscount: number; combatBuff: number; sellReward: number; upgradeDiscount: number; damageCap: boolean; combatKeyword?: AutoBattlerKeyword };
+export const DEFAULT_RULES: TavernRules = { buyCost: AUTO_BATTLER.BUY_COST, rerollCost: AUTO_BATTLER.REROLL_COST, goldCap: AUTO_BATTLER.GOLD_CAP, tavernBonus: 0, firstBuyDiscount: 0, combatBuff: 0, sellReward: AUTO_BATTLER.SELL_REWARD, upgradeDiscount: 0, damageCap: AUTO_BATTLER.DAMAGE_CAP_ENABLED };
 
 const tribeMatch = (tribes: Iterable<string>, tribe: AutoBattlerTribe | 'all' | undefined) => tribe === undefined || tribe === 'all' || hasTribe(tribes, tribe);
 

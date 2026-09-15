@@ -26,6 +26,7 @@ import {
 } from '@kartishki/shared';
 import { PlayerError, type PlayerStore } from '../players';
 import { resolveCombat, snapshotBoard } from './combat';
+import { createDiscoverSpell } from './instantiate';
 import { errorPayload, ok } from './errors';
 import { createDefaultRegistry } from './keywords';
 import { abLog } from './logger';
@@ -102,6 +103,10 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       goldCap: id === 'ab-anomaly-deep-pockets' ? 12 : DEFAULT_RULES.goldCap,
       firstBuyDiscount: id === 'ab-anomaly-on-the-house' ? 1 : 0,
       combatBuff: id === 'ab-anomaly-brawl' ? 1 : 0,
+      sellReward: id === 'ab-anomaly-fence' ? 2 : DEFAULT_RULES.sellReward,
+      upgradeDiscount: id === 'ab-anomaly-back-room' ? 1 : 0,
+      damageCap: id === 'ab-anomaly-bloodbath' ? false : DEFAULT_RULES.damageCap,
+      combatKeyword: id === 'ab-anomaly-plated' ? 'divineShield' : id === 'ab-anomaly-second-wind' ? 'reborn' : undefined,
     };
   }
 
@@ -133,7 +138,6 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.anomalyId = AB_ANOMALIES[createRng(hashSeed(['anomaly', this.state.combatSeed])).int(AB_ANOMALIES.length)] ?? '';
     // Tests pin the twist ('' = none) so turn-one gold and prices are predictable.
     if (testMode && typeof options.anomaly === 'string') this.state.anomalyId = options.anomaly;
-    if (this.state.anomalyId === 'ab-anomaly-long-recruit' && !testMode) this.recruitMs = Math.max(this.recruitMs, 55_000);
     this.pool.syncToState(this.state);
     abLog('room.create', { seed: this.state.combatSeed, anomaly: this.state.anomalyId });
     const recruit = (message: string, act: (player: AutoBattlerPlayerState, input: unknown, client: Client) => ActionResult, whenReady = false) => {
@@ -444,6 +448,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     for (const player of this.state.players.values()) {
       if (player.eliminated) continue;
       if (this.state.turn === 1 && this.state.anomalyId === 'ab-anomaly-fast-start') { player.tavernTier = 2; player.upgradeCost = initialUpgradeCost(2); }
+      if (this.state.turn === 1 && this.state.anomalyId === 'ab-anomaly-lucky-find') player.hand.push(createDiscoverSpell(this.nextId(), player.sessionId));
       beginRecruitTurn(this.deps(player), this.state.turn);
     }
     this.assignPairing();
@@ -524,12 +529,15 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.recruitSeconds = 0;
     this.state.phase = 'COMBAT_PHASE';
     this.state.revision++;
-    const brawl = this.rules().combatBuff;
+    const rules = this.rules();
+    const brawl = rules.combatBuff;
     const snapshot = (player: AutoBattlerPlayerState) => {
       const snap = snapshotBoard(player);
       if (brawl) for (const minion of snap.board) { minion.attack += brawl; minion.health += brawl; }
+      if (rules.combatKeyword) for (const minion of snap.board) if (!minion.keywords.includes(rules.combatKeyword)) minion.keywords.push(rules.combatKeyword);
       return snap;
     };
+    const cap = { enabled: rules.damageCap, value: AUTO_BATTLER.DAMAGE_CAP };
     // End-of-turn effects land on the tavern board (permanent). The table shows the pre-effect boards and
     // replays each buff as a STATS event once both sides are revealed; combat resolves on the buffed boards.
     const shownBoards = new Map([...this.state.players.values()].filter(p => !p.eliminated).map(p => [p.sessionId, snapshot(p)]));
@@ -583,7 +591,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
       if (!result.tie && result.damage > 0) {
         if (result.loserId === pair.playerA) {
-          const dmg = applyPlayerDamage(playerA, result.damage);
+          const dmg = applyPlayerDamage(playerA, result.damage, cap);
           payload.events.push({
             id: payload.events.length + 1,
             kind: 'PLAYER_DAMAGE',
@@ -593,7 +601,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
           });
           payload.summary.damage = dmg.applied;
         } else if (!pair.ghost && playerB && result.loserId === pair.playerB) {
-          const dmg = applyPlayerDamage(playerB, result.damage);
+          const dmg = applyPlayerDamage(playerB, result.damage, cap);
           payload.events.push({
             id: payload.events.length + 1,
             kind: 'PLAYER_DAMAGE',

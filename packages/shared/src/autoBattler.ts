@@ -458,7 +458,7 @@ export const autoBattlerHeroPowerPresets = {
 } as const;
 
 /** One rule twist per table. Names/descriptions live in i18n (abAnomaly_<id>, abAnomalyHint_<id>). */
-export const AB_ANOMALIES = ['ab-anomaly-brawl', 'ab-anomaly-big-tavern', 'ab-anomaly-free-refresh', 'ab-anomaly-fast-start', 'ab-anomaly-deep-pockets', 'ab-anomaly-cheap-powers', 'ab-anomaly-on-the-house', 'ab-anomaly-long-recruit'] as const;
+export const AB_ANOMALIES = ['ab-anomaly-brawl', 'ab-anomaly-big-tavern', 'ab-anomaly-free-refresh', 'ab-anomaly-fast-start', 'ab-anomaly-deep-pockets', 'ab-anomaly-cheap-powers', 'ab-anomaly-on-the-house', 'ab-anomaly-fence', 'ab-anomaly-back-room', 'ab-anomaly-bloodbath', 'ab-anomaly-plated', 'ab-anomaly-second-wind', 'ab-anomaly-lucky-find'] as const;
 export type AbAnomalyId = typeof AB_ANOMALIES[number];
 export type AutoBattlerHeroPowerId = keyof typeof autoBattlerHeroPowerPresets;
 

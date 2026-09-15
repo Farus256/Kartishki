@@ -4,7 +4,7 @@ const assets = import.meta.glob([
   '../../../audio/card-place-2.ogg', '../../../audio/card-place-3.ogg', '../../../audio/card-shove-2.ogg', '../../../audio/card-slide-3.ogg', '../../../audio/card-slide-4.ogg', '../../../audio/cards-pack-take-out-1.ogg', '../../../audio/card-shuffle.ogg',
   '../../../audio/chips-collide-1.ogg', '../../../audio/chips-handle-2.ogg', '../../../audio/chips-stack-3.ogg', '../../../audio/chip-lay-2.ogg',
   '../../../audio/confirmation_002.ogg', '../../../audio/confirmation_003.ogg', '../../../audio/error_003.ogg', '../../../audio/question_001.ogg', '../../../audio/glass_001.ogg', '../../../audio/glass_004.ogg', '../../../audio/switch_004.ogg', '../../../audio/maximize_006.ogg', '../../../audio/minimize_006.ogg', '../../../audio/bong_001.ogg', '../../../audio/pluck_001.ogg',
-  '../../../audio/impactBell_heavy_000.ogg', '../../../audio/impactSoft_heavy_002.ogg', '../../../audio/impactSoft_medium_000.ogg', '../../../audio/impactSoft_heavy_001.ogg', '../../../audio/impactGlass_medium_002.ogg', '../../../audio/impactWood_medium_001.ogg', '../../../audio/impactMetal_heavy_003.ogg', '../../../audio/impactPlate_heavy_001.ogg', '../../../audio/impactMining_001.ogg', '../../../audio/scratch_003.ogg',
+  '../../../audio/impactBell_heavy_000.ogg', '../../../audio/impactSoft_medium_003.ogg', '../../../audio/impactSoft_medium_001.ogg', '../../../audio/impactSoft_heavy_001.ogg', '../../../audio/impactGlass_medium_002.ogg', '../../../audio/impactWood_medium_001.ogg', '../../../audio/impactMetal_heavy_003.ogg', '../../../audio/impactPlate_heavy_001.ogg', '../../../audio/impactMining_001.ogg', '../../../audio/scratch_003.ogg',
 ], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const files = {
   ui_click: 'click_001', ui_select: 'select_001', card_hover: 'card-slide-1',
@@ -17,7 +17,7 @@ const files = {
   ab_reroll: 'card-shuffle', ab_freeze: 'glass_004', ab_unfreeze: 'glass_001', ab_upgrade: 'confirmation_002', ab_triple: 'confirmation_003',
   ab_power: 'maximize_006', ab_end_turn: 'switch_004', ab_error: 'error_003', ab_hint: 'question_001', ab_coin: 'chips-collide-1', ab_coins: 'chips-stack-3', ab_coin_drop: 'chip-lay-2', ab_discover: 'pluck_001',
   // Combat
-  ab_whoosh: 'card-slide-4', ab_hit_light: 'impactSoft_medium_000', ab_hit_heavy: 'impactSoft_heavy_002', ab_hit_hero: 'impactPlate_heavy_001', ab_shield_pop: 'impactBell_heavy_000',
+  ab_whoosh: 'card-slide-4', ab_hit_light: 'impactSoft_medium_001', ab_hit_heavy: 'impactSoft_medium_003', ab_hit_hero: 'impactPlate_heavy_001', ab_shield_pop: 'impactBell_heavy_000',
   ab_poison: 'impactGlass_medium_002', ab_death: 'impactSoft_heavy_001', ab_summon: 'impactWood_medium_001', ab_deathrattle: 'impactMining_001', ab_reborn: 'bong_001', ab_windfury: 'scratch_003', ab_clash: 'impactMetal_heavy_003', ab_stamp: 'minimize_006',
 } as const;
 export type Sound = keyof typeof files;
@@ -89,7 +89,8 @@ export class AudioManager {
           : name === 'card_hover' || name === 'ab_pickup' || name === 'ab_whoosh' ? .16
           : name === 'reel_land' ? .135
           : name === 'case_tick' ? .225
-          : name === 'ab_hit_heavy' ? .42
+          : name === 'ab_hit_light' ? .18
+          : name === 'ab_hit_heavy' ? .26
           : name === 'ab_hit_hero' || name === 'ab_shield_pop' ? .5
           : name.startsWith('ab_') ? .32
           : .45;

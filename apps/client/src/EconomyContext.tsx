@@ -162,8 +162,8 @@ function useEconomyState() {
   }
   const owned = account.library ? Object.fromEntries(account.library.collection.map(row => [row.cardId, row.copies])) : state.owned;
   const rawDollars = account.library?.profile.currency ?? state.dollars;
-  const openingHold = account.library && state.opening && (state.opening.kind === 'packs' || state.opening.kind === 'chests')
-    ? shopCash(state.opening.result.rewards) : 0;
+  // The server credits the win at once; the purse must not reveal it while the reel or wheel is still moving.
+  const openingHold = account.library && state.opening ? shopCash(state.opening.result.rewards) : 0;
   return { ...state, owned, shop, dollars: rawDollars - openingHold, catalog, message, currencyEvents,
     dismissCurrency(id: number) { setCurrencyEvents(events => events.filter(event => event.id !== id)); },
     clearMessage: () => setMessage(''),

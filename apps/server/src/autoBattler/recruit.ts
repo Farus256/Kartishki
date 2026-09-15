@@ -88,7 +88,7 @@ export function beginRecruitTurn(deps: RecruitDeps, turn: number): void {
   const { player, registry } = deps;
   const rules = rulesOf(deps);
   player.gold = Math.min(rules.goldCap, Math.max(0, goldForTurn(turn) + (rules.goldCap - AUTO_BATTLER.GOLD_CAP)));
-  player.upgradeCost = Math.max(0, player.upgradeCost - 1);
+  player.upgradeCost = Math.max(0, player.upgradeCost - 1 - rules.upgradeDiscount);
   player.hero.power.isExhausted = false;
   player.recruitReady = false;
   player.buysThisTurn = 0;
@@ -149,7 +149,7 @@ export function trySell(deps: RecruitDeps, minionId: string): ActionResult {
   }
   // GOLD_CAP limits turn income. Sale proceeds must not erase the Merchant's
   // extra dollar when the player starts a sale at 9 or 10.
-  player.gold += AUTO_BATTLER.SELL_REWARD;
+  player.gold += rulesOf(deps).sellReward;
   for (let n = 0; n < card.poolCopies; n++) pool.returnCopy(card.baseId);
   // The sold card's own "sells for more" first, then the board reacts to the sale.
   runTavernEffects(fxOf(deps), 'sell', card, card);
