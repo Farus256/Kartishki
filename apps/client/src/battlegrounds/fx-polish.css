@@ -55,7 +55,7 @@
 .ab-discover-row .ab-minion-name { top:210px; left:12px; right:12px; padding:4px 8px; border:3px solid #2a1a10; border-radius:8px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; font:22px/26px var(--font-hand); box-shadow:0 3px 0 #1a1a1a55; }
 .ab-discover-row .ab-minion-stats { bottom:12px; }
 .ab-discover-row .ab-minion-keys { bottom:50px; }
-.ab-minion-text { position:absolute; top:246px; left:14px; right:14px; height:52px; overflow:hidden; font:14px/1.3 var(--font-hand); color:#2a1f18; text-align:center; }
+.ab-minion-text { position:absolute; top:246px; left:14px; right:14px; height:52px; overflow:hidden; font:bold 15px/1.25 var(--font-hand); color:#2a1f18; text-align:center; }
 
 /* Standings hover panel: paper dossier of the player */
 .paper-tooltip.is-lb-log { width:272px; padding:0; border:4px solid #2a1a10; border-radius:12px; background:linear-gradient(180deg,#f6efdc,#e9dfc4); box-shadow:0 0 0 3px #c9a463,10px 14px 0 #1a1a1a66; overflow:hidden; }
@@ -113,7 +113,7 @@
 .ab-discover-row .ab-minion { height:384px; padding:8px; }
 .ab-discover-row .ab-minion-art { height:180px; }
 .ab-discover-row .ab-minion-name { top:194px; }
-.ab-discover-row .ab-minion-text { top:236px; height:74px; font-size:15px; line-height:1.3; }
+.ab-discover-row .ab-minion-text { top:236px; height:74px; font-size:17px; line-height:1.25; }
 .ab-discover-row .ab-minion-tribe { bottom:auto; top:316px; }
 .ab-discover-row .ab-minion-keys { bottom:-6px; }
 .ab-discover-row .ab-minion-stats { bottom:6px; }

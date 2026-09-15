@@ -148,10 +148,12 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    const src=event.sourceId?tileCenter(event.sourceId):undefined,dst=tileCenter(event.targetId);
    if(tile)burst(tile,event.amount??0,src,dst);
    if(tile&&poison&&lethal&&dst)mist(tile,dst);
-   if(!reduced&&rate.current<100)audioManager.play((event.amount??0)>=5?'ab_hit_heavy':'ab_hit_light');
+   // Strike and retaliation land in the same frame: one thud per exchange, not two.
+   if(!reduced&&rate.current<100&&performance.now()-lastHitSound>300){lastHitSound=performance.now();audioManager.play((event.amount??0)>=5?'ab_hit_heavy':'ab_hit_light');}
    if(event.amount)pop(event.targetId,-event.amount);
   };
   const pendingHealth=new Map<string,number>();
+  let lastHitSound=0;
   const applyHits=async()=>{
    if(!pendingHealth.size)return;
    const next=piecesRef.current.map(p=>{const health=pendingHealth.get(p.minion.id);return health===undefined?p:{...p,minion:{...p.minion,health}};});
