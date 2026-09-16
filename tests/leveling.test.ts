@@ -35,11 +35,22 @@ test('old shorter tables pad up to LEVEL_COUNT', () => {
 
 test('battlegrounds rating scales from first to last place', () => {
   assert.equal(battlegroundsEloDelta(1, 8, 32), 32);
+  assert.equal(battlegroundsEloDelta(4, 8, 32), 8);
+  assert.equal(battlegroundsEloDelta(5, 8, 32), -8);
   assert.equal(battlegroundsEloDelta(8, 8, 32), -32);
   assert.equal(battlegroundsEloDelta(1, 2, 40), 40);
+  assert.equal(battlegroundsEloDelta(3, 5, 40), -13);
   assert.equal(battlegroundsXp(1, 8), MATCH_WIN_XP);
   assert.equal(battlegroundsXp(8, 8), MATCH_LOSS_XP);
-  assert.equal(resolveBattlegroundsElo(undefined), 32);
+  assert.equal(resolveBattlegroundsElo(undefined), 60);
   assert.equal(validatePlayerLeveling({ ...starterLeveling, battlegroundsElo: 201 }), false);
   assert.ok(validatePlayerLeveling({ ...starterLeveling, battlegroundsElo: 16 }));
+});
+
+test('a short set ladder keeps its own level count', () => {
+  const short = { levels: [{ ru: 'Один', en: 'One', xp: 10 }, { ru: 'Два', en: 'Two', xp: 10 }] };
+  assert.equal(levelFromXp(5, short).level, 1);
+  assert.equal(levelFromXp(15, short).level, 2);
+  assert.equal(levelFromXp(50, short).maxed, true);
+  assert.equal(levelFromXp(50, short).level, 2);
 });

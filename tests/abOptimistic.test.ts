@@ -5,13 +5,13 @@ import type { AbMinion, AbPlayer } from '../apps/client/src/autoBattlerSession';
 
 const unit = (id: string, kind = 'minion'): AbMinion => ({ id, cardId: 'ab-whelp', baseId: 'ab-whelp', kind, attack: 2, health: 1, maxHealth: 1, tavernTier: 1, keywords: [], golden: false, owner: 'me' });
 const player = (): AbPlayer => ({
-  sessionId: 'me', displayName: 'me', heroId: '', portraitKey: '', health: 40, maxHealth: 40,
+  sessionId: 'me', displayName: 'me', heroId: '', portraitKey: '', skin: '', health: 40, maxHealth: 40,
   power: { id: '', isPassive: true, goldCost: 0, isExhausted: false, targeted: false, targetDomain: 'none' },
   gold: 5, tavernTier: 1, upgradeCost: 5,
   board: [unit('b0'), unit('b1'), unit('b2')], hand: [unit('h0'), unit('spell', 'spell')],
   tavern: { offers: [unit('t0'), unit('t1')], frozen: false, size: 3 },
   nextOpponentId: '', swords: false, eliminated: false, placement: 0, recruitReady: false,
-  lastCombatResult: '', lastCombatDamage: 0, lastCombatOpponentId: '', tripleSerial: 0, lastActionId: 0, buyCost: 3, rerollCost: 1, freeRerolls: 0, lastCombatSummary: '', discoverOpen: false, pendingDiscover: [],
+  lastCombatResult: '', lastCombatDamage: 0, lastCombatOpponentId: '', tripleSerial: 0, lastActionId: 0, buyCost: 3, rerollCost: 1, sellReward: 1, freeRerolls: 0, lastCombatSummary: '', discoverOpen: false, pendingDiscover: [],
 });
 const ids = (list: AbMinion[]) => list.map(m => m.id);
 

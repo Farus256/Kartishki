@@ -5,6 +5,7 @@ import type { AbPlayer } from '../autoBattlerSession';
 import { PaperTooltip } from '../ui/PaperTooltip';
 import { useCombatHistory, type FightRecord } from './useCombatHistory';
 import { abCopyName, minionTribes } from '@kartishki/shared';
+import { powerCopy } from './HeroPowerTooltip';
 
 /** The tribe with the most bodies on the board (2+ and unique), else "mixed". */
 function likelyTribe(player: AbPlayer, catalog: AutoBattlerCatalog, lang: string, t: (key: string, opts?: { defaultValue?: string }) => string, ru: boolean): string {
@@ -21,6 +22,7 @@ function FightLog({ player, players, log, meId, ru, catalog }: { player: AbPlaye
   const name = (id: string) => id === meId ? (ru ? 'вы' : 'you') : players.find(p => p.sessionId === id)?.displayName ?? '—';
   const recent = [...log].reverse().slice(0, 5);
   const hero = catalog.heroes.find(h => h.id === player.heroId);
+  const power = powerCopy(player.power, catalog, i18n.language, t);
   return <div className="ab-lb-log">
     <header className="ab-lb-log-head">
       <span className="ab-lb-log-face"><AbHeroFace id={player.heroId || player.sessionId} art={hero?.art} /></span>
@@ -33,6 +35,10 @@ function FightLog({ player, players, log, meId, ru, catalog }: { player: AbPlaye
       <div><dt>{ru ? 'Таверна' : 'Tavern'}</dt><dd>{t('abTier', { tier: player.tavernTier })}</dd></div>
       <div><dt>{ru ? 'Собирает' : 'Building'}</dt><dd>{likelyTribe(player, catalog, i18n.language, t, ru)}</dd></div>
     </dl>
+    <section className="ab-lb-log-power" aria-label={t('abPower')}>
+      <strong className="ab-lb-log-title">{t('abPower')}</strong>
+      <div><b>{power.name}</b><small>{player.power.isPassive ? t('abPassive') : `${player.power.goldCost}$`}</small><p>{power.description}</p></div>
+    </section>
     <strong className="ab-lb-log-title">{ru ? 'Последние бои' : 'Recent fights'}</strong>
     {!recent.length && <p>{ru ? 'Боёв ещё не было.' : 'No fights yet.'}</p>}
     <ul>
@@ -72,7 +78,7 @@ export function Leaderboard({ players, meId, catalog, turn = 0 }: { players: AbP
             className={`${player?.eliminated ? 'is-out' : ''} ${player?.sessionId === meId ? 'is-me' : ''} ${player?.sessionId===opponentId ? 'has-swords' : ''}`}>
             {player ? (
               <PaperTooltip className="ab-lb-row" placement="beside" boxClassName="paper-tooltip is-lb-log" delay={160} content={<FightLog player={player} players={players} log={log} meId={meId} ru={ru} catalog={catalog} />}>
-                <div className="ab-lb-face"><AbHeroFace id={player.heroId || player.sessionId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} />
+                <div className="ab-lb-face" data-skin={player.skin}><AbHeroFace id={player.heroId || player.sessionId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} />
                   {player.eliminated && <span className="ab-out-mark" aria-label={t('abEliminated')} />}
                 </div>
                 <div className="ab-lb-copy">

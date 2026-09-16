@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AUTO_BATTLER, abCopyName, type AutoBattlerCatalog, type CombatEvent, type CombatEventsMessage } from '@kartishki/shared';
 import type { AbCombatBoards, AbMinion, AbPlayer } from '../autoBattlerSession';
@@ -9,11 +9,12 @@ import { HeartIcon, MinionTile } from './MinionTile';
 import { combatImpact } from './combatImpact';
 import { HeroPowerTooltip } from './HeroPowerTooltip';
 import { playMinionVoice } from './voiceLines';
+import { idlePhase } from './cardBadges';
 
 type Props = { combat: CombatEventsMessage; boards: AbCombatBoards; meId: string; catalog: AutoBattlerCatalog; players: AbPlayer[]; pairing?: { playerA: string; playerB: string }[]; initialHeroes?: AbPlayer[]; waiting?: boolean; recruitAfter?: boolean; phaseReady?: boolean; onDone: () => void; /** Fires when a hero hit lands on screen, so standings drop in sync with the stamp. */ onHeroHealth?: (sessionId: string, health: number) => void };
 type Piece = { minion: AbMinion; side: 0 | 1 };
 const W=AB_LAYOUT.COMBAT_W,H=AB_LAYOUT.COMBAT_H,CW=AB_LAYOUT.MINION_W,CH=AB_LAYOUT.MINION_H;
-const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?3200:e.kind==='DEATH'?500:e.kind==='SUMMON'?580:['DEATHRATTLE','REBORN'].includes(e.kind)?660:e.kind==='PLAYER_DAMAGE'?2600:e.kind==='STATS'?460:200;
+const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?3200:e.kind==='DEATH'?500:e.kind==='SUMMON'?580:['DEATHRATTLE','REBORN'].includes(e.kind)?660:e.kind==='PLAYER_DAMAGE'?3400:e.kind==='STATS'?460:200;
 
 /** HTML cards match the tavern tile. Pixi is not used for combat minions. */
 export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],initialHeroes,waiting=false,recruitAfter=true,phaseReady=true,onDone,onHeroHealth}:Props){
@@ -26,7 +27,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
  const rate=useRef(1);const field=useRef<HTMLDivElement>(null);const tiles=useRef(new Map<string, HTMLDivElement>());
  const piecesRef=useRef<Piece[]>([]);
  const [heroVitals,setHeroVitals]=useState(() => Object.fromEntries((initialHeroes ?? players).map(p=>[p.sessionId,{health:p.health,damage:0}])));
- const [speed,setSpeed]=useState(1);const [failed,setFailed]=useState(false);
+ const [failed,setFailed]=useState(false);
  const [pieces,setPieces]=useState<Piece[]>([]);const [facedown,setFacedown]=useState<Set<string>>(new Set());
  const [banner,setBanner]=useState('VS');const [result,setResult]=useState<'win'|'loss'|'draw'|null>(null);const [recruit,setRecruit]=useState(false);const [leaving,setLeaving]=useState(false);
  const {t,i18n}=useTranslation();
@@ -44,12 +45,18 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
   setSettled(false);setTally(null);setBanner('VS');setResult(null);setRecruit(false);setLeaving(false);setFailed(false);
   setHeroVitals(Object.fromEntries((initialHeroes?.length ? initialHeroes : players).map(p=>[p.sessionId,{health:combat.initialHealth?.[p.sessionId] ?? p.health,damage:0}])));
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // A background tab gets no animation frames and throttled timers, so nobody watches and the
-  // server moves on: skip the presentation there instead of leaving a stale combat on screen.
-  const tick=(fn:()=>void)=>{if(document.hidden){rate.current=100;queueMicrotask(fn);}else requestAnimationFrame(fn);};
+  // A background tab gets no animation frames and throttled timers: the fight waits there (a frame
+  // never advances the clock by more than 100ms) and resumes where it stood once the tab is back.
+  // If the server has already opened the next recruit by then, the rest plays at 2.5x to catch up.
+  const tick=(fn:()=>void)=>{if(document.hidden)window.setTimeout(fn,250);else requestAnimationFrame(fn);};
+  const onVisible=()=>{if(!document.hidden&&transition.current.phaseReady&&rate.current<100)rate.current=Math.max(rate.current,2.5);};
+  document.addEventListener('visibilitychange',onVisible);
+  // ponytail: no speed/skip UI any more; the browser specs still fast-forward through this event (detail = rate, 100 = skip).
+  const onRate=(event:Event)=>{const n=Number((event as CustomEvent).detail);if(Number.isFinite(n)&&n>0)rate.current=n;};
+  window.addEventListener('ab-combat-rate',onRate);
   const pause=(ms:number,step?:(u:number)=>void)=>new Promise<void>(resolve=>{
    if(rate.current>=100){step?.(1);resolve();return;}
-   let elapsed=0,last=performance.now();const frame=()=>{if(cancelled){resolve();return;}const now=performance.now();elapsed+=(now-last)*rate.current;last=now;const u=Math.min(1,elapsed/Math.max(1,ms));step?.(u);if(u<1)tick(frame);else resolve();};frame();
+   let elapsed=0,last=performance.now();const frame=()=>{if(cancelled){resolve();return;}const now=performance.now();elapsed+=Math.min(100,now-last)*rate.current;last=now;const u=Math.min(1,elapsed/Math.max(1,ms));step?.(u);if(u<1)tick(frame);else resolve();};frame();
   });
   // Even Skip yields one frame per authoritative state commit. Without it,
   // React can batch the whole event queue and onDone may read the old board.
@@ -69,7 +76,8 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
   const restack=(list:Piece[])=>{
    for(const piece of list){const p=home(list,piece.minion.id);place(piece.minion.id,p.x,p.y);}
   };
-  const burst=(el:HTMLElement,damage:number,from?:{x:number;y:number},at?:{x:number;y:number})=>{
+  // The red veil over the table is reserved for a blow to the hero; minion hits only shake and bleed.
+  const burst=(el:HTMLElement,damage:number,from?:{x:number;y:number},at?:{x:number;y:number},hero=false,bleed=true)=>{
    if(reduced||cancelled||rate.current>=100||!field.current)return;
    const impact=combatImpact(damage);if(!impact.tier)return;
    field.current.dataset.impactTier=String(impact.tier);
@@ -79,9 +87,10 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    // Recoil along that direction, then settle.
    const flip=el.querySelector<HTMLElement>('.ab-combat-flip')??el;
    animate(flip,[{translate:'0 0',rotate:'0deg'},{translate:`${ux*impact.recoil}px ${uy*impact.recoil*.6}px`,rotate:`${-ux*6||4}deg`,offset:.3},{translate:`${ux*impact.recoil*.35}px ${uy*impact.recoil*.2}px`,rotate:`${ux*2}deg`,offset:.7},{translate:'0 0',rotate:'0deg'}],impact.duration+160);
-   if(at)blood(at,impact.particles,damage,ux,uy);
+   // Only the card that was struck bleeds: the attacker's retaliation damage rocks it but throws nothing.
+   if(at&&bleed)blood(at,impact.particles,damage,ux,uy);
    shake(impact.shake,impact.duration+120);
-   if(impact.tier>=3&&impact.shake){const veil=document.createElement('i');veil.className='ab-combat-veil';field.current.appendChild(veil);window.setTimeout(()=>veil.remove(),420);}
+   if(hero&&impact.tier>=3&&impact.shake){const veil=document.createElement('i');veil.className='ab-combat-veil';field.current.appendChild(veil);window.setTimeout(()=>veil.remove(),420);}
   };
   // Camera shake: a decaying oscillation along a random axis, amplitude in px. Overlapping hits add up.
   const shake=(amp:number,ms:number)=>{
@@ -100,7 +109,8 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    const origin={x:at.x-ux*CW*.25,y:at.y-uy*CH*.2};
    const splat=document.createElement('i');splat.className='ab-combat-splat';
    splat.style.left=`${(at.x/W)*100}%`;splat.style.top=`${(at.y/H)*100}%`;host.appendChild(splat);
-   animate(splat,[{transform:`translate(-50%,-50%) rotate(${heading}rad) scale(.3,.6)`,opacity:.95},{transform:`translate(calc(-50% + ${ux*40}px),calc(-50% + ${uy*40}px)) rotate(${heading}rad) scale(1.7,.9)`,opacity:0}],520).onfinish=()=>splat.remove();
+   animate(splat,[{transform:`translate(-50%,-50%) rotate(${heading}rad) scale(.3,.6)`,opacity:.95},{transform:`translate(calc(-50% + ${ux*40}px),calc(-50% + ${uy*40}px)) rotate(${heading}rad) scale(1.7,.9)`,opacity:.85,offset:.45},{transform:`translate(calc(-50% + ${ux*46}px),calc(-50% + ${uy*46}px)) rotate(${heading}rad) scale(1.8,.95)`,opacity:0}],1150,{fill:'forwards'}).onfinish=()=>splat.remove();
+   dust(at,3+Math.min(4,Math.round(damage/3)),ux,uy);
    const speed=110+Math.min(220,damage*14);
    for(let i=0;i<count;i++){
     const kind=i%4===3?'ab-combat-chip':i%5===4?'ab-combat-spark':'ab-combat-drop';
@@ -108,14 +118,28 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     drop.style.left=`${((origin.x+(Math.random()-.5)*CW*.35)/W)*100}%`;drop.style.top=`${((origin.y+(Math.random()-.5)*CH*.3)/H)*100}%`;host.appendChild(drop);
     const ang=heading+(Math.random()-.5)*.9,dist=speed*(.5+Math.random()),spin=(Math.random()-.5)*640,stretch=kind==='ab-combat-drop'?1+dist/160:1;
     const ex=Math.cos(ang)*dist,ey=Math.sin(ang)*dist+28;
-    animate(drop,[{transform:`translate(0,0) rotate(${ang}rad) scale(.6,.6)`,opacity:0},{transform:`translate(${ex*.3}px,${ey*.25}px) rotate(${ang}rad) scale(${stretch},1)`,opacity:1,offset:.18},{transform:`translate(${ex}px,${ey}px) rotate(${ang+spin*Math.PI/180*.4}rad) scale(${stretch*.5},.5)`,opacity:1,offset:.7},{transform:`translate(${ex*1.15}px,${ey*1.15+30}px) rotate(${ang+spin*Math.PI/180}rad) scale(.2)`,opacity:0}],460+Math.random()*300,{delay:Math.random()*70,easing:'cubic-bezier(.2,.7,.4,1)',fill:'both'}).onfinish=()=>drop.remove();
+    animate(drop,[{transform:`translate(0,0) rotate(${ang}rad) scale(.6,.6)`,opacity:0},{transform:`translate(${ex*.3}px,${ey*.25}px) rotate(${ang}rad) scale(${stretch},1)`,opacity:1,offset:.12},{transform:`translate(${ex}px,${ey}px) rotate(${ang+spin*Math.PI/180*.4}rad) scale(${stretch*.5},.5)`,opacity:1,offset:.5},{transform:`translate(${ex*1.15}px,${ey*1.15+30}px) rotate(${ang+spin*Math.PI/180*.7}rad) scale(${stretch*.35},.4)`,opacity:.9,offset:.78},{transform:`translate(${ex*1.2}px,${ey*1.2+40}px) rotate(${ang+spin*Math.PI/180}rad) scale(.2)`,opacity:0}],900+Math.random()*500,{delay:Math.random()*70,easing:'cubic-bezier(.2,.7,.4,1)',fill:'both'}).onfinish=()=>drop.remove();
+   }
+  };
+  // A little dust at every impact and landing: slow puffs that spread, hang, then thin out.
+  // Puffs drift on along the strike vector (ux,uy) and fan out a little to either side of it.
+  const dust=(at:{x:number;y:number},count:number,ux=0,uy=1)=>{
+   const host=field.current;if(!host||reduced||cancelled||rate.current>=100)return;
+   for(let i=0;i<count;i++){
+    const puff=document.createElement('i');puff.className='ab-combat-dust-puff';
+    const side=(i%2?1:-1),spread=18+Math.random()*34,push=22+Math.random()*30;
+    puff.style.left=`${((at.x+ux*14+(Math.random()-.5)*CW*.3)/W)*100}%`;puff.style.top=`${((at.y+uy*14+CH*.2+(Math.random()-.5)*8)/H)*100}%`;host.appendChild(puff);
+    const rise=14+Math.random()*22,grow=1.6+Math.random()*1.1;
+    // Sideways spread runs perpendicular to the strike: (-uy,ux).
+    const fx=(k:number)=>ux*push*k+side*spread*k*-uy,fy=(k:number)=>uy*push*k+side*spread*k*ux-rise*k;
+    animate(puff,[{transform:'translate(-50%,-50%) scale(.35)',opacity:0},{transform:`translate(calc(-50% + ${fx(.5)}px),calc(-50% + ${fy(.5)}px)) scale(${grow*.7})`,opacity:.55,offset:.22},{transform:`translate(calc(-50% + ${fx(1)}px),calc(-50% + ${fy(1)}px)) scale(${grow})`,opacity:.32,offset:.6},{transform:`translate(calc(-50% + ${fx(1.25)}px),calc(-50% + ${fy(1.3)}px)) scale(${grow*1.25})`,opacity:0}],1100+Math.random()*600,{delay:Math.random()*90,easing:'cubic-bezier(.15,.6,.3,1)',fill:'both'}).onfinish=()=>puff.remove();
    }
   };
   // Damage clouds stay on the tile (walking home with a struck attacker) until the hit settles, then fade.
   const pops:HTMLElement[]=[];
-  const pop=(id:string,amount:number)=>{
+  const pop=(id:string,amount:number,lethal=false)=>{
    const el=tiles.current.get(id)??field.current;if(!el)return;
-   const node=document.createElement('b');node.className='ab-combat-pop';node.textContent=`${amount}`;
+   const node=document.createElement('b');node.className=lethal?'ab-combat-pop is-lethal':'ab-combat-pop';node.textContent=`${amount}`;
    node.style.left='50%';node.style.top='38%';
    el.appendChild(node);pops.push(node);
   };
@@ -142,28 +166,27 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    }
    if(event.remainingHealth===undefined)return;
    const lethal=event.remainingHealth<=0,poison=!!event.sourceId&&!!piecesRef.current.find(p=>p.minion.id===event.sourceId)?.minion.keywords.includes('poisonous');
-   // The blow lands now; the health number drops only once the duel settles (settleHits), so the cloud hangs meanwhile.
-   pendingHealth.set(event.targetId,event.remainingHealth);
+   // The blow lands now and the health number drops with it; only the death waits for the duel to settle (settleHits).
+   piece.minion={...piece.minion,health:event.remainingHealth};
+   hitTiles.add(event.targetId);
    const tile=tiles.current.get(event.targetId);
+   if(tile){tile.classList.remove('is-hp-drop');void tile.offsetWidth;tile.classList.add('is-hp-drop');}
    const src=event.sourceId?tileCenter(event.sourceId):undefined,dst=tileCenter(event.targetId);
-   if(tile)burst(tile,event.amount??0,src,dst);
+   if(tile)burst(tile,event.amount??0,src,dst,false,event.targetId!==strikerId);
    if(tile&&poison&&lethal&&dst)mist(tile,dst);
    // Strike and retaliation land in the same frame: one thud per exchange, not two.
    if(!reduced&&rate.current<100&&performance.now()-lastHitSound>300){lastHitSound=performance.now();audioManager.play((event.amount??0)>=5?'ab_hit_heavy':'ab_hit_light');}
-   if(event.amount)pop(event.targetId,-event.amount);
+   if(event.amount)pop(event.targetId,-event.amount,lethal);
   };
-  const pendingHealth=new Map<string,number>();
+  /** Tiles hit since the last settle: their damage clouds hang until both duelists stand home. */
+  const hitTiles=new Set<string>();
+  /** The minion mid-lunge: its own retaliation damage draws no blood. */
+  let strikerId:string|null=null;
   let lastHitSound=0;
-  const applyHits=async()=>{
-   if(!pendingHealth.size)return;
-   const next=piecesRef.current.map(p=>{const health=pendingHealth.get(p.minion.id);return health===undefined?p:{...p,minion:{...p.minion,health}};});
-   for(const id of pendingHealth.keys()){const tile=tiles.current.get(id);if(tile){tile.classList.remove('is-hp-drop');void tile.offsetWidth;tile.classList.add('is-hp-drop');}}
-   pendingHealth.clear();clearPops();
-   await commit(next);
-  };
   // Where a dead minion stood, for the deathrattle burst that follows its removal.
   const graves=new Map<string,{x:number;y:number}>();
   const SKULL='<svg viewBox="0 0 64 64" aria-hidden><g stroke="#1a1a1a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M8 46l48-24M8 22l48 24" stroke="#e9dfc4" stroke-width="7"/><path d="M8 46l48-24M8 22l48 24" stroke="#1a1a1a" stroke-width="2"/><path d="M32 8c-12 0-20 8-20 19 0 6 3 10 7 13v8h26v-8c4-3 7-7 7-13 0-11-8-19-20-19z" fill="#f4ecd6"/><circle cx="24" cy="29" r="5" fill="#1a1a1a"/><circle cx="40" cy="29" r="5" fill="#1a1a1a"/><path d="M32 34l-3 6h6z" fill="#1a1a1a"/><path d="M25 48v-6M32 48v-6M39 48v-6"/></g></svg>';
+  const rattled=new Set<string>();
   const deathrattleBurst=(at:{x:number;y:number})=>{
    const host=field.current;if(!host||reduced||rate.current>=100)return;
    const skull=document.createElement('i');skull.className='ab-combat-skull';skull.innerHTML=SKULL;
@@ -201,8 +224,10 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    if(reduced||rate.current>=100){el.style.opacity='0';return;}
    const face=el.querySelector('.ab-combat-face');
    if(!face){el.style.opacity='0';return;}
-   const shard=(cut:string)=>{const piece=document.createElement('div');piece.className='ab-combat-shard';piece.style.clipPath=cut;piece.innerHTML=face.innerHTML;el.append(piece);return piece;};
-   const puff=(ms:number)=>{const dust=document.createElement('i');dust.className='ab-combat-dust';el.append(dust);animate(dust,[{transform:'translate(-50%,0) scale(.4)',opacity:.8},{transform:'translate(-50%,-20px) scale(1.8)',opacity:0}],ms);};
+   const shard=(cut:string)=>{const piece=document.createElement('div');piece.className='ab-combat-shard';piece.style.clipPath=cut;piece.append(...[...face.childNodes].map(node=>node.cloneNode(true)));el.append(piece);return piece;};
+   // Every shard keeps its faded end state (fill:forwards): a finished animation would otherwise snap the piece back to
+   // full opacity for the frames between the end of the rip and the tile leaving the DOM — the card would flash back after dying.
+   const puff=(ms:number)=>{const dust=document.createElement('i');dust.className='ab-combat-dust';el.append(dust);animate(dust,[{transform:'translate(-50%,0) scale(.4)',opacity:.8},{transform:'translate(-50%,-20px) scale(1.8)',opacity:0}],ms,{fill:'forwards'});};
    el.classList.add('is-rip');
    const style=eventId%13===0?'snap':(['crumble','vertical','horizontal'] as const)[eventId%3]!;
    el.dataset.deathStyle=style;
@@ -225,6 +250,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     });
     audioManager.play('ab_windfury');
     await pause(last+40);
+    el.style.opacity='0';
     return;
    }
    if(style==='vertical'||style==='horizontal'){
@@ -233,10 +259,11 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     const b=shard(v?'polygon(52% 0,100% 0,100% 100%,47% 100%,54% 55%,46% 30%)':'polygon(0 52%,40% 46%,70% 53%,100% 48%,100% 100%,0 100%)');
     const flash=document.createElement('i');flash.className='ab-combat-slash'+(v?' is-vertical':' is-horizontal');el.append(flash);
     animate(flash,[{opacity:1,transform:v?'scaleY(.2)':'scaleX(.2)'},{opacity:0,transform:'scale(1.1)'}],320).onfinish=()=>flash.remove();
-    animate(a,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:v?'translate(-70px,90px) rotate(-38deg)':'translate(-40px,-40px) rotate(-14deg)',opacity:0}],620);
-    animate(b,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:v?'translate(70px,100px) rotate(34deg)':'translate(40px,120px) rotate(16deg)',opacity:0}],640);
+    animate(a,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:v?'translate(-70px,90px) rotate(-38deg)':'translate(-40px,-40px) rotate(-14deg)',opacity:0}],620,{fill:'forwards'});
+    animate(b,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:v?'translate(70px,100px) rotate(34deg)':'translate(40px,120px) rotate(16deg)',opacity:0}],640,{fill:'forwards'});
     puff(600);
     await pause(560);
+    el.style.opacity='0';
     return;
    }
    const cuts=[
@@ -246,10 +273,11 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    cuts.forEach((cut,i)=>{
     const piece=shard(cut);
     const dx=(i%2?1:-1)*(20+Math.random()*60),rot=(Math.random()-.5)*70;
-    animate(piece,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:`translate(${dx*.4}px,${-10-Math.random()*20}px) rotate(${rot*.3}deg)`,opacity:1,offset:.25},{transform:`translate(${dx}px,${110+Math.random()*60}px) rotate(${rot}deg)`,opacity:0}],560+i*40);
+    animate(piece,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:`translate(${dx*.4}px,${-10-Math.random()*20}px) rotate(${rot*.3}deg)`,opacity:1,offset:.25},{transform:`translate(${dx}px,${110+Math.random()*60}px) rotate(${rot}deg)`,opacity:0}],560+i*40,{fill:'forwards'});
    });
    puff(620);
    await pause(560);
+   el.style.opacity='0';
   }
 
   void(async()=>{
@@ -277,19 +305,20 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
    if(el){const x=parseFloat(el.style.left)*W/100,y=parseFloat(el.style.top)*H/100;
       await pause(reduced?1:340*budget,u=>{const ease=1-(1-u)**3;place(id,x+(at.x-x)*ease,y+(at.y-y)*ease);});
       el.classList.remove('is-attacking');place(id,at.x,at.y);
+      dust({x:at.x+CW/2,y:at.y+CH*.55},2);
      }
      tiles.current.get(id)?.classList.remove('is-attacking');
      field.current?.classList.remove('is-duel');tiles.current.forEach(t=>t.classList.remove('is-defending'));
-     attacker=null;
+     attacker=null;strikerId=null;
     };
-    // Both duelists stand home, the damage clouds hang for a beat, then health drops — and only then do deaths play.
+    // Both duelists stand home, the damage clouds hang for a beat and fade — and only then do deaths play.
     const settleHits=async()=>{
      const duel=!!attacker;
      await returnAttacker();
-     if(!pendingHealth.size)return;
+     if(!hitTiles.size)return;
      await pause(reduced?8:(duel?450:350)*budget);
      if(cancelled)return;
-     await applyHits();
+     hitTiles.clear();clearPops();
     };
     for(let i=0;i<combat.events.length;i++){
      const event=combat.events[i]!;
@@ -302,25 +331,29 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
      if(event.kind==='ATTACK'&&event.sourceId&&event.targetId&&src&&dst){
       if(struck)await pause(reduced?8:950);
       struck=true;
-      attacker=event.sourceId;
+      attacker=event.sourceId;strikerId=attacker;
       const el=tiles.current.get(attacker);el?.classList.add('is-attacking');
       field.current?.classList.add('is-duel');tiles.current.get(event.targetId)?.classList.add('is-defending');
+      // Camera: the field leans toward the pair (a CSS scale from their midpoint; the shake composes on top).
+      if(field.current)field.current.style.transformOrigin=`${((src.x+dst.x)/2+CW/2)/W*100}% ${((src.y+dst.y)/2+CH/2)/H*100}%`;
       const dx=dst.x-src.x,dy=dst.y-src.y,distance=Math.max(1,Math.hypot(dx,dy));
       const impact={x:src.x+dx*.78,y:src.y+dy*.78};
       const variant=event.id%3;
       if(el)el.dataset.attackStyle=['thrust','hook','slam'][variant];
       el?.classList.add('is-thinking');
-      await pause(reduced?8:70*budget);
+      await pause(reduced?8:45*budget);
       el?.classList.remove('is-thinking');
       tiles.current.get(event.targetId)?.classList.add('is-targeted');
-      await pause(reduced?8:40*budget);
+      await pause(reduced?8:30*budget);
       tiles.current.get(event.targetId)?.classList.remove('is-targeted');
       audioManager.play('ab_whoosh');if(rate.current<100)playMinionVoice(list.find(p=>p.minion.id===event.sourceId)?.minion.cardId??'','attack');
       await pause(reduced?1:70*budget,u=>{const coil=1-(1-u)**3;if(!reduced)place(event.sourceId!,src.x-dx/distance*32*coil,src.y-dy/distance*32*coil,variant===1?-.18*coil:variant===2?.06*coil:0,1+.1*coil);});
-      await pause(reduced?1:140*budget,u=>{
-       const ease=u**4,arc=Math.sin(Math.PI*u)*(variant===1?52:variant===2?-28:0);
+      el?.classList.add('is-dashing');
+      await pause(reduced?1:170*budget,u=>{
+       const ease=u**3,arc=Math.sin(Math.PI*u)*(variant===1?52:variant===2?-28:0);
        if(!reduced)place(event.sourceId!,src.x-dx/distance*32*(1-ease)+(impact.x-src.x)*ease-dy/distance*arc,src.y-dy/distance*32*(1-ease)+(impact.y-src.y)*ease+dx/distance*arc,variant===1?Math.sin(Math.PI*u)*.22:variant===2?-.12*u:.04*u,1+(variant===2?.18:.04)*Math.sin(Math.PI*u));
       });
+      el?.classList.remove('is-dashing');
       // Presentation-only hit-stop; authoritative damage events follow in order.
       await pause(reduced?1:50);
      }else if(event.kind==='HUMILIATE'||event.kind==='BAIT'){
@@ -339,7 +372,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       target?.classList.remove('is-startled');
      }else if(event.kind==='DAMAGE'||event.kind==='CLEAVE_DAMAGE'){
       if(event.targetId&&event.remainingHealth!==undefined){
-       paintHit(event);await paint();
+       paintHit(event);await commit([...piecesRef.current]);
       }
       await pause(ms);
      }else if(event.kind==='STATS'){
@@ -347,7 +380,6 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
        const tile=tiles.current.get(event.targetId);
        tile?.classList.remove('is-buff-card','is-buff-ability','is-buff-power');
        const previous=list.find(p=>p.minion.id===event.targetId)?.minion;
-       if(event.remainingHealth!==undefined)pendingHealth.delete(event.targetId);
        const decreased=previous&&((event.attack??previous.attack)<previous.attack||(event.remainingHealth??previous.health)<previous.health);
        tile?.classList.remove('is-debuff');
        if(tile){void tile.offsetWidth;tile.classList.add(decreased?'is-debuff':event.sourceId?'is-buff-card':'is-buff-ability');}
@@ -365,8 +397,14 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       if(ids.length){
        audioManager.play('ab_death');
        if(rate.current<100)playMinionVoice(list.find(p=>p.minion.id===ids[0])?.minion.cardId??'','death');
-       for(const id of ids){const at=home(list,id);graves.set(id,{x:at.x+CW/2,y:at.y+CH*.45});}
+       for(const id of ids){const at=home(list,id);graves.set(id,{x:at.x+CW/2,y:at.y+CH*.45});dust({x:at.x+CW/2,y:at.y+CH*.55},4);}
+       for(const side of new Set(ids.map(id=>list.find(p=>p.minion.id===id)?.side))){
+        const heroEl=field.current?.querySelector<HTMLElement>(side===0?'.ab-combat-foe .ab-hero-face':'.ab-combat-me .ab-hero-face');
+        if(heroEl&&!reduced&&rate.current<100)animate(heroEl,[{translate:'0 0',rotate:'0deg'},{translate:'-4px 2px',rotate:'-2deg',offset:.3},{translate:'3px 0',rotate:'1.5deg',offset:.65},{translate:'0 0',rotate:'0deg'}],300);
+       }
        await Promise.all(batch.map(e=>{const el=e.targetId?tiles.current.get(e.targetId):undefined;return el?rip(el,e.id):Promise.resolve();}));
+       // Rattles fire the moment the card is gone, before the row closes up; the DEATHRATTLE event itself then only waits.
+       for(let j=i+1;combat.events[j]?.kind==='DEATHRATTLE';j++){const src=combat.events[j]!.sourceId;if(src&&ids.includes(src)&&!rattled.has(src)){rattled.add(src);audioManager.play('ab_deathrattle');deathrattleBurst(graves.get(src)!);}}
        const next=list.filter(p=>!ids.includes(p.minion.id));
        await commit(next);restack(next);await pause(reduced?0:80*budget);
       }
@@ -389,7 +427,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
        if(face){
         face.style.visibility='hidden';
         const cuts=['polygon(0 0,50% 0,42% 30%,0 40%)','polygon(50% 0,100% 0,100% 35%,42% 30%)','polygon(0 40%,42% 30%,55% 60%,0 70%)','polygon(42% 30%,100% 35%,100% 65%,55% 60%)','polygon(0 70%,55% 60%,45% 100%,0 100%)','polygon(55% 60%,100% 65%,100% 100%,45% 100%)'];
-        const pieces=cuts.map((cut,i)=>{const piece=document.createElement('div');piece.className='ab-combat-shard is-reborn';piece.style.clipPath=cut;piece.innerHTML=face.innerHTML;bornEl.append(piece);
+        const pieces=cuts.map((cut,i)=>{const piece=document.createElement('div');piece.className='ab-combat-shard is-reborn';piece.style.clipPath=cut;piece.append(...[...face.childNodes].map(node=>node.cloneNode(true)));bornEl.append(piece);
          const dx=(i%2?1:-1)*(40+Math.random()*70),dy=60+Math.random()*80,rot=(Math.random()-.5)*90;
          return animate(piece,[{transform:`translate(${dx}px,${dy}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(1.8) drop-shadow(0 0 10px #62d8ff)'},{opacity:1,offset:.3},{transform:'translate(0,0) rotate(0)',opacity:1,filter:'brightness(1.2) drop-shadow(0 0 6px #62d8ff)'}],620+i*40);});
         await Promise.all(pieces.map(a=>a.finished)).catch(()=>{});
@@ -408,8 +446,8 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       if(event.targetId){
        const id=event.targetId;
        const winnerId=combat.summary.winnerId;
-       const striker=field.current?.querySelector<HTMLElement>(winnerId===meId?'.ab-combat-me':'.ab-combat-foe');
-       const victim=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me':'.ab-combat-foe');
+       const striker=field.current?.querySelector<HTMLElement>(winnerId===meId?'.ab-combat-me .ab-hero-face':'.ab-combat-foe .ab-hero-face');
+       const victim=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me .ab-hero-face':'.ab-combat-foe .ab-hero-face');
        const amount=event.amount??0;
        if(winnerId&&amount>0){
          await pause(reduced?8:480*budget);
@@ -419,22 +457,32 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
         let total=Math.min(amount,tier);
         setTally({id:winnerId,amount:total});
         await pause(reduced?8:420*budget);
-        const flyMs=Math.min(420,1400/Math.max(1,survivors.length));
+        const flyMs=Math.min(560,2000/Math.max(1,survivors.length));
         for(const s of survivors){
          if(cancelled)return;
          await flyTier(s.minion.id,s.minion.tavernTier,flyMs*budget);
          total=Math.min(amount,total+s.minion.tavernTier);
          setTally({id:winnerId,amount:total});
-         await pause(reduced?8:90*budget);
+         await pause(reduced?8:150*budget);
         }
         setTally({id:winnerId,amount});
-         await pause(reduced?8:500*budget);
+         await pause(reduced?8:650*budget);
         if(striker&&victim&&!reduced){
          const a=striker.getBoundingClientRect(),b=victim.getBoundingClientRect();
          const scale=field.current!.getBoundingClientRect().height/field.current!.offsetHeight;
          const dy=(b.y+b.height/2-a.y-a.height/2)/scale;
+         // Three tempers keyed on the event: a straight slam, a wide hook, a spinning charge. Each winds up for the
+         // first third and snaps across in the last stretch — longer than before, sharper on the landing.
+         const variant=event.id%3,sign=combat.turn%2?1:-1;
          striker.style.zIndex='20';
-          await pause(360*budget,u=>{striker.style.translate=`0 ${dy*u*u}px`;});
+         await pause(760*budget,u=>{
+          const wind=Math.min(1,u/.34),dash=Math.max(0,(u-.34)/.66);
+          const k=u<.34?-.12*(1-(1-wind)**2):-.12+1.12*dash**4;
+          const x=variant===1?(k<0?-sign*46*wind:-sign*46*(1-dash)+Math.sin(Math.PI*dash)*sign*130):0;
+          const r=variant===2?(k<0?-22*wind:-22+dash**2*382):variant===1?sign*18*Math.sin(Math.PI*dash):-5*wind*(1-dash);
+          const s=1+(variant===0?.14:.08)*Math.max(0,dash-.7)/.3;
+          striker.style.translate=`${x}px ${dy*k}px`;striker.style.rotate=`${r}deg`;striker.style.scale=String(s);
+         });
         }
        }
        if(cancelled)return;
@@ -443,13 +491,15 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
        const heroEl=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me':'.ab-combat-foe');
        if(heroEl&&!reduced&&rate.current<100){
         const k=Math.min(1,amount/12);
-        animate(heroEl,[{translate:'0 0',rotate:'0deg'},{translate:`${-6-10*k}px ${8+10*k}px`,rotate:`${-3-3*k}deg`,offset:.2},{translate:`${6+10*k}px ${-4*k}px`,rotate:`${3+2*k}deg`,offset:.45},{translate:`${-3-4*k}px ${3*k}px`,rotate:'-1deg',offset:.7},{translate:'0 0',rotate:'0deg'}],320+200*k);
+        animate(victim??heroEl,[{translate:'0 0',rotate:'0deg'},{translate:`${-6-10*k}px ${8+10*k}px`,rotate:`${-3-3*k}deg`,offset:.2},{translate:`${6+10*k}px ${-4*k}px`,rotate:`${3+2*k}deg`,offset:.45},{translate:`${-3-4*k}px ${3*k}px`,rotate:'-1deg',offset:.7},{translate:'0 0',rotate:'0deg'}],320+200*k);
        }
-       audioManager.play('ab_hit_hero');if(heroEl)burst(heroEl,amount);await pause(reduced?8:combatImpact(amount).duration*budget);
+       audioManager.play('ab_hit_hero');if(heroEl)burst(heroEl,amount,undefined,undefined,true);await pause(reduced?8:combatImpact(amount).duration*budget);
        if(striker){
-        const y=parseFloat(striker.style.translate.split(' ')[1]??'0')||0;
-         await pause(reduced?8:320*budget,u=>{striker.style.translate=`0 ${y*(1-u)}px`;});
-        striker.style.translate='';striker.style.zIndex='';
+        const [x=0,y=0]=striker.style.translate.split(' ').map(v=>parseFloat(v)||0);
+        let r=(parseFloat(striker.style.rotate)||0)%360;if(r>180)r-=360;
+        const s=(parseFloat(striker.style.scale)||1)-1;
+        await pause(reduced?8:420*budget,u=>{const e=1-(1-u)**3;striker.style.translate=`${x*(1-e)}px ${y*(1-e)}px`;striker.style.rotate=`${r*(1-e)}deg`;striker.style.scale=String(1+s*(1-e));});
+        striker.style.translate='';striker.style.rotate='';striker.style.scale='';striker.style.zIndex='';
        }
        // Lethal: the portrait breaks apart like a minion.
        if(heroEl&&(event.remainingHealth??1)<=0&&!reduced&&rate.current<100){
@@ -459,7 +509,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
          const box=img.getBoundingClientRect(),base=heroEl.getBoundingClientRect(),z=base.width/heroEl.offsetWidth||1;
          cuts.forEach((cut,i)=>{const piece=img.cloneNode(true) as HTMLElement;piece.className='ab-combat-hero-shard';piece.style.cssText=`position:absolute;left:${(box.left-base.left)/z}px;top:${(box.top-base.top)/z}px;width:${box.width/z}px;height:${box.height/z}px;clip-path:${cut};margin:0;pointer-events:none;z-index:8`;heroEl.appendChild(piece);
           const dx=(i%2?1:-1)*(30+Math.random()*70),rot=(Math.random()-.5)*80;
-          animate(piece,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:`translate(${dx*.4}px,${-12-Math.random()*24}px) rotate(${rot*.3}deg)`,opacity:1,offset:.25},{transform:`translate(${dx}px,${140+Math.random()*80}px) rotate(${rot}deg)`,opacity:0}],700+i*50).onfinish=()=>piece.remove();});
+          animate(piece,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:`translate(${dx*.4}px,${-12-Math.random()*24}px) rotate(${rot*.3}deg)`,opacity:1,offset:.25},{transform:`translate(${dx}px,${140+Math.random()*80}px) rotate(${rot}deg)`,opacity:0}],700+i*50,{fill:'forwards'}).onfinish=()=>piece.remove();});
          img.style.visibility='hidden';
          audioManager.play('ab_death');
          await pause(600*budget);
@@ -468,9 +518,11 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
         setTally(null);await pause(reduced?8:300*budget);
       }
      }else if(event.kind==='DEATHRATTLE'||event.kind==='REBORN'){
-      if(event.kind==='DEATHRATTLE')audioManager.play('ab_deathrattle');
       if(event.kind==='REBORN')rebornOwner=event.owner??'';
-      if(event.kind==='DEATHRATTLE'){const at=(event.sourceId&&graves.get(event.sourceId))||{x:W/2,y:H/2};deathrattleBurst(at);await pause(ms);}
+      if(event.kind==='DEATHRATTLE'){
+       if(!(event.sourceId&&rattled.has(event.sourceId))){audioManager.play('ab_deathrattle');deathrattleBurst((event.sourceId&&graves.get(event.sourceId))||{x:W/2,y:H/2});}
+       await pause(ms);
+      }
       else{setBanner(t('abReborn',{defaultValue:i18n.language.startsWith('ru')?'Возрождение':'Reborn'}));await pause(ms);setBanner('');}
      }
     }
@@ -502,25 +554,23 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
   })();
   return()=>{
    cancelled=true;
+   document.removeEventListener('visibilitychange',onVisible);
+   window.removeEventListener('ab-combat-rate',onRate);
    effects.forEach(animation=>animation.cancel());
-   field.current?.querySelectorAll('.ab-combat-pop,.ab-tier-fly,.ab-combat-shard,.ab-combat-dust,.ab-combat-drop,.ab-combat-chip,.ab-combat-spark,.ab-combat-splat,.ab-combat-mist,.ab-combat-shine,.ab-combat-veil,.ab-combat-slash,.ab-combat-hero-shard,.ab-combat-skull,.ab-combat-bone').forEach(el=>el.remove());
+   field.current?.querySelectorAll('.ab-combat-pop,.ab-tier-fly,.ab-combat-shard,.ab-combat-dust,.ab-combat-dust-puff,.ab-combat-drop,.ab-combat-chip,.ab-combat-spark,.ab-combat-splat,.ab-combat-mist,.ab-combat-shine,.ab-combat-veil,.ab-combat-slash,.ab-combat-hero-shard,.ab-combat-skull,.ab-combat-bone').forEach(el=>el.remove());
    field.current?.querySelectorAll<HTMLElement>('.ab-combat-hero-image,.ab-combat-face').forEach(el=>{el.style.visibility='';});
    field.current?.classList.remove('is-duel');
-   tiles.current.forEach(el=>{el.classList.remove('is-rip','is-hit','is-hp-drop','is-attacking','is-defending','is-poisoned','is-thinking','is-targeted','is-buff-card','is-buff-ability','is-buff-power','is-shouting','is-baiting','is-startled','is-debuff','is-shield-breaking');el.style.transform='';el.style.opacity='';});
-   field.current?.querySelectorAll<HTMLElement>('.ab-combat-me,.ab-combat-foe').forEach(el=>{el.style.translate='';el.style.zIndex='';});
-   if(field.current)field.current.style.transform='';
+   tiles.current.forEach(el=>{el.classList.remove('is-rip','is-hit','is-hp-drop','is-attacking','is-dashing','is-defending','is-poisoned','is-thinking','is-targeted','is-buff-card','is-buff-ability','is-buff-power','is-shouting','is-baiting','is-startled','is-debuff','is-shield-breaking');el.style.transform='';el.style.opacity='';});
+   field.current?.querySelectorAll<HTMLElement>('.ab-combat-me,.ab-combat-foe,.ab-combat-me .ab-hero-face,.ab-combat-foe .ab-hero-face').forEach(el=>{el.style.translate='';el.style.rotate='';el.style.scale='';el.style.zIndex='';});
+   if(field.current){field.current.style.transform='';field.current.style.transformOrigin='';}
   };
  },[combat,boards,meId,catalog,mineA,topOwner,foe?.displayName,t]);
 
  return <div className={`ab-combat-wrap ${waiting ? 'is-settled' : ''}`} data-testid="ab-combat">
-  <div className="ab-combat-speed">
-   {[1,2].map(n=><button key={n} aria-pressed={speed===n} onClick={()=>{rate.current=n;setSpeed(n);}}>{n}×</button>)}
-   <button onClick={()=>{rate.current=100;setSpeed(100);}}>{t('abSkip')}</button>
-  </div>
   {failed?<div className="ab-combat-fallback"><h2>{t('abCombat')}</h2><p>{combat.summary.tie?t('draw'):combat.summary.winnerId===meId?t('win'):t('loss')}</p><button onClick={onDone}>{t('done')}</button></div>:
   <div ref={field} className="ab-combat">
    {[{player:foe,cls:'ab-combat-foe'},{player:mine,cls:'ab-combat-me'}].map(({player,cls})=>player&&<div key={player.sessionId} className={cls+(heroVitals[player.sessionId]?.health<=0?' is-lethal':'')} data-testid={cls}>
-    <div className="ab-hero-face">
+    <div className="ab-hero-face" data-skin={player.skin}>
     <AbHeroFace className="ab-combat-hero-image" id={player.heroId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} />
     <span className="ab-combat-hero-vitals ab-hero-health" aria-label={`${t('health')}: ${heroVitals[player.sessionId]?.health}`}><HeartIcon /><span>{heroVitals[player.sessionId]?.health}</span></span>
     </div>
@@ -539,7 +589,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     const p=homeOf(pieces,piece.minion.id);
     return <div key={piece.minion.id} className={`ab-combat-card ${facedown.has(piece.minion.id)?'is-down':''}`}
       ref={el=>{if(el)tiles.current.set(piece.minion.id,el);else tiles.current.delete(piece.minion.id);}}
-      style={{left:`${(p.x/W)*100}%`,top:`${(p.y/H)*100}%`}}>
+      style={{left:`${(p.x/W)*100}%`,top:`${(p.y/H)*100}%`,'--idle-phase':`${(-idlePhase(piece.minion.id)*3.4).toFixed(2)}s`} as CSSProperties}>
      <div className="ab-combat-flip">
       <div className="ab-combat-face"><MinionTile minion={piece.minion} catalog={catalog} disabled arrive={false} /></div>
       <div className="ab-combat-back" aria-hidden />

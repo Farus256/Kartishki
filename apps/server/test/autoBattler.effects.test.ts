@@ -7,7 +7,7 @@ import { createDefaultRegistry } from '../src/autoBattler/keywords';
 import { createMinionState } from '../src/autoBattler/instantiate';
 import { resolveCombat } from '../src/autoBattler/combat';
 import { beginRecruitTurn, endRecruitTurn, tryBuy, tryPlayCard, tryReroll, trySell, type RecruitDeps } from '../src/autoBattler/recruit';
-import { DEFAULT_RULES } from '../src/autoBattler/effects';
+import { DEFAULT_RULES, runTavernEffects } from '../src/autoBattler/effects';
 
 const catalog = starterAutoBattlerCatalog;
 const def = (id: string) => catalog.minions.find(item => item.id === id);
@@ -201,4 +201,39 @@ test('expansion combat triggers: shield pops, friendly deaths, friendly attacks,
   assert.ok(drakes.events.some(e => e.kind === 'STATS' && e.targetId === 'c1' && e.sourceId === 'c1'), 'hangry dragon grows after another dragon attacks');
   assert.ok(drakes.events.some(e => e.kind === 'STATS' && e.sourceId === 'c0' && e.targetId === 'c1'), 'glyph guardian buffs the attacking dragon');
   assert.deepEqual(result.events, resolveCombat(a, b, 5, registry, def).events);
+});
+
+test('end-of-turn gold is banked and paid on top of the next turn income', () => {
+  const p = player('p', 3);
+  const d = deps(p);
+  onBoard(p, 'ab-smuggler');
+  endRecruitTurn(d);
+  assert.equal(p.gold, 3, 'the coin is not spendable this turn');
+  assert.equal(p.bankedGold, 1);
+  beginRecruitTurn(d, 2);
+  assert.equal(p.gold, 5, 'turn 2 income (4) plus the banked coin');
+  assert.equal(p.bankedGold, 0);
+});
+
+test('scenario steps run in order on the board the previous step left', () => {
+  const p = player();
+  const d = deps(p);
+  const stepper = { ...def('ab-bruiser')!, id: 'stepper', keywords: ['battlecry' as const], effects: [{
+    trigger: 'battlecry' as const, target: 'adjacent' as const, action: { kind: 'buff' as const, attack: 1, health: 1 },
+    steps: [
+      { action: { kind: 'summon' as const, summonId: 'ab-token-1-1', count: 1 } },
+      { target: 'friendly' as const, action: { kind: 'buff' as const, attack: 2, health: 0 } },
+    ],
+  }] };
+  const withStepper = { ...d, defFor: (id: string) => id === 'stepper' ? stepper : def(id) };
+  onBoard(p, 'ab-ward');
+  const card = createMinionState(stepper, 'h-stepper', p.sessionId);
+  p.hand.push(card);
+  const trace: number[] = [];
+  tryPlayCard(withStepper, card.id, 1);
+  const live = (id: string) => [...p.board].find(m => m.cardId === id)!;
+  assert.equal(live('ab-ward').attack, 1 + 1 + 2, 'step 1 buffs the neighbour, step 3 buffs every friendly minion');
+  assert.equal(live('ab-token-1-1').attack, 1 + 2, 'the token summoned by step 2 is on the board for step 3');
+  runTavernEffects({ player: p, rng: withStepper.rng, defFor: withStepper.defFor, rules: DEFAULT_RULES, nextId: withStepper.nextId, trace: line => trace.push(line.step) }, 'battlecry', live('stepper'));
+  assert.deepEqual(trace, [0, 1, 2]);
 });

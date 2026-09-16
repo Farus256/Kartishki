@@ -4,14 +4,19 @@ import { abCopyDescription, abCopyName, type AutoBattlerCatalog } from '@kartish
 import type { AbPlayer } from '../autoBattlerSession';
 import { PaperTooltip } from '../ui/PaperTooltip';
 
+/** Localised power name and description (set copy first, then the i18n hint with the real gold cost filled in). */
+export function powerCopy(power: AbPlayer['power'], catalog: AutoBattlerCatalog, lang: string, t: (key: string, opts?: { defaultValue?: string }) => string) {
+  const name = abCopyName(catalog.copy, 'powers', power.id, lang, t(`abPower_${power.id}`, { defaultValue: t('abPower') }));
+  const fallback = t(`abHint_${power.id}`, { defaultValue: '' }).replace(/\$\d+/g, `$${power.goldCost}`);
+  return { name, description: abCopyDescription(catalog.copy, 'powers', power.id, lang, fallback) };
+}
+
 export function HeroPowerTooltip({ power, catalog, combat = false, children, className }: {
   power: AbPlayer['power']; catalog: AutoBattlerCatalog; combat?: boolean; children: ReactNode; className?: string;
 }) {
   const { t, i18n } = useTranslation();
   const ru = i18n.language.startsWith('ru');
-  const name = abCopyName(catalog.copy, 'powers', power.id, i18n.language, t(`abPower_${power.id}`, { defaultValue: t('abPower') }));
-  const fallback = t(`abHint_${power.id}`, { defaultValue: '' }).replace(/\$\d+/g, `$${power.goldCost}`);
-  const description = abCopyDescription(catalog.copy, 'powers', power.id, i18n.language, fallback);
+  const { name, description } = powerCopy(power, catalog, i18n.language, t);
   const status = power.isPassive ? t('abPassive') : combat ? (ru ? 'Доступна во время найма.' : 'Available during recruitment.')
     : power.isExhausted ? (ru ? 'Уже использована. Обновится в следующем ходу.' : 'Used. Refreshes next turn.')
     : power.targeted ? (ru ? 'Нажмите и выберите цель или перетащите способность на неё.' : 'Click and select a target, or drag the power onto it.')

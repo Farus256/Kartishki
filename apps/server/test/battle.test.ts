@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MatchState, PlayerState, starterCards, type CardDefinition, type GameEvent } from '@kartishki/shared';
+import { COIN_CARD_ID, MatchState, PlayerState, starterCards, type CardDefinition, type GameEvent } from '@kartishki/shared';
 import { Battle } from '../src/Battle';
 
 function fixture(cards: CardDefinition[] = [structuredClone(starterCards[0])]) {
   const state = new MatchState(); state.players.set('a',new PlayerState()); state.players.set('b',new PlayerState());
-  state.activePlayer='a'; state.status='active'; state.turn=1; state.phase='main'; state.players.get('a')!.mana=10;
-  const events: GameEvent[] = []; const battle = new Battle(state,cards,event=>events.push(event)); battle.start();
+  // 'a' goes first: 3 cards plus the turn draw; 'b' holds 4 cards and The Coin. Tests top the mana up themselves.
+  state.first='a'; state.status='mulligan';
+  const events: GameEvent[] = []; const battle = new Battle(state,cards,event=>events.push(event)); battle.start(); battle.finishMulligan();
+  state.players.get('a')!.mana=10;
   const action = () => ({ expectedRevision: state.revision });
   const play = (owner='a', cardId=cards[0].id) => { state.activePlayer=owner; state.phase='main'; state.players.get(owner)!.mana=10; battle.hands.set(owner,[{instanceId:'test',cardId}]); assert.equal(battle.play(owner,{...action(),instanceId:'test'}),true); return [...state.minions.values()].at(-1)!; };
   const attack = (attackerId: string,targetId: string) => battle.attack(state.activePlayer,{...action(),attackerId,targetId});
@@ -14,11 +16,44 @@ function fixture(cards: CardDefinition[] = [structuredClone(starterCards[0])]) {
 }
 
 test('hands stay private and draw events reveal no identities',()=>{
-  const {state,battle,events}=fixture(); assert.equal(battle.hands.get('a')!.length,4); assert.equal(battle.hands.get('b')!.length,3);
-  assert.equal(state.players.get('a')!.deckCount,26); assert.equal(state.players.get('b')!.deckCount,27); assert.equal(state.players.get('b')!.handCount,3);
-  for (const player of state.players.values()) assert.equal(player.deckCount + player.handCount,30);
+  const {state,battle,events}=fixture(); assert.equal(battle.hands.get('a')!.length,4); assert.equal(battle.hands.get('b')!.length,5);
+  assert.equal(state.players.get('a')!.deckCount,26); assert.equal(state.players.get('b')!.deckCount,26); assert.equal(state.players.get('b')!.handCount,5);
+  for (const [id,player] of state.players) assert.equal(player.deckCount + player.handCount, id==='b' ? 31 : 30);
   assert.equal(JSON.stringify(state.toJSON()).includes('instanceId'),false);
-  assert.ok(events.every(e=>e.kind==='draw' && e.cardId===''));
+  assert.ok(events.filter(e=>e.kind==='draw').every(e=>e.cardId===''));
+  assert.deepEqual(events.filter(e=>e.kind==='turn').map(e=>e.source),['a']);
+});
+test('the coin goes to the second player and buys one mana this turn',()=>{
+  const {state,battle,action,events}=fixture();
+  assert.equal(battle.hands.get('a')!.some(c=>c.cardId===COIN_CARD_ID),false);
+  const coin=battle.hands.get('b')!.find(c=>c.cardId===COIN_CARD_ID)!; assert.ok(coin);
+  assert.equal(battle.play('b',{...action(),instanceId:coin.instanceId}),false);
+  state.activePlayer='b'; const b=state.players.get('b')!; b.maxMana=b.mana=1;
+  assert.equal(battle.play('b',{...action(),instanceId:coin.instanceId}),true);
+  assert.equal(b.mana,2); assert.equal(b.maxMana,1); assert.equal(b.handCount,4); assert.equal(state.minions.size,0);
+  assert.equal(events.at(-1)!.kind,'coin');
+  b.mana=10; assert.equal(battle.play('b',{...action(),instanceId:coin.instanceId}),false);
+});
+test('mulligan swaps the chosen cards once and keeps the deck whole',()=>{
+  const cards=[structuredClone(starterCards[0]),structuredClone(starterCards[1])];
+  const state=new MatchState(); state.players.set('a',new PlayerState()); state.players.set('b',new PlayerState());
+  state.first='a'; state.status='mulligan'; const battle=new Battle(state,cards); battle.start();
+  assert.equal(battle.hands.get('a')!.length,3); assert.equal(battle.hands.get('b')!.length,4);
+  const before=battle.hands.get('a')!.map(c=>c.instanceId); const revision=state.revision;
+  assert.equal(battle.mulligan('a',{replace:[...before,'forged',before[0]]}),true);
+  const after=battle.hands.get('a')!; assert.equal(after.length,3); assert.ok(after.every(c=>!before.includes(c.instanceId)));
+  assert.equal(state.players.get('a')!.deckCount,27); assert.equal(state.players.get('a')!.mulliganDone,true); assert.equal(state.revision,revision+1);
+  assert.equal(battle.mulligan('a',{replace:[]}),false);
+  assert.equal(battle.mulligan('b',{replace:[]}),true); assert.equal(battle.hands.get('b')!.length,4);
+  battle.finishMulligan(); assert.equal(state.status,'active'); assert.equal(state.activePlayer,'a'); assert.equal(state.turn,1);
+  assert.equal(state.players.get('a')!.mana,1); assert.equal(state.players.get('a')!.maxMana,1); assert.equal(battle.hands.get('a')!.length,4);
+  assert.equal(battle.hands.get('b')!.at(-1)!.cardId,COIN_CARD_ID);
+  assert.equal(battle.mulligan('a',{replace:[]}),false);
+});
+test('charge attacks the turn it is played',()=>{
+  const runner={...structuredClone(starterCards[0]),id:'runner',properties:['charge' as const]};
+  const {state,play,attack}=fixture([structuredClone(starterCards[0]),runner]); const m=play('a','runner');
+  assert.equal(m.ready,true); assert.equal(attack(m.id,'b'),true); assert.equal(state.players.get('b')!.health,30-runner.attack);
 });
 test('play rejects forged hands, wrong turn and insufficient mana without mutation',()=>{
   const {state,battle,action}=fixture(); const id=battle.hands.get('a')![0].instanceId;
@@ -79,20 +114,22 @@ test('full board rejects plays and a new turn refreshes readiness',()=>{
   state.activePlayer='b'; assert.equal(battle.advance('b',action()),true); assert.ok([...state.minions.values()].every(m=>m.ready));
 });
 test('each player exhausts exactly thirty cards before fatigue starts',()=>{
-  const {state,battle,action}=fixture();
+  const {state,battle,action,events}=fixture();
   const drawFor = (owner: string) => {
     state.activePlayer=owner==='a'?'b':'a';
     assert.equal(battle.advance(state.activePlayer,action()),true);
   };
   for (const owner of ['a','b']) {
-    const remaining=owner==='a'?26:27;
-    for(let n=0;n<remaining;n++) drawFor(owner);
+    for(let n=0;n<26;n++) drawFor(owner);
     assert.equal(state.players.get(owner)!.deckCount,0);
     assert.equal(state.players.get(owner)!.health,30);
     assert.equal(battle.hands.get(owner)!.length,10);
     drawFor(owner);
     assert.equal(state.players.get(owner)!.health,29);
   }
+  // Burned cards are public, fatigue carries its growing amount.
+  assert.ok(events.some(e=>e.kind==='burn' && e.cardId===starterCards[0].id));
+  assert.deepEqual(events.filter(e=>e.kind==='fatigue').map(e=>e.amount),[1,1]);
 });
 test('fatigue eventually ends a match and hands cap at ten',()=>{
   const {state,battle,action}=fixture();
@@ -106,7 +143,7 @@ test('selected decks must be 30 known cards',()=>{
   const battle=new Battle(state,cards);
   const deck=Array.from({length:30},(_,n)=>cards[n%2]!.id);
   battle.start(new Map([['a',deck],['b',deck]]));
-  assert.equal(battle.hands.get('a')!.length,4);
+  assert.equal(battle.hands.get('a')!.length,3); assert.equal(battle.hands.get('b')!.length,4);
   assert.ok(battle.hands.get('a')!.every(card=>cards.some(item=>item.id===card.cardId)));
   assert.throws(()=>new Battle(state,cards).start(new Map([['a',['missing']],['b',deck]])));
 });
@@ -131,15 +168,16 @@ test('rage summons once per transition into wounded state', () => {
   enemy.ready=true; assert.equal(f.attack(enemy.id,m.id),true);
   assert.equal([...f.state.minions.values()].filter(x=>x.owner==='a').length,2);
 });
-test('creatures protect heroes from attacks and targeted hero powers', () => {
-  const f=fixture(); const attacker=f.play('a'), defender=f.play('b'); f.state.activePlayer='a'; attacker.ready=true;
+test('taunt must be attacked first; hero powers ignore taunt; an open board exposes the hero', () => {
+  const wall={...structuredClone(starterCards[0]),id:'wall',properties:['taunt' as const]};
+  const f=fixture([structuredClone(starterCards[0]),wall]); const attacker=f.play('a'), plain=f.play('b'), taunt=f.play('b','wall'); f.state.activePlayer='a'; attacker.ready=true;
   const a=f.state.players.get('a')!; a.heroId='captain'; a.mana=10;
-  assert.equal(f.attack(attacker.id,'b'),false); assert.equal(attacker.ready,true);
-  assert.equal(f.battle.power('a',{...f.action(),targetId:'b'}),false); assert.equal(a.mana,10);
-  assert.equal(f.battle.power('a',{...f.action(),targetId:defender.id}),true); assert.equal(a.mana,8); assert.equal(a.powerUsed,true);
-  assert.equal(f.state.minions.has(defender.id),false);
-  assert.equal(f.battle.power('a',{...f.action(),targetId:'b'}),false);
-  assert.equal(f.attack(attacker.id,'b'),true);
+  assert.equal(f.attack(attacker.id,'b'),false); assert.equal(f.attack(attacker.id,plain.id),false); assert.equal(attacker.ready,true);
+  assert.equal(f.battle.power('a',{...f.action(),targetId:'b'}),true); assert.equal(f.state.players.get('b')!.health,28); assert.equal(a.mana,8); assert.equal(a.powerUsed,true);
+  assert.equal(f.battle.power('a',{...f.action(),targetId:plain.id}),false);
+  assert.equal(f.attack(attacker.id,taunt.id),true); assert.equal(f.state.minions.has(taunt.id),false);
+  const next=f.play('a'); next.ready=true; f.state.activePlayer='a';
+  assert.equal(f.attack(next.id,'b'),true); assert.equal(f.state.players.get('b')!.health,26);
 });
 test('healing and summoning powers are bounded and refresh only on the next own turn', () => {
   const f=fixture(); const a=f.state.players.get('a')!; a.heroId='medic'; a.maxHealth=32; a.health=31;

@@ -56,6 +56,7 @@ export function syncPrices(deps: RecruitDeps): void {
   const rules = rulesOf(deps);
   player.buyCost = Math.max(0, rules.buyCost - (player.buysThisTurn === 0 ? rules.firstBuyDiscount : 0));
   player.rerollCost = player.freeRerolls > 0 ? 0 : rules.rerollCost;
+  player.sellReward = rules.sellReward;
 }
 
 function afterTriples(deps: RecruitDeps): void {
@@ -87,7 +88,8 @@ export function fillTavern(deps: RecruitDeps): void {
 export function beginRecruitTurn(deps: RecruitDeps, turn: number): void {
   const { player, registry } = deps;
   const rules = rulesOf(deps);
-  player.gold = Math.min(rules.goldCap, Math.max(0, goldForTurn(turn) + (rules.goldCap - AUTO_BATTLER.GOLD_CAP)));
+  player.gold = Math.min(rules.goldCap, Math.max(0, goldForTurn(turn) + (rules.goldCap - AUTO_BATTLER.GOLD_CAP) + player.bankedGold));
+  player.bankedGold = 0;
   player.upgradeCost = Math.max(0, player.upgradeCost - 1 - rules.upgradeDiscount);
   player.hero.power.isExhausted = false;
   player.recruitReady = false;

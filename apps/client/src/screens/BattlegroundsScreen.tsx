@@ -2,11 +2,14 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, typ
 import { useTranslation } from 'react-i18next';
 import { AUTO_BATTLER, goldForTurn } from '@kartishki/shared';
 import { autoBattlerSession, type AbMinion, type AbPlayer } from '../autoBattlerSession';
+import { chosenCardSet } from '../activeCardSet';
+import { equippedBoard, onBoardChange } from '../cosmeticsLocal';
+import { pickLoc } from '@kartishki/shared';
 import { audioManager } from '../AudioManager';
 import { TripleMerge, type TriplePiece } from '../battlegrounds/TripleMerge';
 import { flyClone, stageBox, type Box } from '../battlegrounds/tableFx';
 import { STAGE_W, stageRoot } from '../ui/stageCoords';
-import { useCatalog } from '../ui/useCatalog';
+import { useCardSets, useCatalog } from '../ui/useCatalog';
 import { playMinionVoice, setLinkedCards } from '../battlegrounds/voiceLines';
 import { NewbieHints } from '../battlegrounds/NewbieHints';
 import { AnomalyBadge } from '../battlegrounds/AnomalyBadge';
@@ -37,10 +40,21 @@ import '../battlegrounds/fx-combat.css';
 import '../battlegrounds/fx-polish.css';
 
 export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const state = useSyncExternalStore(autoBattlerSession.subscribe, autoBattlerSession.getSnapshot);
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const reward = player.lastReward;
+  // Table preset: the account's equipped one (or the guest's free pick); a set may suggest its own until the player chose.
+  useSyncExternalStore(onBoardChange, () => equippedBoard().id);
+  const boardVars = equippedBoard().vars;
+  const cardSets = useCardSets();
+  const currentSet = cardSets.find(set => set.id === state.setId);
+  // The room is the truth about the set; a remembered id the server no longer knows gets cleared (and the seat re-taken at the standard table).
+  const storedSet = chosenCardSet();
+  const pickedSet = state.setId || (cardSets.some(set => set.id === storedSet) ? storedSet : '');
+  useEffect(() => {
+    if (storedSet && state.status === 'online' && state.phase === 'LOBBY' && !state.setId) autoBattlerSession.chooseCardSet('');
+  }, [storedSet, state.status, state.phase, state.setId]);
   const recruitHeroes = useRef(state.players);
   if (state.phase === 'RECRUIT_PHASE' && !state.combat) recruitHeroes.current = state.players;
   const [aim, setAim] = useState<'tavern' | 'board' | null>(null);
@@ -70,6 +84,14 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
 
   useEffect(() => { void autoBattlerSession.connect(); }, []);
   useEffect(() => { if (state.combat) setPlaying(true); }, [state.combat]);
+  // Curtain up: the first recruit of a match animates every fixture of the table into place (CSS keys off .is-opening).
+  const [opening, setOpening] = useState(false);
+  useEffect(() => {
+    if (state.phase !== 'RECRUIT_PHASE' || state.turn !== 1) return;
+    setOpening(true);
+    const timer = setTimeout(() => setOpening(false), 2800);
+    return () => clearTimeout(timer);
+  }, [state.phase, state.turn]);
 
   const inRecruit = state.phase === 'RECRUIT_PHASE' && !!me && !me.eliminated && !playing;
   const recruit = inRecruit && !me!.recruitReady;
@@ -204,8 +226,9 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
       <GameCursor />
       <BuffFlashProvider me={me}>
       <div ref={screenRef}
-        className={`ab-screen ${combatTable ? 'is-combat' : ''} ${dnd.api.armed ? 'is-ab-dragging' : ''} ${dnd.api.armed && !dnd.api.valid ? 'is-invalid' : ''} ${dnd.api.kind === 'power' && dnd.api.armed ? 'is-aim-drag' : ''}`}
-        style={{ '--ab-lb': `${AB_LAYOUT.LEADERBOARD_W}px`, '--ab-rail': `${AB_LAYOUT.RAIL_W}px`, '--ab-header': `${AB_LAYOUT.HEADER_H}px` } as CSSProperties}
+        className={`ab-screen ${combatTable ? 'is-combat' : ''} ${opening ? 'is-opening' : ''} ${dnd.api.armed ? 'is-ab-dragging' : ''} ${dnd.api.armed && !dnd.api.valid ? 'is-invalid' : ''} ${dnd.api.kind === 'power' && dnd.api.armed ? 'is-aim-drag' : ''}`}
+        style={{ ...boardVars, '--ab-lb': `${AB_LAYOUT.LEADERBOARD_W}px`, '--ab-rail': `${AB_LAYOUT.RAIL_W}px`, '--ab-header': `${AB_LAYOUT.HEADER_H}px` } as CSSProperties}
+        data-board={equippedBoard().id}
         data-testid="ab-screen"
         data-ab-zone={dnd.api.zone}
         data-dragging-id={dnd.api.draggingId ?? ''}>
@@ -214,8 +237,15 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
           <span className={`connection ${state.status}`}>{t(state.status)}</span>
           <span>{t('abPhase_' + (combatTable ? 'COMBAT_PHASE' : state.phase), { defaultValue: state.phase })}</span>
           {state.turn > 0 && <span>{t('turn', { turn: combatTable ? lastCombat.current?.combat.turn ?? state.turn : state.turn })}</span>}
+          {currentSet && <span className="ab-header-set" data-testid="ab-set-name">{pickLoc(currentSet.name, i18n.language)}</span>}
           <span className="ab-header-count">{state.players.length}/{AUTO_BATTLER.MAX_PLAYERS}</span>
           <div className="ml-auto flex gap-2">
+            {inRecruit && state.turn <= AUTO_BATTLER.EARLY_READY_TURNS && (
+              <InkButton size="sm" tone={me!.recruitReady ? 'ink' : 'blood'} aria-pressed={me!.recruitReady} data-testid="ab-ready"
+                onClick={() => { if (me!.recruitReady) autoBattlerSession.cancelRecruit(); else if (dnd.api.tryLock('ready')) autoBattlerSession.endRecruit(); }}>
+                {me!.recruitReady ? '✓ ' + t('abReady') : t('abReady')}
+              </InkButton>
+            )}
             <InkButton size="sm" aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))}>⚙</InkButton>
             <InkButton size="sm" onClick={leave}>{t('leave')}</InkButton>
           </div>
@@ -228,7 +258,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
             <FuseRope deadline={deadline} active={clockActive && state.phase === 'RECRUIT_PHASE'} />
             <section className="ab-zone-tavern" data-testid="ab-zone-tavern">
               {me && (
-                <TavernRow me={me} catalog={state.catalog} recruit={recruit} aimingTavern={aim === 'tavern'}
+                <TavernRow me={me} catalog={state.catalog} tribes={state.tribes} recruit={recruit} aimingTavern={aim === 'tavern'}
                   onBuy={onTavernMinion} onReroll={() => { if (dnd.api.tryLock('reroll')) autoBattlerSession.reroll(); }}
                   onFreeze={() => { if (dnd.api.tryLock('freeze')) autoBattlerSession.freeze(); }}
                   onTierUp={() => { if (dnd.api.tryLock('tierUp')) autoBattlerSession.tierUp(); }}
@@ -241,7 +271,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
                   <div className="ab-round-band"><span>{t('abNextOpponent')} <b>VS {opponent?.displayName ?? '—'}</b></span><span>{aim ? t('abPowerTarget') : t('abOrderHint')}</span><small>{me.board.length}/7</small></div>
                   <BoardRow me={me} catalog={state.catalog} recruit={recruit} aimingBoard={aim === 'board'} selectedId={selected}
                     onActivate={onBoardMinion} />
-                  {selected && recruit && <div className="ab-selection-tools"><button onClick={() => { send({ type: 'sell', id: selected }); setSelected(null); }}>{t('abSell')}</button><button onClick={() => setSelected(null)}>{t('cancel')}</button></div>}
+                  {selected && recruit && <div className="ab-selection-tools"><button onClick={() => { send({ type: 'sell', id: selected }); setSelected(null); }}>{t('abSell', { n: me.sellReward })}</button><button onClick={() => setSelected(null)}>{t('cancel')}</button></div>}
                   <div className={`ab-buy-zone ${dnd.api.zone === 'buy' ? 'is-hot' : ''}`}>
                     <HeroDock me={me} catalog={state.catalog} recruit={recruit} aiming={!!aim} onPower={onPower} />
                   </div>
@@ -269,6 +299,16 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
           <div className="ab-modal" data-testid="ab-lobby">
             <div className="ab-modal-card">
               <h2>{t('abLobby')}</h2>
+              {cardSets.length > 0 && (
+                <label className="ab-set-pick">
+                  {t('abCardSet')}
+                  <select value={pickedSet} data-testid="ab-set-select" onChange={event => autoBattlerSession.chooseCardSet(event.target.value)}>
+                    <option value="">{t('abCardSetStarter')}</option>
+                    {cardSets.map(set => <option key={set.id} value={set.id}>{pickLoc(set.name, i18n.language)} · {set.minions}{set.author ? ` · ${t('abCardSetBy')} ${set.author}` : ''} · v{set.version}</option>)}
+                  </select>
+                  <small>{t('abCardSetHint')}</small>
+                </label>
+              )}
               <p>{t('abWaiting', { count: state.players.length })}</p>
               <InkButton tone="blood" disabled={state.players.length < AUTO_BATTLER.MIN_PLAYERS} onClick={() => autoBattlerSession.startGame()}>
                 {t('abStart')}
@@ -287,7 +327,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
         )}
 
         {(state.phase === 'GAME_OVER' || me?.eliminated) && !combatTable && (
-          <GameOverCard placement={me?.placement ?? 0} finished={state.phase === 'GAME_OVER'} winner={state.winnerId === state.sessionId} reward={reward ?? undefined} onAgain={playAgain} onLeave={leave} />
+          <GameOverCard placement={me?.placement ?? 0} finished={state.phase === 'GAME_OVER'} winner={state.winnerId === state.sessionId} cancelled={state.cancelled && !reward} reward={reward ?? undefined} onAgain={playAgain} onLeave={leave} />
         )}
 
         {state.error && <p className="battle-error" role="alert">{t(state.error, { defaultValue: state.error })}</p>}

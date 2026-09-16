@@ -26,7 +26,7 @@ test('server recruit transition preserves combat deaths, result and round health
   await setFixture(page, state);
   await expect(page.getByTestId('ab-combat')).toBeVisible();
   await expect(page.getByTestId('ab-leaderboard')).toContainText('19');
-  await page.locator('.ab-combat-speed button').last().click();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:100})));
   await expect(page.getByTestId('ab-result-stamp')).toBeVisible();
   await expect(page.getByTestId('ab-minion-last-enemy')).toHaveCount(0);
   await expect(page.getByTestId('ab-combat-foe').locator('.ab-combat-hero-vitals')).toHaveText('13');
@@ -132,8 +132,8 @@ test('keyword visuals, final ten-second fuse and real card clicks', async ({ pag
   await page.screenshot({ path: 'artifacts/ab-keywords-rope.png' });
   state.recruitSeconds = 25;
   await setFixture(page, state);
-  await expect(page.getByTestId('ab-rope')).toBeVisible();
-  await expect(page.getByTestId('ab-rope')).not.toHaveClass(/is-short/);
+  // The fuse only lights for the last ten seconds.
+  await expect(page.getByTestId('ab-rope')).toHaveCount(0);
 });
 
 test('tavern upgrade flourish matches the new tier', async ({ page }) => {
@@ -284,7 +284,7 @@ test('two browsers recruit by dragging, reconnect, play combat and finish a matc
   await a.getByRole('button',{name:'В бой',exact:true}).click();await b.getByRole('button',{name:'В бой',exact:true}).click();
   await expect(a.getByTestId('ab-combat')).toBeVisible();
   if(!captured){await a.waitForTimeout(350);await a.screenshot({path:'artifacts/ab-live-combat.png'});captured=true;}
-  await a.getByRole('button',{name:'Пропуск'}).click();
+  await a.evaluate(()=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:100})));
   await expect.poll(async()=>{const next=await snapshot(a);return next.phase==='GAME_OVER'||next.turn>s.turn;},{timeout:60000}).toBeTruthy();
  }
  await expect.poll(async()=>(await snapshot(a)).phase).toBe('GAME_OVER');await expect(a.getByTestId('ab-gameover')).toBeVisible({timeout:10000});await a.screenshot({path:'artifacts/ab-gameover.png'});
@@ -306,7 +306,7 @@ test('combat result stays centered until recruit arrives, then returns to tavern
  const box=(await page.getByTestId('ab-combat').boundingBox())!,stamp=(await page.getByTestId('ab-result-stamp').boundingBox())!;
  expect(Math.abs(stamp.y+stamp.height/2-box.y-box.height/2)).toBeLessThan(5);
  await expect(page.locator('.ab-combat-wait')).toHaveCount(0);
- await page.getByRole('button',{name:'Пропуск'}).click();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:100})));
  await expect(page.getByTestId('ab-recruit-stamp')).toHaveCount(0);
  fixture.phase='RECRUIT_PHASE';fixture.turn++;fixture.combat=null;fixture.combatBoards=null;
  await page.evaluate(s=>import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/autoBattlerSession.ts'))!.name).then((m:any)=>m.setFixture(s)),fixture);
@@ -320,14 +320,14 @@ test('waiting copy only appears when another pair is still fighting', async ({ p
  one.combatBoards={playerA:'p0',playerB:'p1',a:[],b:[]};
  one.combat={turn:8,pairIndex:0,seed:1,playerA:'p0',playerB:'p1',ghost:false,durationMs:8000,boards:{a:[],b:[]},events:[{id:1,kind:'COMBAT_END'}],summary:{winnerId:'p0',loserId:'p1',damage:0,tie:false}};
  await openMockAb(page,one);
- await page.locator('.ab-combat-speed button').last().click();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:100})));
  await expect(page.locator('.ab-combat-wait')).toHaveCount(0);
  await expect(page.getByTestId('ab-combat')).toBeHidden();
  const many={...one,pairing:[{playerA:'p0',playerB:'p1',ghost:false},{playerA:'p2',playerB:'p3',ghost:false}]};
  await page.evaluate(()=>import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/autoBattlerSession.ts'))!.name).then((m:{setHoldCombat:(b:boolean)=>void})=>m.setHoldCombat(true)));
  await setFixture(page,many);
  await expect(page.getByTestId('ab-combat')).toBeVisible();
- await page.locator('.ab-combat-speed button').last().click();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:100})));
  await expect(page.locator('.ab-combat-wait')).toBeVisible();
 });
 

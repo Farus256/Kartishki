@@ -28,10 +28,10 @@ test('editor publishes a Battlegrounds minion into the catalog', async ({ page, 
   await page.getByLabel('Каталог лавки').selectOption('ab-whelp');
   await page.getByLabel('Атака', { exact: true }).fill('7');
   await page.getByLabel('Здоровье', { exact: true }).fill('5');
-  await page.getByRole('checkbox', { name: /^Унижение:/ }).check();
-  await page.getByRole('checkbox', { name: /^Байт:/ }).check();
-  await expect(page.locator('.ab-minion-stats b')).toContainText('7');
-  await expect(page.locator('.ab-minion-stats i')).toContainText('5');
+  await page.getByRole('checkbox', { name: /^Унижение/ }).check();
+  await page.getByRole('checkbox', { name: /^Байт/ }).check();
+  await expect(page.locator('.ab-dossier-foot b').first()).toContainText('7');
+  await expect(page.locator('.ab-dossier-foot i').first()).toContainText('5');
   await page.getByRole('button', { name: 'Опубликовать существо', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Существо опубликовано');
   const catalog: Catalog = await (await request.get(`${server}/api/catalog`)).json();
@@ -67,9 +67,9 @@ test('editor publishes minion description and renamed tribe text', async ({ page
   await page.getByLabel('Описание (ru)').fill('Маленький зверёк из редактора.');
   await page.getByRole('button', { name: 'Опубликовать существо', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Существо опубликовано');
-  await page.getByRole('button', { name: 'Названия и описания', exact: true }).click();
-  await page.getByLabel('Зверь ru').fill('Зверьки');
-  await page.getByLabel('Зверь описание').fill('Мохнатые союзники.');
+  await page.getByRole('button', { name: 'Расы', exact: true }).click();
+  await page.getByLabel('Свинья ru').fill('Зверьки');
+  await page.getByLabel('Свинья описание').fill('Мохнатые союзники.');
   await page.getByRole('button', { name: 'Опубликовать тексты', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Названия и описания опубликованы');
   const catalog: Catalog = await (await request.get(`${server}/api/catalog`)).json();

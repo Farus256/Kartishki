@@ -11,14 +11,15 @@ export type ShopConfig = {
 };
 const cardPrizes: ShopPrize[] = [{ kind: 'cards', amount: 1, weight: 100 }];
 const mixed: ShopPrize[] = [{ kind: 'currency', amount: 50, weight: 30 }, { kind: 'xp', amount: 15, weight: 25 }, { kind: 'cards', amount: 1, weight: 35 }, { kind: 'currency', amount: 250, weight: 8 }, { kind: 'cards', amount: 3, weight: 2 }];
+// EV $68 per $75 auto spin (RTP 90.7%); manual $400 spin lands by visual slice, RTP ~39%.
 const wheelCash: ShopPrize[] = [
-  { kind: 'currency', amount: 25, weight: 52 },
-  { kind: 'currency', amount: 75, weight: 28 },
-  { kind: 'currency', amount: 200, weight: 12 },
-  { kind: 'currency', amount: 500, weight: 5 },
-  { kind: 'currency', amount: 1000, weight: 2 },
-  { kind: 'currency', amount: 2000, weight: 0.7 },
-  { kind: 'currency', amount: 5000, weight: 0.3 },
+  { kind: 'currency', amount: 25, weight: 62 },
+  { kind: 'currency', amount: 50, weight: 24 },
+  { kind: 'currency', amount: 100, weight: 8 },
+  { kind: 'currency', amount: 200, weight: 3.5 },
+  { kind: 'currency', amount: 500, weight: 1.5 },
+  { kind: 'currency', amount: 1000, weight: 0.8 },
+  { kind: 'currency', amount: 5000, weight: 0.2 },
 ];
 export const defaultShop: ShopConfig = {
   products: [
@@ -32,7 +33,8 @@ export const defaultShop: ShopConfig = {
     { id: 'vault', name: 'Сейф коллекционера', kind: 'chest', cost: 500, draws: 1, weights: [0, 40, 40, 17, 3], prizes: cardPrizes },
     { id: 'mixed-chest', name: 'Контрабанда', kind: 'chest', cost: 200, draws: 1, weights: [30, 40, 22, 7, 1], prizes: mixed },
   ],
-  slots: { weights: [34, 22, 16, 12, 8, 5, 2.5, 0.5], pair: [25, 50, 100, 175, 250, 350, 500, 1000], triple: [150, 300, 500, 900, 1250, 1750, 2500, 5000] },
+  // 3 reels x weightedIndex: EV $44.49 per $50 bet (RTP 89.0%), any payout 50.9%, jackpot 1 in 296k.
+  slots: { weights: [32, 23, 16, 11, 8, 5.5, 3, 1.5], pair: [25, 50, 100, 150, 250, 300, 500, 1000], triple: [150, 300, 500, 900, 1250, 2000, 3000, 10000] },
   sellPrices: [5, 20, 60, 180, 500],
 };
 const integer = (v: unknown, min: number, max: number) => Number.isInteger(v) && Number(v) >= min && Number(v) <= max;

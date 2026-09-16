@@ -1,8 +1,10 @@
 import type { CardDefinition } from './index';
 
-export const properties = ['contraceptive', 'offense', 'humiliation'] as const;
+/** Card keywords: contraceptive = divine shield, offense = health to 1, humiliation = attack to 1, taunt = must be attacked first, charge = attacks the turn it is played. */
+export const properties = ['contraceptive', 'offense', 'humiliation', 'taunt', 'charge'] as const;
 export const triggers = ['battlecry', 'deathrattle', 'enrage'] as const;
-export const effects = ['damage', 'heal', 'attack', 'summon', ...properties] as const;
+/** Ability effects: the status keywords can be inflicted on targets; Taunt and Charge are card keywords only. */
+export const effects = ['damage', 'heal', 'attack', 'summon', 'contraceptive', 'offense', 'humiliation'] as const;
 export const starterCards: CardDefinition[] = [
   ['paper-imp', 'Бумажный бес', 'Paper imp', 1, 2, 2, [], 'common'],
   ['rubber-knight', 'Резиновый рыцарь', 'Rubber knight', 2, 2, 3, ['contraceptive'], 'common'],
@@ -19,6 +21,15 @@ export const starterCards: CardDefinition[] = [
 }));
 starterCards[4].abilities = [{ trigger: 'battlecry', effectId: 'damage', params: { target: 'enemyHero', amount: 2 } }, { trigger: 'deathrattle', effectId: 'damage', params: { target: 'enemyHero', amount: 1 } }];
 starterCards[5].abilities = [{ trigger: 'enrage', effectId: 'attack', params: { target: 'self', amount: 2 } }];
+starterCards[3].properties = ['humiliation', 'taunt'];
+starterCards[6].properties = ['charge'];
+
+/** The Coin: +1 mana this turn. Lives outside the catalog so it can be rendered but never collected or decked. */
+export const coinCard: CardDefinition = {
+  schemaVersion: 1, id: 'the-coin', name: { ru: 'Монетка', en: 'The Coin' }, description: { ru: 'Даёт 1 ману до конца хода.', en: 'Gain 1 mana this turn.' },
+  rarity: 'common', cost: 0, attack: 0, health: 1, minionTypes: ['spell'], properties: [], abilities: [],
+  art: { url: '', crop: { x: .5, y: .5, size: 1 }, preset: 'none', threshold: .5, contrast: 1 }, audio: {},
+};
 
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
 const bounded = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;

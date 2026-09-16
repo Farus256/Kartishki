@@ -1,78 +1,130 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MATCH_RULES } from '@kartishki/shared';
+import { audioManager } from '../AudioManager';
+import { FuseRope, SandClock, useDeadline } from '../battlegrounds/PhaseClock';
+import { equippedBoard, onBoardChange } from '../cosmeticsLocal';
+import { DuelBoard } from '../duel/DuelBoard';
+import { DUEL } from '../duel/duelLayout';
+import { Mulligan } from '../duel/Mulligan';
 import { HeroPortrait } from '../ui/HeroPortrait';
-import { Board } from '../Board';
 import { playerSession } from '../playerSession';
 import { session } from '../session';
 import { GameCursor } from '../ui/GameCursor';
-import { InkButton, spring } from '../ui/InkButton';
+import { InkButton } from '../ui/InkButton';
+import '../battlegrounds/battlegrounds.css';
+import '../battlegrounds/fx-cards.css';
+import '../battlegrounds/fx-table.css';
+import '../battlegrounds/fx-combat.css';
+import '../battlegrounds/fx-polish.css';
+import '../duel/duel.css';
 
+/** The 1v1 duel on the Battlegrounds table: same wood, same gems, same fuse — Hearthstone-standard rules underneath. */
 export function MatchScreen({ onLeave }: { onLeave: () => void }) {
   const { t } = useTranslation();
-  const reduced = useReducedMotion();
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
-  const [banner, setBanner] = useState('');
-  useEffect(() => { if (state.status !== 'active') return; setBanner(t(state.activePlayer === state.sessionId ? 'yours' : 'theirs')); const timer = setTimeout(() => setBanner(''), 1800); return () => clearTimeout(timer); }, [state.turn, state.activePlayer, state.status, t]);
-  useEffect(() => {
-    if (state.status !== 'finished') return;
-    playerSession.finishMatch(!state.winner ? 'draw' : state.winner === state.sessionId ? 'win' : 'loss');
-  }, [state.status, state.winner, state.sessionId]);
-  const yours = state.activePlayer === state.sessionId;
+  useSyncExternalStore(onBoardChange, () => equippedBoard().id);
+  const screenRef = useRef<HTMLDivElement>(null);
+  const [stamp, setStamp] = useState<{ text: string; tone: 'mine' | 'theirs'; serial: number } | null>(null);
+  const [hint, setHint] = useState('');
+  // The result waits for the last blow to land and the portrait to fall before the stamp drops.
+  const [settled, setSettled] = useState(false);
   const me = state.players.find(p => p.id === state.sessionId);
-  const hero = state.heroes.find(h => h.id === me?.heroId);
+  const yours = state.status === 'active' && state.activePlayer === state.sessionId;
   const reward = player.lastReward;
   const eloDelta = reward ? reward.elo - reward.previousElo : 0;
+  // One stamp per turn change, in sync with the server's turn event.
+  useEffect(() => {
+    if (state.status !== 'active' || !state.turn) return;
+    setStamp({ text: t(yours ? 'yours' : 'theirs'), tone: yours ? 'mine' : 'theirs', serial: state.turn });
+    const timer = setTimeout(() => setStamp(null), 1500);
+    return () => clearTimeout(timer);
+  }, [state.turn, state.activePlayer, state.status, t]);
+  useEffect(() => { if (!hint) return; const timer = setTimeout(() => setHint(''), 2600); return () => clearTimeout(timer); }, [hint]);
+  useEffect(() => {
+    if (state.status !== 'finished') { setSettled(false); return; }
+    const timer = setTimeout(() => {
+      setSettled(true);
+      audioManager.play(!state.winner ? 'card_place' : state.winner === state.sessionId ? 'coins_win' : 'ab_stamp');
+      playerSession.finishMatch(!state.winner ? 'draw' : state.winner === state.sessionId ? 'win' : 'loss');
+    }, state.turn ? 1400 : 0);
+    return () => clearTimeout(timer);
+  }, [state.status, state.winner, state.sessionId, state.turn]);
+  useEffect(() => { if (state.error && state.error !== 'rejected') return; if (state.error) audioManager.play('ab_error'); }, [state.error]);
+  useEffect(() => { void session.connect(true); }, []);
+
+  const clockActive = state.status === 'active' || state.status === 'selecting' || state.status === 'mulligan';
+  const secs = Math.max(0, Math.ceil((state.phaseEndsAt - Date.now()) / 1000));
+  const deadline = useDeadline(state.status, state.turn, state.phaseEndsAt, secs, clockActive);
+  // Hearthstone rope: it appears for the last ROPE_MS of a turn and burns down over exactly that span.
+  const rope = useMemo(() => ({ endsAt: deadline.endsAt, totalMs: MATCH_RULES.ROPE_MS }), [deadline]);
+  const [roping, setRoping] = useState(false);
+  useEffect(() => {
+    setRoping(false);
+    if (state.status !== 'active') return;
+    const timer = setTimeout(() => { setRoping(true); if (yours) audioManager.play('ab_hint'); }, Math.max(0, deadline.endsAt - MATCH_RULES.ROPE_MS - Date.now()));
+    return () => clearTimeout(timer);
+  }, [deadline, state.status, yours]);
+  // Nothing left to do this turn: the end-turn gem glows.
+  const idle = yours && !!me && !state.hand.some(h => { const c = state.cards.find(c => c.id === h.cardId); return !!c && c.cost <= me.mana; })
+    && !state.minions.some(m => m.owner === me.id && m.ready && m.attack > 0);
   return (
-    <div className="battle-screen absolute inset-0">
+    <div ref={screenRef} className={`ab-screen duel-screen ${yours ? 'is-my-turn' : ''} ${state.status === 'active' ? 'is-active' : ''}`} data-testid="duel-screen" data-board={equippedBoard().id}
+      style={{ ...equippedBoard().vars, '--ab-header': `${DUEL.HEADER_H}px` } as CSSProperties}>
       <GameCursor />
-      <header className="battle-header flex h-[78px] items-center gap-6 px-8">
-        <span className={`connection ${state.status} font-hand text-[22px]`} role="status">{t(state.status)}</span>
-        <span className="font-hand text-[28px]">{t('turn', { turn: state.turn })}</span>
-        {state.status === 'active' && <span className="font-hand text-[22px] text-blood">{t(yours ? 'yours' : 'theirs')}</span>}
-        <div className="ml-auto flex gap-3">
+      <header className="ab-header">
+        <strong className="ab-brand">КАРТИШКИ <i>✳</i></strong>
+        <span className={`connection ${state.status}`} role="status">{t(state.status)}</span>
+        {state.turn > 0 && <span>{t('turn', { turn: state.turn })}</span>}
+        {state.status === 'active' && <span className="duel-header-turn">{t(yours ? 'yours' : 'theirs')}</span>}
+        <div className="ml-auto flex gap-2">
           <InkButton size="sm" aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))}>⚙</InkButton>
-          <InkButton size="sm" onClick={() => { session.leave(); onLeave(); }}>{t('leave')}</InkButton>
+          <InkButton size="sm" onClick={() => { session.leave(); onLeave(); }}>{t(state.status === 'active' || state.status === 'mulligan' || state.status === 'selecting' ? 'concede' : 'leave')}</InkButton>
         </div>
       </header>
-
-      <div className="absolute top-[78px] right-0 bottom-0 left-0">
-        <Board />
+      <div className="duel-table">
+        <DuelBoard onHint={setHint} />
+        <FuseRope deadline={rope} active={roping} />
+        <aside className="ab-rail duel-rail" data-testid="duel-rail">
+          <SandClock deadline={deadline} active={state.status === 'active'} urgent />
+          <button type="button" className={`ab-tavern-btn is-end-turn ${yours ? 'is-ready' : ''} ${idle ? 'is-idle' : ''}`} disabled={!yours} onClick={() => session.advance()} data-testid="duel-end-turn" aria-label={t('advance')}>
+            <b>{t('advance')}</b>
+          </button>
+        </aside>
+        {state.status !== 'active' && state.status !== 'finished' && !state.players.length && state.status !== 'connecting' && <p className="ab-empty">{t('connectHint')}</p>}
+        {state.status === 'connecting' && <p className="ab-empty">{t('connecting')}</p>}
       </div>
-
-      {state.status === 'active' && (
-        <div className="battle-rail">
-          <button className="end-turn-button" disabled={!yours} onClick={session.advance}>{t('advance')}</button>
-          {hero && me && <button className="hero-power-button" disabled={!yours || me.powerUsed || me.mana < hero.ability.cost || hero.ability.effectId === 'heal' && me.health >= me.maxHealth || hero.ability.effectId === 'summon' && state.minions.filter(m => m.owner === me.id).length >= 7} onClick={() => hero.ability.effectId === 'damage' ? window.dispatchEvent(new Event('hero-power-target')) : session.power()}><b>{hero.ability.name}</b><span>{me.powerUsed ? 'Использовано' : `◆ ${hero.ability.cost}`}</span></button>}
+      {state.status === 'selecting' && (
+        <div className="hero-selection" role="dialog" aria-label={t('abChooseHero')} data-testid="duel-hero-select">
+          <h1>{me?.heroId ? t('duelWaitingHero') : t('abChooseHero')}</h1>
+          <p>{t('duelHeroHint')}</p>
+          <SandClock deadline={deadline} active={!me?.heroId} urgent={false} />
+          <div className="hero-offers">{state.heroOffers.map(h => <button key={h.id} disabled={!!me?.heroId} aria-label={t('chooseHeroAria', { name: h.name })} aria-pressed={me?.heroId === h.id} onClick={() => { audioManager.play('ui_select'); session.chooseHero(h.id); }}><HeroPortrait hero={h} cards={state.cards} /></button>)}</div>
         </div>
       )}
-      {state.status === 'selecting' && <div className="hero-selection" role="dialog" aria-label="Выбор героя"><h1>{me?.heroId ? 'Ждём выбор соперника' : 'Выберите героя'}</h1><p>Один герой на весь матч. Способность доступна раз за ход.</p><div className="hero-offers">{state.heroOffers.map(h => <button key={h.id} disabled={!!me?.heroId} aria-label={`Выбрать героя ${h.name}`} aria-pressed={me?.heroId === h.id} onClick={() => session.chooseHero(h.id)}><HeroPortrait hero={h} cards={state.cards} /></button>)}</div></div>}
+      {state.status === 'mulligan' && me && (
+        <Mulligan hand={state.hand} cards={state.cards} done={me.mulliganDone} first={state.first === state.sessionId} deadline={deadline} onConfirm={replace => session.mulligan(replace)} />
+      )}
+      {stamp && <div key={stamp.serial} className={`ab-result-stamp duel-turn-stamp is-${stamp.tone}`} role="status" data-testid="duel-turn-stamp"><b>{stamp.text}</b></div>}
+      {hint && <p className="duel-hint" role="status">{hint}</p>}
       {state.error && <p className="battle-error" role="alert">{t(state.error)}</p>}
-      <AnimatePresence>{banner && <motion.div key={`${state.turn}-${state.activePlayer}`} className="turn-banner" initial={reduced ? false : { opacity: 0, scale: .85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} role="status">{banner}</motion.div>}</AnimatePresence>
-      <AnimatePresence>
-        {state.status === 'finished' && (
-          <motion.div className="absolute inset-0 z-50 grid place-items-center bg-black/75"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.div className="ink-edge border-[4px] border-blood bg-paper px-16 py-12 text-center"
-              initial={{ scale: 0.5, rotate: -8 }} animate={{ scale: 1, rotate: -1 }} transition={spring}>
-              <p className="result font-hand text-[64px] text-blood">
-                {t(!state.winner ? 'draw' : state.winner === state.sessionId ? 'win' : 'loss')}
-              </p>
-              {reward && (
-                <p className="mt-3 font-hand text-[28px] text-ink">
-                  {t('elo')} {reward.previousElo} → {reward.elo}
-                  <span className="ml-3">{eloDelta > 0 ? `+${eloDelta}` : eloDelta}</span>
-                  {reward.gained > 0 && <span className="ml-3">+{reward.gained} $</span>}
-                </p>
-              )}
-              <div className="mt-6 flex justify-center">
-                <InkButton tone="ink" onClick={() => { session.leave(); onLeave(); }}>{t('backToMenu')}</InkButton>
+      {state.status === 'finished' && settled && (
+        <div className="ab-modal" data-testid="duel-finished">
+          <div className={`ab-modal-card ab-final ${!state.winner ? 'is-out' : state.winner === state.sessionId ? 'is-top1' : 'is-out'}`}>
+            <h2 className="result" data-testid="duel-result">{t(!state.winner ? 'draw' : state.winner === state.sessionId ? 'win' : 'loss')}</h2>
+            {reward && (
+              <div className="ab-final-rewards">
+                <div className={`ab-final-reward ${eloDelta >= 0 ? 'is-gain' : 'is-loss'}`}><i>🍺</i><b>{eloDelta > 0 ? '+' : ''}{eloDelta}</b><small>{t('ladderMl')}</small></div>
+                {reward.gained > 0 && <div className="ab-final-reward is-gain"><i>$</i><b>+{reward.gained}</b><small>{t('currency')}</small></div>}
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+            <div className="ab-gameover-actions">
+              <InkButton tone="ink" onClick={() => { session.leave(); onLeave(); }}>{t('backToMenu')}</InkButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

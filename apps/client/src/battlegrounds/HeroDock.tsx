@@ -29,7 +29,7 @@ export function HeroDock({ me, catalog, recruit, aiming, onPower }: Props) {
   const canPower = recruit && affordable;
   return (
     <div className="ab-hero-dock" data-testid="ab-hero">
-      <div className="ab-hero-face"><AbHeroFace id={me.heroId} art={hero?.art} />
+      <div className="ab-hero-face" data-skin={me.skin}><AbHeroFace id={me.heroId} art={hero?.art} />
         <span className="ab-hero-health" aria-label={`${t('health')}: ${me.health}`}><HeartIcon /><AnimatedNumber value={me.health} /></span>
       </div>
       <div className="ab-hero-vitals">

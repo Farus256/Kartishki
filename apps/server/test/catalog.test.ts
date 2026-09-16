@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, resolveAutoBattlerCatalog, type CardDefinition } from '@kartishki/shared';
+import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, resolveAutoBattlerCatalog, cardSetFromCatalog, setFairness, type CardDefinition } from '@kartishki/shared';
 import { processPhoto } from '@kartishki/shared/photo';
 import { CatalogStore } from '../src/catalog';
+import { simulateEffect } from '../src/autoBattler/simulate';
 
 function art(preset: CardDefinition['art']['preset'], extra: Partial<CardDefinition['art']> = {}): CardDefinition['art'] {
   return { url: '', crop: { x: 0, y: 0, size: 1 }, threshold: .5, contrast: 1, preset, saturation: 1, intensity: .55, ...extra };
@@ -188,4 +189,37 @@ test('1v1 shop config persists for the client shop', () => {
     assert.equal(new CatalogStore(file).snapshot().shop!.products[0]!.cost,90);
     assert.throws(()=>store.publishShop(shop,pinned.version),/catalogConflict/);
   } finally { rmSync(file,{force:true}); rmdirSync(dir); }
+});
+
+test('workshop card sets publish once fair, are refused when broken, and reach the lobby list', () => {
+  const dir=mkdtempSync(join(tmpdir(),'kartishki-test-')); const file=join(dir,'catalog.json');
+  try {
+    const store=new CatalogStore(file);
+    const set=cardSetFromCatalog(resolveAutoBattlerCatalog(store.snapshot()),'my-set',{ru:'Мой набор',en:'My set'},'me');
+    const snap=store.publishCardSet(set,store.snapshot().version);
+    assert.equal(snap.cardSets?.length,1); assert.equal(snap.cardSets![0]!.version,1);
+    assert.equal(new CatalogStore(file).snapshot().cardSets?.[0]?.id,'my-set');
+    const again=store.publishCardSet({...set,name:{ru:'Ещё',en:'Again'}},snap.version);
+    assert.equal(again.cardSets![0]!.version,2,'republishing bumps the set version');
+    const monster={...set.minions.find(m=>!m.token&&!m.spell)!,id:'monster',attack:12,health:12,keywords:['divineShield' as const,'poisonous' as const,'windfury' as const]};
+    assert.equal(setFairness([...set.minions,monster]).grade,'broken');
+    assert.throws(()=>store.publishCardSet({...set,id:'broken-set',minions:[...set.minions,monster]},again.version),/unfairSet/);
+    assert.throws(()=>store.publishCardSet(set,1),/catalogConflict/);
+    const gone=store.removeCardSet('my-set',again.version);
+    assert.equal(gone.cardSets?.length,0);
+  } finally { rmSync(file,{force:true}); rmdirSync(dir); }
+});
+
+test('the scenario simulator replays a trigger step by step on a sample board', () => {
+  const store=new CatalogStore(join(tmpdir(),'kartishki-missing-catalog.json'));
+  const houndmaster=starterAutoBattlerMinions.find(m=>m.id==='ab-houndmaster')!;
+  const result=simulateEffect(store.snapshot(),{ minion: houndmaster, board: ['ab-whelp','ab-ward'], trigger: 'battlecry', at: 2 });
+  assert.equal(result.fired,true); assert.equal(result.steps.length,1);
+  const step=result.steps[0]!;
+  assert.equal(step.targets.length,1);
+  const buffed=step.board.find(b=>step.targets.includes(b.id))!;
+  assert.equal(buffed.cardId,'ab-whelp','the only friendly pig gets the +2/+2');
+  assert.equal(buffed.attack,4);
+  assert.equal(simulateEffect(store.snapshot(),{ minion: houndmaster, board: ['ab-ward'], trigger: 'endTurn' }).fired,false,'a trigger the card lacks does nothing');
+  assert.throws(()=>simulateEffect(store.snapshot(),{ minion: { ...houndmaster, attack: -1 }, trigger: 'battlecry' }),/invalidCard/);
 });

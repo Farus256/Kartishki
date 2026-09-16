@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   useEffect,
   useRef,
@@ -686,6 +687,7 @@ const slotStyles = `
 `;
 
 export function SlotMachine() {
+  const { t } = useTranslation();
   const economy = useEconomy();
 
   const product =
@@ -1181,12 +1183,12 @@ export function SlotMachine() {
           </div>
 
           <h2>
-            {product?.name ?? 'Машина Юзи'}
+            {product?.name ?? t('slotsDefaultName')}
           </h2>
 
           <div
             className="reels"
-            aria-label="Три барабана"
+            aria-label={t('threeReels')}
             aria-busy={
               spinning
             }
@@ -1326,7 +1328,7 @@ export function SlotMachine() {
             <div className="slot-bet">
               <button
                 type="button"
-                aria-label="Уменьшить ставку"
+                aria-label={t('betLess')}
                 disabled={
                   spinning ||
                   betIndex <=
@@ -1345,7 +1347,7 @@ export function SlotMachine() {
 
               <button
                 type="button"
-                aria-label="Увеличить ставку"
+                aria-label={t('betMore')}
                 disabled={
                   spinning ||
                   betIndex >=
@@ -1362,7 +1364,7 @@ export function SlotMachine() {
 
             <p className="slot-status" role="status">
               {spinning
-                ? 'БАРАБАНЫ КРУТЯТСЯ…'
+                ? t('reelsSpinning')
                 : result}
             </p>
 

@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { resolve } from 'node:path';
-import { BOARD_H, BOARD_W, heroClick } from '../../apps/client/src/boardLayout';
 import type { Catalog } from '@kartishki/shared';
 import type { Snapshot } from '../../apps/client/src/session';
 const snapshot = (page: import('@playwright/test').Page): Promise<Snapshot> => page.evaluate("import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/session.ts')).name).then(m=>m.session.getSnapshot())");
@@ -43,15 +42,17 @@ test('editor publishes hero and renamed summon triggers; players choose heroes a
   await a.getByRole('button',{name:/^Выбрать героя /}).first().click();
   await expect(a.getByText('Ждём выбор соперника',{exact:true})).toBeVisible();
   await b.getByRole('button',{name:/^Выбрать героя /}).first().click();
+  await expect.poll(async()=> (await snapshot(a)).status).toBe('mulligan');
+  await a.getByTestId('mulligan-confirm').click(); await b.getByTestId('mulligan-confirm').click();
   await expect.poll(async()=> (await snapshot(a)).status).toBe('active');
   const initial=await snapshot(a), active=initial.activePlayer===initial.sessionId?a:b;
-  await expect(active.locator('.hero-power-button')).toBeEnabled();
+  await expect(active.getByTestId('duel-power')).toHaveAttribute('aria-disabled','false');
   const before=await snapshot(active), enemy=before.players.find(p=>p.id!==before.sessionId)!;
-  await active.locator('.hero-power-button').click();
-  const point=heroClick(false), box=(await active.locator('.board canvas').boundingBox())!, scale=Math.min(box.width/BOARD_W,box.height/BOARD_H);
-  await active.mouse.click(box.x+(box.width-BOARD_W*scale)/2+point.x*scale,box.y+(box.height-BOARD_H*scale)/2+point.y*scale);
+  // The power aims like an attack: arm it, then pick the enemy hero (no Taunt on an empty board).
+  await active.getByTestId('duel-power').click();
+  await active.getByTestId('duel-face-foe').click();
   await expect.poll(async()=> (await snapshot(active)).players.find(p=>p.id===enemy.id)!.health).toBe(enemy.health-1);
-  await expect(active.locator('.hero-power-button')).toBeDisabled();
+  await expect(active.getByTestId('duel-power')).toHaveAttribute('aria-disabled','true');
   await active.mouse.move(20,100); await active.waitForTimeout(1900); await active.screenshot({path:'artifacts/heroes-battle.png'});
   expect(errors).toEqual([]); await a.close();await b.close();await editor.close();
 });

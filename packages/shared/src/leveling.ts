@@ -6,7 +6,8 @@ export const MATCH_WIN_XP = 40;
 export const MATCH_LOSS_XP = 15;
 export const MATCH_DRAW_XP = 20;
 export const XP_AWARDS = [PACK_XP, CASE_XP, CASINO_XP, MATCH_WIN_XP, MATCH_LOSS_XP, MATCH_DRAW_XP] as const;
-export const DEFAULT_BATTLEGROUNDS_ELO = 32;
+/** Beer for 1st place; last place loses the same (see battlegroundsEloDelta). */
+export const DEFAULT_BATTLEGROUNDS_ELO = 60;
 export const BATTLEGROUNDS_ELO_MAX = 200;
 
 export type LevelDef = { ru: string; en: string; xp: number };
@@ -162,9 +163,17 @@ export function resolveBattlegroundsElo(table?: PlayerLeveling): number {
   return Number.isInteger(n) && n! >= 0 && n! <= BATTLEGROUNDS_ELO_MAX ? n! : DEFAULT_BATTLEGROUNDS_ELO;
 }
 
+/**
+ * Hearthstone split: the top half of the table gains, the bottom half loses, both scaled by rank.
+ * 8 players: 1st +amount … 4th +amount/4, 5th −amount/4 … 8th −amount. 4 players: 1–2 gain, 3–4 lose.
+ * An odd table rounds toward more losers (5 players: 2 gain, 3 lose).
+ */
 export function battlegroundsEloDelta(place: number, count: number, amount = DEFAULT_BATTLEGROUNDS_ELO): number {
   if (count < 2 || place < 1 || place > count) return 0;
-  return Math.round(amount * (2 * (count - place) / (count - 1) - 1));
+  const winners = Math.floor(count / 2);
+  const losers = count - winners;
+  if (place <= winners) return Math.round(amount * (winners - place + 1) / winners);
+  return -Math.round(amount * (place - winners) / losers);
 }
 
 /** 1st earns a win, last a loss, the places between slide from 35 down to 18. */
@@ -182,7 +191,8 @@ export function resolveLeveling(data: unknown): PlayerLeveling {
 
 export function levelFromXp(xp: number, table: PlayerLeveling = starterLeveling): LevelProgress {
   const total = Math.max(0, Math.floor(Number.isFinite(xp) ? xp : 0));
-  const levels = resolveLeveling(table).levels;
+  // A validated table is used as-is (a card set may have fewer levels); anything else is padded from the starter.
+  const levels = validateSetLeveling(table) ? table.levels : resolveLeveling(table).levels;
   let rest = total;
   for (let i = 0; i < levels.length; i++) {
     const need = levels[i]!.xp;
@@ -190,5 +200,13 @@ export function levelFromXp(xp: number, table: PlayerLeveling = starterLeveling)
     rest -= need;
   }
   const last = levels[levels.length - 1]!;
-  return { level: LEVEL_COUNT, name: last, current: last.xp, need: last.xp, left: 0, maxed: true };
+  return { level: levels.length, name: last, current: last.xp, need: last.xp, left: 0, maxed: true };
+}
+
+/** A card set's own ladder: any length from 1 to LEVEL_COUNT, never padded (fewer rows = fewer levels). */
+export function validateSetLeveling(data: unknown): data is PlayerLeveling {
+  if (!data || typeof data !== 'object' || !Array.isArray((data as PlayerLeveling).levels)) return false;
+  const table = data as PlayerLeveling;
+  if (table.levels.length < 1 || table.levels.length > LEVEL_COUNT || !table.levels.every(levelRowOk)) return false;
+  return table.battlegroundsElo === undefined || (Number.isInteger(table.battlegroundsElo) && table.battlegroundsElo >= 0 && table.battlegroundsElo <= BATTLEGROUNDS_ELO_MAX);
 }

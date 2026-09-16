@@ -22,8 +22,8 @@ test('all card products keep rarity weights and sampling stays in catalog', () =
 test('shop has casino, mixed packs and mixed chests', () => {
   const wheel = defaultShop.products.find(p => p.kind === 'wheel')!;
   assert.deepEqual(wheel.prizes.map(p => [p.kind, p.amount, p.weight]), [
-    ['currency', 25, 52], ['currency', 75, 28], ['currency', 200, 12],
-    ['currency', 500, 5], ['currency', 1000, 2], ['currency', 2000, 0.7], ['currency', 5000, 0.3],
+    ['currency', 25, 62], ['currency', 50, 24], ['currency', 100, 8],
+    ['currency', 200, 3.5], ['currency', 500, 1.5], ['currency', 1000, 0.8], ['currency', 5000, 0.2],
   ]);
   assert.equal(wheel.prizes.reduce((sum, p) => sum + p.weight, 0), 100);
   assert.ok(shopProducts(defaultShop, 'pack').some(p => p.prizes.some(r => r.kind !== 'cards')));

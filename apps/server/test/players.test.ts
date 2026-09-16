@@ -23,6 +23,7 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     assert.equal(again.library.profile.currency, 0);
     assert.equal(again.library.profile.dailyAvailable, true);
     assert.equal(again.library.profile.lastDaily, null);
+    assert.equal(again.library.profile.isAdmin, false);
     assert.equal(again.library.decks[0]!.cards.length, 30);
     const playerId = await store.authenticate(again.token);
     await assert.rejects(() => store.saveDeck(playerId, { name: 'Мало', cards: again.library.decks[0]!.cards.slice(0, 29) }, starterCards), error => error instanceof PlayerError && error.code === 'invalidDeck');

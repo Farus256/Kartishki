@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 ﻿import { useEffect, useId, useRef } from 'react';
 import { motion, useAnimationFrame, useReducedMotion, useSpring } from 'framer-motion';
 import { BOTTLE_CAPACITY, type BeerLeague } from '../beerRank';
@@ -11,6 +12,7 @@ const foamPath = (y: number, wave: number) => `M65 ${y - 12} Q140 ${y - wave - 1
 /** Procedural SVG bottle. Only SVG paths/particles update per frame; React does not re-render. */
 export function BeerBottle({ remainingMl, league }: { remainingMl: number; league: BeerLeague }) {
   const id = useId().replace(/:/g, '');
+  const { t } = useTranslation();
   const reduced = useReducedMotion();
   const ml = Math.max(0, Math.min(BOTTLE_CAPACITY, Number.isFinite(remainingMl) ? remainingMl : 0));
   const level = useSpring(ml, { stiffness: 65, damping: 18, mass: 1.2 });
@@ -44,7 +46,7 @@ export function BeerBottle({ remainingMl, league }: { remainingMl: number; leagu
     });
   });
   const initialY = BOTTOM - ml / BOTTLE_CAPACITY * HEIGHT;
-  return <motion.svg viewBox="0 0 430 730" className="beer-bottle" role="img" aria-label={`Баклажка: ${dark ? 'тёмное' : 'светлое'} пиво, ${ml} из 2000 мл`} data-testid="beer-bottle" data-ml={ml} data-league={league}
+  return <motion.svg viewBox="0 0 430 730" className="beer-bottle" role="img" aria-label={t('bottleAria', { kind: t(dark ? 'beerDark' : 'beerLight'), ml })} data-testid="beer-bottle" data-ml={ml} data-league={league}
     initial={reduced ? false : { rotate: -3, y: 12 }} animate={{ rotate: 0, y: 0 }} transition={{ type: 'spring', stiffness: 70, damping: 12 }}>
     <defs>
       <clipPath id={`${id}-bottle`}><path d={SHAPE} /></clipPath>
@@ -74,9 +76,9 @@ export function BeerBottle({ remainingMl, league }: { remainingMl: number; leagu
       <path d="M101 350 L322 344 L329 517 L303 532 L98 524 L102 484 L94 468Z" fill="#d6c7a1" stroke="#25231e" strokeWidth="4" />
       <path d="M108 357 L315 352 L320 516 L105 515Z" fill={`url(#${id}-hatch)`} stroke="#6f644b" strokeWidth="1" />
       <image href={lvivske} x="118" y="354" width="186" height="145" preserveAspectRatio="xMidYMid meet" />
-      <text x="213" y="503" textAnchor="middle" fontFamily="var(--font-hand)" fontSize="21" fill="#302b22">{dark ? 'ТЁМНОЕ · ПОРТЕР' : 'СВЕТЛОЕ · НЕФИЛЬТР.'}</text>
+      <text x="213" y="503" textAnchor="middle" fontFamily="var(--font-hand)" fontSize="21" fill="#302b22">{t(dark ? 'bottleLabelDark' : 'bottleLabelLight')}</text>
       <path d="M105 395l23-7-11 11 M307 477l-16 15 30-10 M123 514l14-5" fill="none" stroke="#f0e5c8" strokeWidth="5" />
     </g>
-    <text x="219" y="627" textAnchor="middle" fontFamily="var(--font-stencil)" fontSize="18" fill="#f7e5b9" opacity=".7">2 Л</text>
+    <text x="219" y="627" textAnchor="middle" fontFamily="var(--font-stencil)" fontSize="18" fill="#f7e5b9" opacity=".7">{t('bottleVolume')}</text>
   </motion.svg>;
 }

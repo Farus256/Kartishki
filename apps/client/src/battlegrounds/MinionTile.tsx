@@ -44,14 +44,17 @@ export function BuffFlashProvider({ me, children }: { me?: AbPlayer; children: R
   return <BuffFlashContext.Provider value={flashes}>{children}</BuffFlashContext.Provider>;
 }
 
-function SwordIcon() {
-  return <svg className="ab-stat-icon is-sword" viewBox="0 0 64 72" aria-hidden>
-    <path className="ab-attack-blade" d="M5 3 18 7 50 49 43 55 11 15Z" />
-    <path className="ab-sword-edge" d="M10 9 44 49" />
-    <path className="ab-attack-hilt" d="m38 48 17-11 4 6-17 12Zm7 5 6-4 9 15-6 4Z" />
-    <circle className="ab-attack-rim" cx="29" cy="43" r="23" />
-    <circle className="ab-attack-disc" cx="29" cy="43" r="18.5" />
-    <path className="ab-attack-shine" d="M14 42a15 15 0 0 1 18-14" />
+export function SwordIcon() {
+  // The gem sits dead centre of the 64×64 box so the number lands in the middle of the disc; the sword runs diagonally behind it.
+  return <svg className="ab-stat-icon is-sword" viewBox="0 0 64 64" aria-hidden>
+    <path className="ab-attack-blade" d="M61 3 63 11 37 37 30 30 55 5Z" />
+    <path className="ab-sword-edge" d="M59 7 34 32" />
+    <path className="ab-attack-hilt" d="M23 29 35 41 31 45 19 33Z" />
+    <path className="ab-attack-hilt" d="M22 38 26 42 13 55 9 51Z" />
+    <circle className="ab-attack-hilt" cx="9" cy="55" r="4" />
+    <circle className="ab-attack-rim" cx="32" cy="32" r="21" />
+    <circle className="ab-attack-disc" cx="32" cy="32" r="16.5" />
+    <path className="ab-attack-shine" d="M20 30a12.5 12.5 0 0 1 13-11" />
   </svg>;
 }
 export function HeartIcon() {
@@ -100,6 +103,7 @@ type Props = {
   arrive?: boolean;
   arriveDelay?: number;
   fullCard?: boolean;
+  /** Hand fan: signed distance from the middle card, drives the tilt and drop. */
   fan?: number;
   /** Full-card hover; off inside the discover window where the cards are already full size. */
   dossier?: boolean;
@@ -125,7 +129,7 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
   // Hand cards are the hover dossier itself; the discover window keeps the compact full card (dossier off).
   const asDossier = fullCard && dossier;
   return (
-    <PaperTooltip className={`ab-minion-wrap ${!ghost && arrive ? 'is-arrive' : ''} ${flash ? `is-buff-${flash}` : ''}`} data-buff={flash} style={{ animationDelay: `${arriveDelay}ms`, '--fan-r': fan * 1.1, '--fan-y': Math.abs(fan) * 1.5, '--idle-phase': `${(-idlePhase(minion.id) * 2.8).toFixed(2)}s` } as CSSProperties} placement="right" boxClassName="paper-tooltip is-dossier" delay={220} content={ghost || !dossier || asDossier || dnd?.armed ? null : <MinionDossier minion={minion} catalog={catalog} />}>
+    <PaperTooltip className={`ab-minion-wrap ${!ghost && arrive ? 'is-arrive' : ''} ${flash ? `is-buff-${flash}` : ''}`} data-buff={flash} style={{ animationDelay: `${arriveDelay}ms`, '--fan-r': fan * 2.2, '--fan-y': fan * fan * 2.6, '--idle-phase': `${(-idlePhase(minion.id) * 2.8).toFixed(2)}s` } as CSSProperties} placement="right" boxClassName="paper-tooltip is-dossier" delay={220} content={ghost || !dossier || asDossier || dnd?.armed ? null : <MinionDossier minion={minion} catalog={catalog} />}>
       <button type="button" aria-label={`${name}${actionLabel ? ' · ' + actionLabel : ''}`}
         className={`ab-minion ${fullCard ? 'is-full-card' : 'is-token'} ${asDossier ? 'is-dossier' : ''} ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''} ${selected ? 'is-selected' : ''} ${canDrag ? 'is-draggable' : ''} ${lifted ? 'is-lifted' : ''} ${shopLift ? 'is-shop-lift' : ''} ${parked ? 'is-parked' : ''} ${isTarget ? 'is-target' : ''} ${dim ? 'is-dim' : ''}`}
         aria-disabled={!!disabled}

@@ -36,7 +36,7 @@ export function applyOptimistic(me: AbPlayer, intent: OptimisticIntent): AbPlaye
       const [fromHand, hand] = without(me.hand, intent.id);
       const card = fromBoard ?? fromHand;
       if (!card || isSpell(card)) return me;
-      return { ...me, gold: me.gold + AUTO_BATTLER.SELL_REWARD, board, hand };
+      return { ...me, gold: me.gold + me.sellReward, board, hand };
     }
     case 'play': {
       const [card, hand] = without(me.hand, intent.id);

@@ -32,7 +32,7 @@ export function DiscoverModal({ options, catalog, onPick }: Props) {
         <h2>{t('abDiscover')}</h2>
         <div className="ab-discover-row">
           {options.map((option, index) => (
-            <MinionTile key={option.id} minion={option} catalog={catalog} fullCard dossier={false} actionLabel={t('abPick')} arriveDelay={index * 70} onClick={() => onPick(option.id)} />
+            <MinionTile key={option.id} minion={option} catalog={catalog} fullCard actionLabel={t('abPick')} arriveDelay={index * 70} onClick={() => onPick(option.id)} />
           ))}
         </div>
       </div>

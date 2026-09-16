@@ -53,16 +53,17 @@ export function NewbieHints({ me, turn, recruit, dragging }: { me: AbPlayer; tur
         const from = stageBox(q('.ab-hand .ab-minion')), to = stageBox(q('[data-testid="ab-board"]'));
         if (from && to) next = { id: 'play', from, to: { x: to.x + to.w / 2 - 75, y: to.y, w: 150, h: to.h }, text: ru ? 'Перетащи карту на стол' : 'Drag the card onto the table' };
       } else if (idle || (me.gold < me.buyCost && !me.hand.length)) {
-        // No end-turn button: the hourglass runs the phase, so point at it once when idle.
-        const to = stageBox(q('.ab-clock'));
-        if (to) next = { id: 'end', from: to, to, text: ru ? 'Ход закончится, когда сгорит песок' : 'The turn ends when the sand runs out' };
+        // Early turns have a Ready button in the header; later the hourglass alone runs the phase, so point at it once when idle.
+        const ready = turn <= AUTO_BATTLER.EARLY_READY_TURNS ? stageBox(q('[data-testid="ab-ready"]')) : null;
+        const to = ready ?? stageBox(q('.ab-clock'));
+        if (to) next = { id: 'end', from: to, to, text: ready ? (ru ? 'Готов? Жми «Готов» — бой начнётся раньше' : 'Done? Press Ready to fight sooner') : (ru ? 'Ход закончится, когда сгорит песок' : 'The turn ends when the sand runs out') };
       }
       setHint(current => current && next && current.id === next.id && Math.abs(current.from.x - next.from.x) < 1 && Math.abs(current.to.x - next.to.x) < 1 ? current : next);
     };
     measure();
     const timer = setInterval(measure, 400);
     return () => clearInterval(timer);
-  }, [active, idle, ru, me.gold, me.hand.length, me.board.length, me.tavern.offers.length]);
+  }, [active, idle, ru, turn, me.gold, me.hand.length, me.board.length, me.tavern.offers.length]);
 
   if (!active || !hint) return null;
   const a = { x: hint.from.x + hint.from.w / 2, y: hint.from.y + hint.from.h / 2 };

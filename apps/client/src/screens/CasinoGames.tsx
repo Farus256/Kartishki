@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { motion } from 'framer-motion';
 import { shopPrizeLabel, WHEEL_MANUAL_COST, type ShopPrize } from '@kartishki/shared';
@@ -5,7 +6,7 @@ import { useEconomy } from '../EconomyContext';
 import { SlotMachine } from './SlotMachine';
 
 const TINT = ['#e8dcc4', '#d7c07a', '#c5d0b0', '#d2b8a4', '#cbb98a', '#d4c8e0', '#c07a5a'];
-const LABEL_ROOM: Record<number, number> = { 1000: 10, 2000: 7, 5000: 5 };
+const LABEL_ROOM: Record<number, number> = { 500: 8, 1000: 8, 5000: 6 };
 type Slice = ReturnType<typeof wheelGradient>[number];
 
 function wheelGradient(prizes: ShopPrize[]) {
@@ -147,6 +148,7 @@ function FortuneWheel({
 }
 
 export function CasinoGames() {
+  const { t } = useTranslation();
   const economy = useEconomy();
   const slots = economy.shop.products.find(item => item.kind === 'slots');
   const wheel = economy.shop.products.find(item => item.kind === 'wheel');
@@ -220,10 +222,10 @@ export function CasinoGames() {
   return <div className="casino-shell">
     <div className="casino-games">
       {slots && <button type="button" className={mode === 'slots' ? 'is-selected' : ''} aria-pressed={mode === 'slots'} disabled={!!economy.opening && mode !== 'slots'} onClick={() => setGame('slots')}>
-        <span>▣</span><strong>{slots.name}</strong><small>ставки $25–$200</small>
+        <span>▣</span><strong>{slots.name}</strong><small>{t('slotsBets')}</small>
       </button>}
       {wheel && <button type="button" className={mode === 'wheel' ? 'is-selected' : ''} aria-pressed={mode === 'wheel'} disabled={!!economy.opening && mode !== 'wheel'} onClick={() => setGame('wheel')}>
-        <span>◉</span><strong>{wheel.name}</strong><small>${wheel.cost} за попытку</small>
+        <span>◉</span><strong>{wheel.name}</strong><small>{t('perTry', { cost: wheel.cost })}</small>
       </button>}
     </div>
     {mode === 'slots' ? <SlotMachine /> : !wheel ? null : <div className="casino-layout fortune-layout">
@@ -241,14 +243,14 @@ export function CasinoGames() {
         <button
           type="button"
           className="fortune-spin"
-          aria-label={`Крутить за $${wheel.cost}`}
+          aria-label={t('spinFor', { cost: wheel.cost })}
           disabled={busy || economy.dollars < wheel.cost}
           onClick={() => void playAuto()}
         >
           <span className="fortune-spin-icon" aria-hidden>↻</span>
           <strong>${wheel.cost}</strong>
         </button>
-        <p className="fortune-manual-hint">Можно крутануть вручную за ${WHEEL_MANUAL_COST} — зажми колесо мышкой и потяни.</p>
+        <p className="fortune-manual-hint">{t('wheelManualHint', { cost: WHEEL_MANUAL_COST })}</p>
       </div>
     </div>}
   </div>;

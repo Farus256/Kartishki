@@ -1,0 +1,140 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   1v1 duel on the Battlegrounds table. Root carries .ab-screen (wood, tokens, gems, presets); table-local bands (px):
+     foe hero 4–150 · foe row 176–346 · divider 356 · fuse 384 · my row 404–574 · my dock 596–786 · hand 640–862
+     right rail: hourglass 298 · end turn 420 · my deck 690.
+   ───────────────────────────────────────────────────────────────────────────── */
+.duel-screen { --duel-green:#62df85; }
+.duel-table { position:absolute; inset:var(--ab-header,38px) 0 0; min-width:0; min-height:0; }
+.duel-table::before {
+  content:''; position:absolute; inset:150px 14px 270px 14px; pointer-events:none;
+  border-radius:22% 22% 12% 12% / 16% 16% 10% 10%; border:12px ridge #735244;
+  background:radial-gradient(ellipse at 50% 35%,var(--ab-felt-light),var(--ab-felt) 70%,var(--ab-felt-dark));
+  box-shadow:0 0 0 7px #34262c,0 0 0 14px #876449,inset 0 0 50px #5d352b,0 15px 35px #140d16aa;
+}
+.duel-field { position:absolute; inset:0; transition:scale .45s cubic-bezier(.2,.7,.2,1); }
+.duel-field.is-duel { scale:1.02; }
+.duel-header-turn { padding:2px 10px; border:2px solid #a77a49; border-radius:10px; color:#ffe7a8; font:13px var(--font-hand); }
+.duel-screen.is-my-turn .duel-header-turn { background:#2e8b5744; border-color:var(--duel-green); }
+
+/* Rows: tiles sit at absolute x from the shared centring rule; a death keeps its tile at its old x while the row recentres */
+.duel-row { position:absolute; left:0; right:0; height:170px; pointer-events:none; }
+.duel-row.is-foe { top:176px; }
+.duel-row.is-own { top:380px; height:220px; pointer-events:auto; }
+.duel-row.is-own > * { pointer-events:auto; }
+.duel-field.is-placing .duel-row.is-own { background:radial-gradient(ellipse at 50% 50%,#62df8522,transparent 70%); }
+.duel-field.is-over-board .duel-row.is-own { background:radial-gradient(ellipse at 50% 50%,#62df8555,transparent 72%); }
+.duel-drop-hint { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); padding:8px 22px; border:3px dashed var(--duel-green); border-radius:14px; color:#eafff0; font:22px var(--font-hand); background:#1a1a1a66; pointer-events:none; }
+.duel-tile { position:absolute; top:0; width:150px; height:170px; pointer-events:auto; transition:left .28s cubic-bezier(.2,.7,.2,1); --ab-card:150px; }
+.duel-row.is-own .duel-tile { top:24px; }
+.duel-tile-body { position:relative; width:100%; height:100%; will-change:translate; animation:ab-arrive .32s ease-out both; }
+.duel-tile.is-dying .duel-tile-body { animation:none; }
+.duel-tile.is-dying { pointer-events:none; z-index:3; }
+.duel-tile.is-attacking { z-index:6; }
+.duel-tile:has(.is-hit) { z-index:5; }
+.duel-tile .ab-minion { cursor:default; }
+.duel-tile.can-attack .ab-minion { cursor:grab; box-shadow:0 0 0 3px var(--duel-green),0 0 22px #62df85aa,0 3px 0 #261b18,0 7px 12px #24120f88; }
+.duel-tile.can-attack .ab-minion::before { content:''; position:absolute; inset:-4px; border-radius:50%; border:2px solid #b9ffc6aa; animation:ab-wait-pulse 1.3s ease-in-out infinite; pointer-events:none; }
+.duel-tile.is-selected .ab-minion { outline:4px dashed var(--gold); outline-offset:4px; }
+.duel-tile.is-target .ab-minion { outline:4px dashed var(--blood); outline-offset:4px; opacity:1; }
+.duel-tile.is-dim .ab-minion { opacity:.4; }
+.duel-tile-body.is-hit .ab-minion-art::after { content:''; position:absolute; inset:0; background:var(--blood); pointer-events:none; opacity:0; animation:ab-hit .22s ease-out; }
+.duel-tile.is-dashing::before { content:''; position:absolute; inset:-30% -60%; z-index:-1; pointer-events:none; background:repeating-linear-gradient(90deg,transparent 0 9px,#fff6c866 9px 11px,transparent 11px 22px); mask:radial-gradient(ellipse at 50% 50%,#000 20%,transparent 70%); -webkit-mask:radial-gradient(ellipse at 50% 50%,#000 20%,transparent 70%); animation:ab-speed-lines .14s linear infinite; }
+.duel-tile.is-rip .ab-minion-wrap { visibility:hidden; }
+.duel-tile .ab-combat-shard { visibility:visible; }
+.duel-sleep { position:absolute; right:6px; top:-6px; z-index:9; padding:2px 7px; border:2px solid var(--ink); border-radius:10px; background:#e9dfc4; color:#1a1a1a; font:bold 15px var(--font-mono); font-style:normal; transform:rotate(8deg); animation:duel-sleep 2.4s ease-in-out infinite; }
+@keyframes duel-sleep { 0%,100% { translate:0 0; } 50% { translate:0 -3px; } }
+.duel-after { width:150px; height:170px; }
+.duel-divider { position:absolute; left:120px; right:280px; top:356px; height:22px; display:flex; align-items:center; justify-content:center; font:12px var(--font-mono); color:#422c24; text-shadow:0 1px #e8bb86; opacity:.85; pointer-events:none; }
+.duel-divider::before,.duel-divider::after { content:''; flex:1; height:2px; margin:0 14px; background:#3a201b55; }
+.duel-screen .ab-rope { left:40px; right:190px; top:384px; }
+
+/* Heroes: the foe across the table, mine at the bottom-left dock; the shared face/health/power gems */
+.duel-hero { position:absolute; pointer-events:none; }
+.duel-hero > * { pointer-events:auto; }
+.duel-hero.is-foe { left:calc(50% - 200px); top:4px; width:400px; height:150px; }
+.duel-hero.is-foe .ab-hero-face { left:calc(50% - 64px); top:0; width:128px; height:138px; cursor:crosshair; }
+.duel-hero.is-foe .duel-hero-name { top:54px; right:calc(50% + 76px); }
+.duel-hero.is-foe .duel-power-anchor { left:calc(50% + 80px); top:17px; }
+.duel-hero.is-foe .ab-power { width:92px; height:92px; min-height:92px; font-size:15px; }
+.duel-hero.is-foe .duel-mana { left:calc(50% - 300px); top:98px; }
+.duel-hero.is-foe .duel-deck { left:640px; top:16px; }
+.duel-hero.is-own { left:20px; top:596px; width:410px; height:190px; }
+.duel-hero.is-own .ab-hero-face { left:130px; top:0; }
+.duel-hero.is-own .duel-hero-name { top:10px; right:auto; left:0; width:120px; text-align:right; }
+.duel-hero.is-own .duel-power-anchor { left:300px; top:34px; }
+.duel-hero.is-own .duel-mana { left:18px; top:176px; }
+.duel-hero.is-own .duel-deck { left:1230px; top:96px; }
+.duel-hero.is-target .ab-hero-face { box-shadow:0 0 0 4px var(--ab-ring),0 0 0 9px var(--blood),0 0 30px var(--blood); }
+.duel-hero.is-dim .ab-hero-face { opacity:.5; }
+.duel-hero.is-lethal .ab-hero-face { filter:grayscale(1); }
+.duel-hero.is-away .ab-hero-face { filter:grayscale(.8) brightness(.7); }
+.duel-away { position:absolute; left:50%; bottom:-22px; transform:translateX(-50%); padding:2px 8px; border:2px solid var(--ink); border-radius:8px; background:#e9dfc4; color:var(--blood); font:12px var(--font-mono); font-style:normal; white-space:nowrap; }
+.duel-hero-face.is-hit::after { content:''; position:absolute; inset:4px; border-radius:34% 34% 5% 5%; background:var(--blood); pointer-events:none; opacity:0; animation:ab-hit .22s ease-out; }
+.duel-hero-name { position:absolute; max-width:190px; color:#ffdfab; text-shadow:0 2px 3px #221720; }
+.duel-mana { position:absolute; display:flex; align-items:center; gap:10px; padding:0 14px 0 12px; height:44px; border:4px ridge #7fb7d8; border-radius:24px; background:linear-gradient(180deg,#1d3446,#132330); box-shadow:0 0 0 3px var(--ab-ring),0 6px 12px #0007; color:#e8f6ff; }
+.duel-mana strong { min-width:58px; font:26px var(--font-stencil); color:#bfe9ff; text-shadow:0 2px 0 #0d2233; white-space:nowrap; text-align:center; }
+.duel-mana em { font:12px var(--font-mono); color:#8cc9ea; margin-left:2px; font-style:normal; }
+.duel-crystals { display:flex; gap:4px; }
+.duel-crystals i { width:16px; height:16px; rotate:45deg; border:2px solid #24506a; background:#1b2a36; opacity:.35; transition:background .25s,opacity .25s,transform .35s; }
+.duel-crystals i.is-spent { opacity:1; border-color:#4f86a8; }
+.duel-crystals i.is-full { opacity:1; border-color:#dff4ff; background:radial-gradient(circle at 35% 30%,#dff4ff,#4bb4f0 55%,#1d6a9e); box-shadow:0 0 8px #6ec8f0; }
+.duel-deck { position:absolute; width:74px; height:100px; }
+.duel-deck i { position:absolute; inset:0; border:3px solid var(--ink); border-radius:7px; background:#293e34 repeating-linear-gradient(45deg,#efece412 0 2px,transparent 2px 9px); box-shadow:2px 2px 0 #1a1a1a55; }
+.duel-deck i:nth-child(2) { translate:4px -4px; }
+.duel-deck i:nth-child(3) { translate:8px -8px; }
+.duel-deck b { position:absolute; left:50%; bottom:-14px; transform:translateX(-50%); padding:2px 10px; border:2px solid var(--ink); border-radius:10px; background:var(--paper); color:var(--ink); font:16px var(--font-stencil); }
+.duel-foe-hand { position:absolute; left:-190px; top:14px; width:160px; height:70px; }
+.duel-foe-hand i { position:absolute; left:50%; top:0; width:38px; height:56px; margin-left:-19px; border:2px solid #ab9165; border-radius:5px; background:#293e34 repeating-linear-gradient(45deg,#efece412 0 2px,transparent 2px 9px); transform-origin:50% 130%; transform:rotate(calc(var(--n,0) * 9deg)); box-shadow:1px 1px 0 #1a1a1a55; }
+
+/* Hand: full cards fanned at the bottom, playable ones glow, the hovered one grows */
+.duel-hand { position:absolute; left:440px; top:640px; width:720px; height:222px; display:flex; justify-content:center; align-items:flex-end; padding:0 8px 6px; pointer-events:auto; z-index:4; }
+.duel-hand-card { position:relative; flex:none; cursor:default; transition:translate .18s ease,filter .2s ease; }
+.duel-hand-card + .duel-hand-card { margin-left:calc(var(--duel-hand-overlap,0px) * -1); }
+.duel-hand-card.is-playable { cursor:grab; filter:drop-shadow(0 0 10px var(--duel-green)); }
+.duel-screen.is-my-turn .duel-hand-card:not(.is-playable) { filter:saturate(.6) brightness(.82); }
+.duel-hand-card:hover { translate:0 -48px; z-index:60!important; zoom:1.45; }
+.duel-hand-card.is-lifted { opacity:.22; }
+.duel-hand-card.is-drawn { animation:duel-draw .5s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes duel-draw { from { opacity:0; translate:520px -260px; rotate:14deg; } to { opacity:1; translate:0 0; rotate:0deg; } }
+.duel-hand-card.is-coin .game-card-face { filter:sepia(.4) saturate(1.4) hue-rotate(-10deg); }
+.duel-ghost-layer { z-index:20; }
+.duel-ghost { position:absolute; left:0; top:0; pointer-events:none; will-change:transform; filter:drop-shadow(8px 12px #1a1a1a55); z-index:20; }
+.duel-ghost .duel-hand-card { margin:0; filter:none; }
+
+/* Rail: hourglass (shared), the end-turn gem, my deck */
+.duel-rail .ab-tavern-btn.is-end-turn { top:420px; right:16px; width:136px; height:136px; min-width:136px; min-height:136px; border-radius:50%; background:radial-gradient(circle at 38% 32%,#8fc97a,#3f7a3a 55%,#1d3a1f); font:20px/1.1 var(--font-hand); color:#f6ecd0; text-align:center; letter-spacing:1px; }
+.duel-rail .ab-tavern-btn.is-end-turn:disabled { background:radial-gradient(circle at 40% 35%,#55525a,#33313a); }
+.duel-rail .ab-tavern-btn.is-end-turn.is-idle { animation:duel-idle-glow 1.4s ease-in-out infinite; }
+@keyframes duel-idle-glow { 50% { box-shadow:0 0 0 4px var(--ab-ring),0 0 34px 8px #9fe47a,0 7px 13px #24151aaa; filter:brightness(1.15); } }
+.duel-rail .ab-clock { top:298px; }
+.duel-screen .ab-power.is-aiming { outline:3px solid var(--blood); outline-offset:5px; }
+
+/* Aim and stamps */
+.duel-aim-hint { position:absolute; left:50%; top:590px; transform:translateX(-50%); margin:0; padding:6px 18px; border:2px solid #d3b87566; border-radius:16px; background:#18241fee; color:#f4e4bd; font:18px var(--font-hand); pointer-events:none; z-index:22; }
+.duel-turn-stamp.is-mine b { background:var(--gold); color:var(--ink); }
+.duel-turn-stamp.is-theirs b { background:#2a1d18; color:#ffe7a8; }
+.duel-hint { position:absolute; left:50%; top:110px; transform:translateX(-50%); z-index:45; margin:0; padding:10px 22px; border:3px solid var(--ink); border-radius:3px 12px 3px 12px; background:var(--paper); color:var(--ink); box-shadow:5px 6px 0 #1a1a1a70; font:19px var(--font-hand); white-space:nowrap; animation:ab-stamp .2s ease-out; }
+.duel-screen .battle-error { z-index:55; bottom:200px; }
+.duel-screen .ab-empty { padding-top:260px; }
+
+/* Mulligan */
+.duel-mulligan { background:radial-gradient(ellipse at 50% 40%,#3a2530cc,#0d0810f2 75%); }
+.duel-mulligan-card { min-width:0; padding:22px 40px 26px; border:5px ridge #c4a15a; border-radius:22px; background:linear-gradient(180deg,#f6efdc,#e0d3b3); box-shadow:0 0 0 3px var(--ab-ring),0 26px 60px #000c; text-align:center; transform:none; animation:ab-discover-in .35s cubic-bezier(.2,.9,.3,1.2) both; }
+.duel-mulligan-card header { position:relative; display:flex; flex-direction:column; align-items:center; gap:4px; padding-right:130px; }
+.duel-mulligan-card header .ab-clock { position:absolute; right:0; top:-6px; width:92px; height:92px; }
+.duel-mulligan-card h2 { margin:0; padding:6px 24px; border-radius:14px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:var(--ab-amber); font:32px var(--font-hand); letter-spacing:1px; box-shadow:0 4px 0 #1a1a1a55; }
+.duel-mulligan-card header p { margin:4px 0 0; font:14px var(--font-mono); color:#5a4030; }
+.duel-mulligan-hand { display:flex; justify-content:center; gap:22px; margin:22px 0 12px; }
+.duel-mulligan-slot { position:relative; padding:0; border:0; background:transparent; cursor:pointer; transition:transform .18s ease,filter .2s ease; }
+.duel-mulligan-slot:hover:enabled { transform:translateY(-10px); }
+.duel-mulligan-slot.is-out { filter:grayscale(.85) brightness(.7); }
+.duel-mulligan-mark { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-12deg); font:96px var(--font-stencil); color:var(--blood); text-shadow:0 0 0 #fff,3px 4px 0 #1a1a1a80; pointer-events:none; }
+.duel-mulligan-card footer { display:flex; align-items:center; justify-content:center; gap:22px; }
+.duel-mulligan-card footer p { margin:0; font:16px var(--font-hand); color:#2a1f18; }
+
+@media(prefers-reduced-motion:reduce) {
+  .duel-field { transition:none; } .duel-field.is-duel { scale:1; }
+  .duel-tile { transition:none; } .duel-tile-body { animation:none; }
+  .duel-hand-card { transition:none; } .duel-hand-card.is-drawn { animation:none; }
+  .duel-rail .ab-tavern-btn.is-end-turn.is-idle,.duel-sleep,.duel-tile.can-attack .ab-minion::before { animation:none; }
+}

@@ -17,12 +17,6 @@
 .ab-lb-streak { position:absolute; left:-6px; bottom:-8px; padding:1px 6px; border:2px solid var(--ink); border-radius:8px; font:bold 11px/14px var(--font-mono); color:#fff; transform:rotate(-6deg); box-shadow:2px 2px 0 #1a1a1a55; }
 .ab-lb-streak.is-win { background:#2e8b57; }
 .ab-lb-streak.is-loss { background:#b32e23; }
-.paper-tooltip.is-lb-log { width:250px; max-height:none; padding:10px 12px; }
-.ab-lb-log strong { display:block; margin-bottom:6px; font:20px var(--font-hand); }
-.ab-lb-log p { margin:3px 0; font:12px/1.4 var(--font-mono); }
-.ab-lb-log p em { font-style:normal; opacity:.6; margin-right:4px; }
-.ab-lb-log p.is-win { color:#1f6e3f; }
-.ab-lb-log p.is-loss { color:#8f1511; }
 
 @media(prefers-reduced-motion:reduce) {
   .ab-hint-line,.ab-hint-label,.ab-hint-ring { animation:none; }
@@ -58,28 +52,33 @@
 .ab-minion-text { position:absolute; top:246px; left:14px; right:14px; height:52px; overflow:hidden; font:bold 15px/1.25 var(--font-hand); color:#2a1f18; text-align:center; }
 
 /* Standings hover panel: paper dossier of the player */
-.paper-tooltip.is-lb-log { width:272px; padding:0; border:4px solid #2a1a10; border-radius:12px; background:linear-gradient(180deg,#f6efdc,#e9dfc4); box-shadow:0 0 0 3px #c9a463,10px 14px 0 #1a1a1a66; overflow:hidden; }
-.ab-lb-log-head { display:flex; gap:10px; align-items:center; padding:10px 12px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; }
-.ab-lb-log-head strong { display:block; margin:0; font:20px var(--font-hand); }
-.ab-lb-log-head small { display:block; font:11px var(--font-mono); color:#d7b56a; }
-.ab-lb-log-face { display:block; width:44px; height:50px; overflow:hidden; border:2px solid #b18c55; border-radius:38% 38% 12% 12%; background:#493329; }
+.paper-tooltip.is-lb-log { width:340px; max-height:none; padding:0; border:4px solid #2a1a10; border-radius:12px; background:linear-gradient(180deg,#f6efdc,#e9dfc4); box-shadow:0 0 0 3px #c9a463,10px 14px 0 #1a1a1a66; overflow:hidden; }
+.ab-lb-log-head { display:flex; gap:12px; align-items:center; padding:12px 14px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; }
+.ab-lb-log-head strong { display:block; margin:0; font:24px var(--font-hand); }
+.ab-lb-log-head small { display:block; font:13px var(--font-mono); color:#d7b56a; }
+.ab-lb-log-face { display:block; width:56px; height:64px; overflow:hidden; border:2px solid #b18c55; border-radius:38% 38% 12% 12%; background:#493329; }
 .ab-lb-log-face img { width:100%; height:100%; object-fit:cover; }
-.ab-lb-log-facts { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:10px 12px 6px; }
+.ab-lb-log-facts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 14px 6px; }
 .ab-lb-log-facts div { padding:6px 4px; border:1px solid #c9b78e; border-radius:8px; background:#fff9ea; text-align:center; }
-.ab-lb-log-facts dt { font:10px var(--font-mono); color:#7a5a3a; text-transform:uppercase; letter-spacing:.5px; }
-.ab-lb-log-facts dd { margin:2px 0 0; font:14px var(--font-hand); color:#2a1f18; }
-.ab-lb-log-title { display:block; margin:6px 12px 4px; font:15px var(--font-hand); color:#5a4030; letter-spacing:.5px; }
-.ab-lb-log ul { list-style:none; margin:0 12px 12px; padding:0; display:flex; flex-direction:column; gap:3px; }
-.ab-lb-log li { display:flex; align-items:center; gap:8px; padding:4px 8px; border-radius:6px; background:#fff9ea; font:12px var(--font-mono); color:#2a1f18; }
+.ab-lb-log-facts dt { font:11px var(--font-mono); color:#7a5a3a; text-transform:uppercase; letter-spacing:.5px; }
+.ab-lb-log-facts dd { margin:2px 0 0; font:17px var(--font-hand); color:#2a1f18; }
+.ab-lb-log .ab-lb-log-title { display:block; margin:8px 14px 4px; font:17px var(--font-hand); color:#5a4030; letter-spacing:.5px; }
+.ab-lb-log ul { list-style:none; margin:0 14px 14px; padding:0; display:flex; flex-direction:column; gap:4px; }
+.ab-lb-log li { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; background:#fff9ea; font:14px var(--font-mono); color:#2a1f18; }
 .ab-lb-log li em { font-style:normal; min-width:18px; color:#7a5a3a; }
-.ab-lb-log li b { font:13px var(--font-hand); }
+.ab-lb-log li b { font:16px var(--font-hand); }
 .ab-lb-log li span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ab-lb-log li i { font-style:normal; font-weight:bold; }
 .ab-lb-log li.is-win { box-shadow:inset 3px 0 0 #2e8b57; }
 .ab-lb-log li.is-win i { color:#1f6e3f; }
 .ab-lb-log li.is-loss { box-shadow:inset 3px 0 0 #b32e23; }
 .ab-lb-log li.is-loss i { color:#8f1511; }
-.ab-lb-log > p { margin:0 12px 12px; font:12px var(--font-mono); color:#5a4030; }
+.ab-lb-log > p { margin:0 14px 14px; font:14px var(--font-mono); color:#5a4030; }
+/* Hero power: name plate with the cost, then what it does */
+.ab-lb-log-power > div { margin:0 14px 4px; padding:8px 10px; border-radius:8px; background:#fff9ea; box-shadow:inset 0 0 0 1px #c9b78e; }
+.ab-lb-log-power b { font:18px var(--font-hand); color:#2a1f18; }
+.ab-lb-log-power small { float:right; margin-left:8px; padding:1px 8px; border-radius:8px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; font:12px/18px var(--font-mono); }
+.ab-lb-log-power p { margin:4px 0 0; font:13px/1.4 var(--font-mono); color:#4a3520; }
 
 /* Final card: podium tiers */
 .ab-modal[data-testid=ab-gameover] { background:radial-gradient(ellipse at 50% 40%,#3a2530cc,#0d0810f4 75%); }
@@ -118,6 +117,11 @@
 .ab-discover-row .ab-minion-keys { bottom:-6px; }
 .ab-discover-row .ab-minion-stats { bottom:6px; }
 .ab-discover-row .ab-minion.is-full-card .ab-reborn-sash { inset:8px 8px auto; height:180px; }
+/* Discover offers the dossier card (the same one the tavern shows on hover) at full size: text sits in its own box under the name plate */
+.ab-discover-row .ab-minion.is-dossier { height:auto; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.ab-discover-row .ab-minion.is-dossier .ab-dossier { zoom:1; }
+.ab-discover-row .ab-minion.is-dossier:hover,.ab-discover-row .ab-minion.is-dossier:focus-visible { transform:translateY(-14px) scale(1.04); box-shadow:none; }
+.ab-discover-row .ab-minion.is-dossier:hover .ab-dossier,.ab-discover-row .ab-minion.is-dossier:focus-visible .ab-dossier { box-shadow:0 0 0 4px #3a2a20,0 0 0 8px #62df85,0 0 36px #62df8588,10px 14px 0 #1a1a1a66; }
 /* Cracks on paper cards: three thin lines, gentle glow */
 .ab-minion.is-full-card .ab-reborn-sash::before { background:
   linear-gradient(112deg,transparent 48.6%,#9ef0ff 49.2%,#e8fbff 49.6%,transparent 50.2%),
@@ -125,17 +129,29 @@
   linear-gradient(-40deg,transparent 34.2%,#9ef0ff 34.8%,transparent 35.4%); }
 .ab-minion.is-full-card .ab-reborn-sash::after { box-shadow:inset 0 0 14px #62d8ff66; }
 
-/* Fuse: a rope burning down for the whole turn; sparks fly off the ember */
+/* Fuse: the unburnt rope hangs from the clock's side and shortens toward it; the burnt stretch on the left is charred.
+   The twist is one 10px tile (period 9.06px along the 115° line = 10·sin115°) anchored at the fixed right end, so the
+   stripes do not crawl as the width shrinks every frame.
+   The ember is a flame tongue over a glowing core; sparks fly up, ash flakes drift back over the char and sink. */
 .ab-rope { height:9px; background:repeating-linear-gradient(90deg,#3a2a20 0 6px,#2a1c14 6px 12px); box-shadow:inset 0 1px 0 #ffffff22,0 1px 2px #000a; border-radius:5px; opacity:.85; }
-.ab-rope-remaining { height:9px; border-radius:5px 0 0 5px; background:repeating-linear-gradient(115deg,#6e3b19 0 3px,#dbac60 4px 7px,#b8833a 8px 10px); box-shadow:0 2px 3px #3a201b,inset 0 1px 0 #fff3; }
-.ab-rope-ember { position:absolute; right:-9px; top:-9px; width:26px; height:26px; border-radius:50%; background:radial-gradient(circle,#fffbe0 0 20%,#ffcc39 40%,#ff641b 70%,transparent 72%); box-shadow:0 0 10px 4px #ffcc39,0 0 26px 10px #ff641b88; animation:ab-ember .14s infinite alternate; }
-.ab-rope-ember::after { display:none; }
-.ab-rope-ember i { position:absolute; left:50%; top:50%; width:5px; height:5px; margin:-2px; border-radius:50%; background:#ffe270; box-shadow:0 0 6px 2px #ff9a3a; animation:ab-spark 1s ease-out infinite; }
+.ab-rope-remaining { height:9px; border-radius:0 5px 5px 0; background:repeating-linear-gradient(115deg,#6e3b19 0 2.7px,#dbac60 3.6px 6.3px,#b8833a 7.2px 9.06px); background-size:10px 9px; background-position:100% 0; box-shadow:0 2px 3px #3a201b,inset 0 1px 0 #fff3; }
+.ab-rope-ember { position:absolute; left:-9px; top:-9px; width:26px; height:26px; border-radius:50%; background:radial-gradient(circle,#fffbe0 0 18%,#ffcc39 36%,#ff641b 62%,transparent 66%); box-shadow:0 0 10px 4px #ffcc39aa,0 0 26px 10px #ff641b66; animation:ab-ember-glow .5s ease-in-out infinite alternate; }
+.ab-rope-ember::before,.ab-rope-ember::after { content:''; position:absolute; left:50%; bottom:50%; transform-origin:50% 100%; border-radius:50% 50% 50% 50% / 62% 62% 38% 38%; }
+.ab-rope-ember::before { width:12px; height:22px; margin-left:-6px; background:linear-gradient(180deg,#ff641b00,#ff641b 30%,#ffcc39 70%,#fffbe0); filter:blur(.4px); animation:ab-flame .34s ease-in-out infinite; }
+.ab-rope-ember::after { display:block; width:6px; height:12px; margin-left:-3px; background:linear-gradient(180deg,#ffcc3900,#fffbe0); animation:ab-flame .26s ease-in-out .1s infinite reverse; }
+@keyframes ab-flame { 0%,100% { transform:scale(1,1) rotate(-4deg); } 35% { transform:scale(.86,1.18) rotate(5deg); } 70% { transform:scale(1.08,.92) rotate(-2deg); } }
+@keyframes ab-ember-glow { to { box-shadow:0 0 14px 6px #ffcc39cc,0 0 32px 12px #ff641b88; filter:brightness(1.15); } }
+.ab-rope-ember i { position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px; border-radius:50%; background:#ffe270; box-shadow:0 0 6px 2px #ff9a3a; animation:ab-spark 1s ease-out infinite; }
 .ab-rope-ember i:nth-child(2) { animation-delay:.33s; --sx:-18px; }
 .ab-rope-ember i:nth-child(3) { animation-delay:.66s; --sx:16px; }
 @keyframes ab-spark { 0% { transform:translate(0,0) scale(1); opacity:1; } 100% { transform:translate(var(--sx,-6px),-34px) scale(.2); opacity:0; } }
-.ab-rope.is-short .ab-rope-ember { animation-duration:.09s; box-shadow:0 0 14px 6px #ffcc39,0 0 34px 14px #ff641baa; }
-.ab-rope.is-short .ab-rope-remaining { background:repeating-linear-gradient(115deg,#7a1e12 0 3px,#ff8a4a 4px 7px,#c94a20 8px 10px); }
+.ab-rope-ember em { position:absolute; left:50%; top:50%; width:4px; height:3px; margin:-2px; border-radius:1px; background:#8d8781; box-shadow:0 0 0 .5px #4a4541; opacity:0; animation:ab-ash 1.5s linear infinite; }
+.ab-rope-ember em:nth-of-type(2) { animation-delay:.4s; --ax:-30px; --ay:14px; width:3px; height:3px; background:#a39d96; }
+.ab-rope-ember em:nth-of-type(3) { animation-delay:.8s; --ax:-16px; --ay:22px; }
+.ab-rope-ember em:nth-of-type(4) { animation-delay:1.15s; --ax:-38px; --ay:9px; width:5px; height:2px; background:#6f6a66; }
+@keyframes ab-ash { 0% { transform:translate(0,0) rotate(0); opacity:0; } 12% { opacity:.95; } 40% { transform:translate(calc(var(--ax,-24px) * .45),-9px) rotate(120deg); } 100% { transform:translate(var(--ax,-24px),var(--ay,18px)) rotate(300deg); opacity:0; } }
+.ab-rope.is-short .ab-rope-ember { box-shadow:0 0 14px 6px #ffcc39,0 0 34px 14px #ff641baa; }
+.ab-rope.is-short .ab-rope-remaining { background-image:repeating-linear-gradient(115deg,#7a1e12 0 2.7px,#ff8a4a 3.6px 6.3px,#c94a20 7.2px 9.06px); }
 
 /* Hourglass: sand level follows the real clock, a stream runs while the turn ticks */
 .ab-clock-sand { transform-origin:30px 40px; transform:scale(var(--sand,1)); }
@@ -149,3 +165,43 @@
 .ab-clock-sand,.ab-clock-heap { fill:#e8c27a; }
 .ab-clock.is-urgent .ab-clock-sand,.ab-clock.is-urgent .ab-clock-heap { fill:#ffb347; }
 .ab-clock.is-critical .ab-clock-sand,.ab-clock.is-critical .ab-clock-heap { fill:#ff7b6b; }
+
+/* Lobby: Workshop set picker; header shows the set the table plays */
+.ab-set-pick { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 14px; text-align: left; font: 14px var(--font-mono); }
+.ab-set-pick select { padding: 8px 10px; border: 3px solid var(--ink); background: var(--paper); font: 16px var(--font-hand); }
+.ab-set-pick small { font: 11px/1.4 var(--font-mono); color: #5a4030; }
+.ab-header-set { padding: 2px 10px; border: 2px solid #a77a49; border-radius: 10px; color: #ffe7a8; font: 13px var(--font-hand); }
+
+/* Curtain up (.is-opening for the first recruit of a match): header drops, standings slide in from the left, the table
+   frame swells into place, tavern fixtures fall onto it, the board slots, hero and hand rise from below, the rail
+   controls slide in from the right and the anomaly gem pops last. transform/opacity only; positions are untouched. */
+.ab-screen.is-opening .ab-header { animation:ab-open-down .5s cubic-bezier(.2,.8,.3,1) both; }
+.ab-screen.is-opening .ab-leaderboard { animation:ab-open-left .55s cubic-bezier(.2,.8,.3,1) .1s both; }
+.ab-screen.is-opening .ab-leaderboard li { animation:ab-open-left .45s cubic-bezier(.2,.8,.3,1) both; animation-delay:calc(.35s + var(--row,0) * .07s); }
+.ab-screen.is-opening .ab-leaderboard li:nth-child(2) { --row:1; } .ab-screen.is-opening .ab-leaderboard li:nth-child(3) { --row:2; } .ab-screen.is-opening .ab-leaderboard li:nth-child(4) { --row:3; }
+.ab-screen.is-opening .ab-leaderboard li:nth-child(5) { --row:4; } .ab-screen.is-opening .ab-leaderboard li:nth-child(6) { --row:5; } .ab-screen.is-opening .ab-leaderboard li:nth-child(7) { --row:6; } .ab-screen.is-opening .ab-leaderboard li:nth-child(8) { --row:7; }
+.ab-screen.is-opening .ab-stage::before { animation:ab-open-table .7s cubic-bezier(.2,.8,.3,1.1) .15s both; }
+.ab-screen.is-opening .ab-tavern-head > * { animation:ab-open-drop .55s cubic-bezier(.2,.8,.3,1) both; }
+.ab-screen.is-opening .ab-tavern-head > .ab-tier-sign { animation-delay:.5s; }
+.ab-screen.is-opening .ab-tavern-head > .ab-bartender { animation-delay:.42s; }
+.ab-screen.is-opening .ab-tavern-head > .ab-tavern-ops { animation-delay:.58s; }
+/* The tile sets its own stagger inline (arriveDelay), so the opening delay has to win over it. */
+.ab-screen.is-opening .ab-tavern-row .ab-minion-wrap.is-arrive { animation-delay:calc(.7s + var(--i,0) * .06s)!important; }
+.ab-screen.is-opening :is(.ab-tavern-row,.ab-board) > :nth-child(2) { --i:1; } .ab-screen.is-opening :is(.ab-tavern-row,.ab-board) > :nth-child(3) { --i:2; } .ab-screen.is-opening :is(.ab-tavern-row,.ab-board) > :nth-child(4) { --i:3; }
+.ab-screen.is-opening :is(.ab-tavern-row,.ab-board) > :nth-child(5) { --i:4; } .ab-screen.is-opening :is(.ab-tavern-row,.ab-board) > :nth-child(6) { --i:5; } .ab-screen.is-opening :is(.ab-tavern-row,.ab-board) > :nth-child(7) { --i:6; }
+.ab-screen.is-opening .ab-round-band { animation:ab-open-fade .5s ease .8s both; }
+.ab-screen.is-opening .ab-board .ab-slot { animation:ab-open-up .45s cubic-bezier(.2,.8,.3,1) both; animation-delay:calc(.65s + var(--i,0) * .05s); }
+.ab-screen.is-opening .ab-hero-dock { animation:ab-open-up .6s cubic-bezier(.2,.8,.3,1) .8s both; }
+.ab-screen.is-opening .ab-hand { animation:ab-open-up .6s cubic-bezier(.2,.8,.3,1) .9s both; }
+.ab-screen.is-opening .ab-rail > * { animation:ab-open-right .55s cubic-bezier(.2,.8,.3,1) both; }
+.ab-screen.is-opening .ab-rail > .ab-clock { animation-delay:.55s; }
+.ab-screen.is-opening .ab-rail > .ab-gold { animation-delay:.7s; }
+.ab-screen.is-opening .ab-anomaly-anchor { animation:ab-open-pop .6s cubic-bezier(.2,.9,.3,1.4) 1s both; }
+@keyframes ab-open-down { from { opacity:0; transform:translateY(-110%); } }
+@keyframes ab-open-left { from { opacity:0; transform:translateX(-70px); } }
+@keyframes ab-open-right { from { opacity:0; transform:translateX(90px); } }
+@keyframes ab-open-up { from { opacity:0; transform:translateY(90px); } }
+@keyframes ab-open-fade { from { opacity:0; } }
+@keyframes ab-open-drop { from { opacity:0; transform:translateY(-60px) scale(.7); } 70% { opacity:1; transform:translateY(5px) scale(1.04); } }
+@keyframes ab-open-table { from { opacity:0; transform:scale(.9); } }
+@keyframes ab-open-pop { from { opacity:0; transform:scale(.3) rotate(-30deg); } 70% { opacity:1; transform:scale(1.12) rotate(4deg); } }

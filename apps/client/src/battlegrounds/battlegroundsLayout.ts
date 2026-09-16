@@ -2,7 +2,7 @@
  * One 1600×900 source of truth for Battlegrounds spacing. CSS and Pixi both read this.
  * The table is a 160 | 1440 grid under the 38px header (controls overlay the table's right edge); every row below is in
  * table-local pixels (0,0 = table top-left), and combat rows overlay the same bands:
- *   tavern head 8–148 · tavern/enemy row 168 · fuse 382 · board/my row 404 · hero dock 608 · hand 636.
+ *   tavern head 8–148 · tavern/enemy row 168 · fuse 382 · board/my row 404 · hero dock 623 (recruit: left edge) · hand 636 (centred).
  */
 export const AB_LAYOUT = {
   STAGE_W: 1600,
@@ -16,6 +16,7 @@ export const AB_LAYOUT = {
   TAVERN_H: 170,
   HAND_W: 140,
   HAND_H: 208,
+  HAND_MAX_W: 640,
   DISCOVER_W: 230,
   HERO: 136,
   POWER_W: 104,
@@ -29,9 +30,9 @@ export const AB_LAYOUT = {
 } as const;
 
 export function lineGap(count: number): number {
-  if (count <= 3) return 42;
-  if (count <= 5) return 30;
-  return 18;
+  if (count <= 3) return 50;
+  if (count <= 5) return 36;
+  return 24;
 }
 
 export function tavernGap(count: number): number {
@@ -40,9 +41,10 @@ export function tavernGap(count: number): number {
   return 8;
 }
 
+/** Cards overlap just enough to keep the centred hand within HAND_MAX_W, clear of the hero dock parked at the left edge. */
 export function handOverlap(count: number): number {
   if (count <= 1) return 0;
-  return Math.min(120, Math.max(18, (count * AB_LAYOUT.HAND_W - 700) / (count - 1)));
+  return Math.min(120, Math.max(18, (count * AB_LAYOUT.HAND_W - AB_LAYOUT.HAND_MAX_W) / (count - 1)));
 }
 
 /** Left edges of a centered group. */

@@ -1,3 +1,4 @@
+import i18n from '@kartishki/i18n';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { motion, useAnimationControls } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -5,15 +6,11 @@ import { session } from '../session';
 import { InkButton, spring } from '../ui/InkButton';
 
 const ITEM_H = 86;
-const TITLES = [
-  'Твой бывший', 'Мамкин киберкотлета', 'Свидетель Иеговы', 'Душнила из чата',
-  'Тиммейт с пингом 900', 'Бабка у подъезда', 'Токсик с района', 'Продавец гаражей',
-  'Лютый рандом', 'Батя в здании', 'Ноунейм с двача', 'Тётя из бухгалтерии',
-];
-const REEL = Array.from({ length: 24 }, (_, n) => TITLES[n % TITLES.length]);
+const reelTitles = () => Array.from({ length: 24 }, (_, n) => { const titles = i18n.t('matchmakingTitles').split('|'); return titles[n % titles.length]!; });
 
 /** Spinning drum of opponent titles, driven by the real Colyseus queue state. */
 export function MatchmakingModal({ onFound, onCancel }: { onFound: () => void; onCancel: () => void }) {
+  const REEL = reelTitles();
   const { t } = useTranslation();
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [index, setIndex] = useState(0);

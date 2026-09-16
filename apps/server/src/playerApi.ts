@@ -38,6 +38,7 @@ export function playerApi(store: PlayerStore, catalog: CatalogStore) {
     res.json(await store.shop(res.locals.playerId, snap.cards, resolveShop(snap.shop), req.body));
   });
   router.post('/xp', async (req,res) => { res.json(await store.addXp(res.locals.playerId, req.body?.amount)); });
+  router.post('/unlocks', async (req,res) => { res.json(await store.buyCosmetic(res.locals.playerId, req.body?.itemId)); });
   router.put('/decks', async (req,res) => { res.json(await store.saveDeck(res.locals.playerId,req.body,catalog.snapshot().cards)); });
   router.delete('/decks/:id', async (req,res) => { await store.deleteDeck(res.locals.playerId,req.params.id,req.body?.version); res.sendStatus(204); });
   router.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

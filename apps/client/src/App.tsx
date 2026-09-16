@@ -11,20 +11,22 @@ import { DeckBuilderScreen } from './screens/DeckBuilderScreen';
 import { ShopScreen } from './screens/ShopScreen';
 import { MatchScreen } from './screens/MatchScreen';
 import { BattlegroundsScreen } from './screens/BattlegroundsScreen';
+import { EditorScreen } from './screens/EditorScreen';
 import { SettingsModal } from './screens/SettingsModal';
 import { audioManager } from './AudioManager';
 import { builtInBackgroundTracks } from './gameAudioAssets';
 import { menuTrackUrl, useMenuTracks } from './ui/useCatalog';
 
-type Screen = 'landing' | 'menu' | 'deck' | 'shop' | 'match' | 'battlegrounds';
+type Screen = 'landing' | 'menu' | 'deck' | 'shop' | 'match' | 'battlegrounds' | 'editor';
 
 i18n.on('languageChanged', language => { document.documentElement.lang = language; });
 
 export function App() {
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const [screen, setScreen] = useState<Screen>(() => sessionStorage.getItem('kartishki-ab-reconnect') ? 'battlegrounds' : playerSession.getSnapshot().library ? 'menu' : 'landing');
-  const [guest, setGuest] = useState(() => !!sessionStorage.getItem('kartishki-ab-reconnect'));
+  // A reload mid-match lands straight back on the table: the sessions keep their reconnection tokens.
+  const [screen, setScreen] = useState<Screen>(() => sessionStorage.getItem('kartishki-ab-reconnect') ? 'battlegrounds' : session.canResume() ? 'match' : playerSession.getSnapshot().library ? 'menu' : 'landing');
+  const [guest, setGuest] = useState(() => !!sessionStorage.getItem('kartishki-ab-reconnect') || session.canResume());
   const [queue, setQueue] = useState(false);
   const [settings, setSettings] = useState(false);
   const signedIn = !!player.library;
@@ -35,7 +37,7 @@ export function App() {
   useEffect(() => { if (signedIn && screen === 'landing') setScreen('menu'); }, [signedIn, screen]);
   useEffect(() => { if (!signedIn && !guest && screen !== 'landing') setScreen('landing'); }, [signedIn, guest, screen]);
   useEffect(() => {
-    if (screen !== 'match' || state.status !== 'offline') return;
+    if (screen !== 'match' || state.status !== 'offline' || session.canResume()) return;
     setScreen('menu');
     if (playerSession.getSnapshot().library) void playerSession.refresh();
   }, [screen, state.status]);
@@ -65,12 +67,14 @@ export function App() {
           {screen === 'menu' && (
             <MainMenuScreen onPlay={() => setQueue(true)} onBattlegrounds={() => setScreen('battlegrounds')}
               onDeck={() => setScreen('deck')} onShop={() => setScreen('shop')}
+              onEditor={() => setScreen('editor')}
               onSettings={() => setSettings(true)} onExit={exit} />
           )}
           {screen === 'deck' && <DeckBuilderScreen onBack={toMenu} onShop={() => setScreen('shop')} />}
           {screen === 'shop' && <ShopScreen onBack={toMenu} />}
           {screen === 'match' && <MatchScreen onLeave={toMenu} />}
           {screen === 'battlegrounds' && <BattlegroundsScreen onLeave={toMenu} />}
+          {screen === 'editor' && <EditorScreen onBack={toMenu} />}
         </motion.div>
       </AnimatePresence>
 

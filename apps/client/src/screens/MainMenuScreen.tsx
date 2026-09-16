@@ -8,11 +8,13 @@ import { MenuFotoWallpaper } from '../ui/MenuFotoWallpaper';
 import { BeerBottle } from '../ui/BeerBottle';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
-import { apiBase, usePlayerLeveling } from '../ui/useCatalog';
+import { apiBase, menuTrackUrl, useCardSets, usePlayerLeveling } from '../ui/useCatalog';
+import { chosenCardSet, rememberCardSet, useActiveCardSet } from '../activeCardSet';
+import { pickLoc } from '@kartishki/shared';
 import { useServerReady } from '../ui/useServerReady';
 import { GAME_VERSION } from '../version';
 
-type Props = { onPlay: () => void; onBattlegrounds: () => void; onDeck: () => void; onShop: () => void; onSettings: () => void; onExit: () => void };
+type Props = { onPlay: () => void; onBattlegrounds: () => void; onDeck: () => void; onShop: () => void; onEditor: () => void; onSettings: () => void; onExit: () => void };
 const TROPHY = { 1: '#c9a227', 2: '#9aa0a6', 3: '#b87333' } as const;
 function Trophy({ place }: { place: 1 | 2 | 3 }) {
   return <svg className="menu-ladder-trophy" viewBox="0 0 20 22" aria-hidden>
@@ -39,8 +41,8 @@ function untilMidnight() {
   const ms = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime();
   return [Math.floor(ms / 3600000), Math.floor(ms / 60000) % 60, Math.floor(ms / 1000) % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
-export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSettings, onExit }: Props) {
-  const { t } = useTranslation();
+export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEditor, onSettings, onExit }: Props) {
+  const { t, i18n } = useTranslation();
   const reduced = useReducedMotion();
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const profile = player.library?.profile;
@@ -53,8 +55,13 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
   }, [serverReady]);
   const ladder = useLadder(serverReady);
   const leveling = usePlayerLeveling();
+  const cardSets = useCardSets();
+  const activeSet = useActiveCardSet();
+  const wallpaper = activeSet?.theme?.wallpaper?.map(menuTrackUrl);
   const dailyReady = !!profile?.dailyAvailable;
   const [timer, setTimer] = useState(untilMidnight);
+  const [notice, setNotice] = useState('');
+  useEffect(() => { if (!notice) return; const id = setTimeout(() => setNotice(''), 2500); return () => clearTimeout(id); }, [notice]);
   useEffect(() => {
     if (dailyReady || !profile) return;
     const id = setInterval(() => setTimer(untilMidnight()), 1000);
@@ -65,35 +72,45 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onSett
     { key: 'menuBattlegrounds', tone: 'blood' as const, run: onBattlegrounds, mark: '🍺' },
     { key: 'menuDeck', tone: 'paper' as const, run: onDeck, mark: '▤' },
     { key: 'menuShop', tone: 'gold' as const, run: onShop, mark: '$' },
+    // Admin-only: everyone else gets a "in development" note instead of the editor.
+    { key: 'menuEditor', tone: 'paper' as const, run: profile?.isAdmin ? onEditor : () => setNotice('menuSoon'), mark: '✎' },
     { key: 'menuSettings', tone: 'paper' as const, run: onSettings, mark: '⚙' },
     { key: 'menuExit', tone: 'ink' as const, run: onExit, mark: '↩' },
   ];
   return <div className="absolute inset-0 overflow-clip">
     <div className="absolute inset-0" inert={!serverReady} aria-busy={!serverReady}>
     <Backdrop />
-    <MenuFotoWallpaper />
+    <MenuFotoWallpaper fotos={wallpaper} />
     <div className="menu-wash" />
     <TopBar onPlus={onShop} />
-    <section className="main-menu-actions" aria-label="Главное меню">
+    <section className="main-menu-actions" aria-label={t('mainMenuAria')}>
       <div className="menu-buttons">{items.map((item, index) => <motion.div key={item.key}
         initial={reduced ? false : { opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ ...spring, delay: index * .04 }}>
-        <InkButton tone={item.tone} size={item.play ? 'xl' : 'lg'} pulse={item.play && !reduced} glow={item.play} onClick={item.run} className={`menu-action ${item.play ? 'menu-play' : ''}`}>
+        <InkButton tone={item.tone} size={item.play ? 'xl' : 'lg'} pulse={item.play && !reduced} glow={item.play} onClick={item.run} className={`menu-action ${item.play ? 'menu-play' : ''}`} data-testid={`menu-${item.key}`}>
           <span className="menu-action-icon" aria-hidden>{item.mark}</span><span>{t(item.key)}</span><span className="menu-action-arrow" aria-hidden>↗</span>
           {item.play && <em className="menu-beta" aria-hidden>{t('menuBeta')}</em>}
+          {item.key === 'menuEditor' && notice && <em role="status" className="menu-beta menu-soon" data-testid="menu-notice">{t(notice)}</em>}
         </InkButton>
       </motion.div>)}</div>
+      {cardSets.length > 0 && <label className="menu-set" data-testid="menu-set">
+        <span>{t('abCardSet')}</span>
+        <select value={cardSets.some(set => set.id === chosenCardSet()) ? chosenCardSet() : ''} onChange={event => rememberCardSet(event.target.value)}>
+          <option value="">{t('abCardSetStarter')}</option>
+          {cardSets.map(set => <option key={set.id} value={set.id}>{pickLoc(set.name, i18n.language)}{set.author ? ` · ${set.author}` : ''}</option>)}
+        </select>
+      </label>}
       <div className="menu-daily" data-testid="daily-reward">
-        <span className="daily-stamp" aria-hidden>+{DAILY_REWARD}<small>USD / ДЕНЬ</small></span>
+        <span className="daily-stamp" aria-hidden>+{DAILY_REWARD}<small>{t('usdPerDay')}</small></span>
         <div className="daily-action">
           <InkButton tone="gold" disabled={!dailyReady || player.loading} onClick={() => void playerSession.claimDaily()} className="daily-button">
             {t('dailyLabel')}
           </InkButton>
-          <p>{!profile ? 'Войди в аккаунт, чтобы забрать награду' : dailyReady ? `$ ${DAILY_REWARD} — награда аккаунта` : `${t('dailyNextLabel')}: ${timer}`}</p>
+          <p>{!profile ? t('dailyLogin') : dailyReady ? t('dailyAccount', { amount: DAILY_REWARD }) : `${t('dailyNextLabel')}: ${timer}`}</p>
         </div>
       </div>
       {player.error && <p role="alert" className="menu-error">{t(player.error)}</p>}
     </section>
-    <section className={`menu-bottle-panel ${dark ? 'is-dark' : ''}`} aria-label="Ранг игрока">
+    <section className={`menu-bottle-panel ${dark ? 'is-dark' : ''}`} aria-label={t('playerRank')}>
       <div className="bottle-stage">
         <div className="bottle-halo" aria-hidden />
         <BeerBottle remainingMl={rank.remainingMl} league={rank.league} />

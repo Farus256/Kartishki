@@ -1,19 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
 import type { Snapshot } from '../../apps/client/src/session';
-import { BOARD_H, BOARD_W, handClick, heroClick, minionClick } from '../../apps/client/src/boardLayout';
 
 const snapshot = (page: Page): Promise<Snapshot> => page.evaluate("import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/session.ts')).name).then(m=>m.session.getSnapshot())");
-async function canvasClick(page: Page, x: number, y: number) {
-  const box = await page.locator('.board canvas').boundingBox(); if (!box) throw new Error('Canvas missing');
-  const scale = Math.min(box.width / BOARD_W, box.height / BOARD_H);
-  await page.mouse.click(box.x + (box.width - BOARD_W * scale) / 2 + x * scale, box.y + (box.height - BOARD_H * scale) / 2 + y * scale);
+/** The mulligan keeps every card: both sides confirm and the first turn opens. */
+async function keepHands(a: Page, b: Page) {
+  await expect.poll(async () => (await snapshot(a)).status).toBe('mulligan');
+  await a.getByTestId('mulligan-confirm').click(); await b.getByTestId('mulligan-confirm').click();
+  await expect.poll(async () => (await snapshot(a)).status).toBe('active');
 }
 async function enterMatch(page: Page) {
   await page.goto((process.env.CLIENT_TEST_URL ?? 'http://127.0.0.1:5173'));
   await page.getByRole('button', { name: 'Играть как гость' }).click();
   await page.getByRole('button', { name: /1 vs 1/ }).click();
 }
-test('editor publishes filtered photo and audio; clients play and attack through Pixi', async ({ browser, request })=>{
+test('editor publishes filtered photo and audio; clients play and attack on the duel table', async ({ browser, request })=>{
   const editor=await browser.newPage({viewport:{width:1280,height:1100}});
   const a=await browser.newPage({viewport:{width:1280,height:1100}}), b=await browser.newPage({viewport:{width:1280,height:1100}});
   const errors: string[]=[]; for(const page of [editor,a,b]) page.on('pageerror',e=>errors.push(e.message));
@@ -38,16 +38,16 @@ test('editor publishes filtered photo and audio; clients play and attack through
   await enterMatch(a); await enterMatch(b);
   await a.getByRole('button', { name: /^Выбрать героя / }).first().click();
   await b.getByRole('button', { name: /^Выбрать героя / }).first().click();
-  await expect.poll(async()=> (await snapshot(a)).status).toBe('active');
-  await expect(a.locator('.board canvas')).toBeVisible({ timeout: 10_000 });
+  await keepHands(a, b);
+  await expect(a.getByTestId('duel-field')).toBeVisible({ timeout: 10_000 });
   await expect.poll(async()=> (await snapshot(b)).cards.length).toBe(catalog.cards.length);
   let summoned='', owner: Page | undefined;
   for(let step=0;step<45 && !summoned;step++) {
     const sa=await snapshot(a), active=sa.activePlayer===sa.sessionId?a:b, s=await snapshot(active);
     const mana=s.players.find(p=>p.id===s.sessionId)!.mana;
-    const n=s.hand.findIndex(h=>s.cards.find(c=>c.id===h.cardId)!.cost<=mana);
+    const n=s.hand.findIndex(h=>{const c=s.cards.find(c=>c.id===h.cardId)!;return c.cost<=mana&&c.id!=='the-coin';});
     if(n>=0) {
-      await canvasClick(active, handClick(s.hand.length, n).x, handClick(s.hand.length, n).y);
+      await active.getByTestId(`duel-hand-card-${s.hand[n]!.instanceId}`).click();
       await expect.poll(async()=> (await snapshot(active)).minions.length).toBe(1);
       summoned=(await snapshot(active)).minions[0].id; owner=active; break;
     }
@@ -58,10 +58,8 @@ test('editor publishes filtered photo and audio; clients play and attack through
     const sa=await snapshot(a),active=sa.activePlayer===sa.sessionId?a:b,s=await snapshot(active),m=s.minions.find(m=>m.id===summoned)!;
     if(active===owner && m.ready) {
       const enemy=s.players.find(p=>p.id!==s.sessionId)!;
-      const mine=s.minions.filter(m=>m.owner===s.sessionId);
-      const idx=mine.findIndex(m=>m.id===summoned);
-      await canvasClick(active, minionClick(mine.length, idx, true).x, minionClick(mine.length, idx, true).y);
-      await canvasClick(active, heroClick(false).x, heroClick(false).y);
+      await active.getByTestId(`duel-minion-${summoned}`).click();
+      await active.getByTestId('duel-face-foe').click();
       await expect.poll(async()=> (await snapshot(active)).players.find(p=>p.id===enemy.id)!.health).toBe(enemy.health-m.attack);
       await expect.poll(async()=> (await snapshot(active)).minions.find(m=>m.id===summoned)!.ready).toBe(false);
       break;
@@ -75,17 +73,20 @@ test('editor publishes filtered photo and audio; clients play and attack through
   for (let step=0; step<90 && !died; step++) {
     const sa=await snapshot(a), active=sa.activePlayer===sa.sessionId?a:b, s=await snapshot(active);
     const mana=s.players.find(p=>p.id===s.sessionId)!.mana;
-    const n=s.hand.findIndex(h=>s.cards.find(c=>c.id===h.cardId)!.cost<=mana);
+    const n=s.hand.findIndex(h=>{const c=s.cards.find(c=>c.id===h.cardId)!;return c.cost<=mana&&c.id!=='the-coin';});
     if(n>=0 && s.minions.filter(m=>m.owner===s.sessionId).length<7) {
-      await canvasClick(active, handClick(s.hand.length, n).x, handClick(s.hand.length, n).y);
+      await active.getByTestId(`duel-hand-card-${s.hand[n]!.instanceId}`).click();
       await expect.poll(async()=> (await snapshot(active)).revision).toBeGreaterThan(s.revision);
       continue;
     }
     const own=s.minions.filter(m=>m.owner===s.sessionId), enemy=s.minions.filter(m=>m.owner!==s.sessionId);
-    const ready=own.findIndex(m=>m.ready);
+    const ready=own.findIndex(m=>m.ready&&m.attack>0);
+    // Taunt first: the table only accepts a legal target.
+    const taunts=enemy.filter(m=>s.cards.find(c=>c.id===m.cardId)?.properties.includes('taunt'));
+    const target=(taunts.length?taunts:enemy)[0]!;
     if(ready>=0 && enemy.length) {
-      await canvasClick(active, minionClick(own.length, ready, true).x, minionClick(own.length, ready, true).y);
-      await canvasClick(active, minionClick(enemy.length, 0, false).x, minionClick(enemy.length, 0, false).y);
+      await active.getByTestId(`duel-minion-${own[ready]!.id}`).click();
+      await active.getByTestId(`duel-minion-${target.id}`).click();
       await expect.poll(async()=> (await snapshot(active)).revision).toBeGreaterThan(s.revision);
       died=(await snapshot(active)).minions.length<s.minions.length;
       if(died) { await active.screenshot({path:'artifacts/impact.png',fullPage:true}); await active.waitForTimeout(750); }
@@ -95,7 +96,7 @@ test('editor publishes filtered photo and audio; clients play and attack through
     await expect.poll(async()=> (await snapshot(active)).revision).toBeGreaterThan(s.revision);
   }
   expect(died).toBe(true);
-  await b.getByRole('button',{name:'Выйти',exact:true}).click(); await expect(a.locator('.result')).toHaveText('Победа');
+  await b.getByRole('button',{name:'Сдаться',exact:true}).click(); await expect(a.getByTestId('duel-result')).toHaveText('Победа');
   expect(errors).toEqual([]); await editor.close();await a.close();await b.close();
 });
 

@@ -14,6 +14,7 @@ import { applyPortraitPreset } from '@kartishki/shared/photo';
 import { uploadPortrait } from './uploadPortrait';
 import { CardInspect } from '../../client/src/ui/CardInspect';
 import '../../client/src/style.css';
+import './editor.css';
 
 const DRAFT_KEY = 'kartishki-editor-draft-v1';
 const MODE_KEY = 'kartishki-editor-mode-v1';
@@ -83,10 +84,10 @@ function Editor() {
   if (mode === 'levels') return <LevelsEditor nav={nav} />;
   if (mode === 'music') return <MusicEditor nav={nav} />;
   if (mode === 'shop') return <ShopEditor nav={nav} />;
-  return <main className="editor"><header><h1>{t('editor')}</h1><div className="editor-nav">{nav}<button onClick={() => setMode('heroes')}>Редактор героев</button></div></header>
+  return <main className="editor"><header><h1>{t('editor')}</h1><div className="editor-nav">{nav}<button onClick={() => setMode('heroes')}>{i18n.language === 'ru' ? 'Редактор героев' : 'Hero editor'}</button></div></header>
     <p className="editor-autosave">{draftStatus}</p><div className="toolbar"><button onClick={() => choose({ ...structuredClone(starterCards[0]), id: `card-${Date.now()}`, name: { ru: t('newCard'), en: '' } })}>{t('newCard')}</button><button disabled={busy} onClick={() => void load()}>{t('reloadCatalog')}</button>
     <select aria-label={t('catalog')} value={catalog.cards.some(c=>c.id===card.id) ? card.id : ''} onChange={e => { const c=catalog.cards.find(c=>c.id===e.target.value); if(c) choose(c); }}><option value="">{t('draft')}</option>{catalog.cards.map(c=><option key={c.id} value={c.id}>{c.name[i18n.language] || c.name.ru}</option>)}</select>
-    <label>{t('import')}<input type="file" accept="application/json,.json" onChange={e => { const file=e.target.files?.[0]; if(file) void (async()=>{ try { if(file.size>7_000_000) throw new Error(); const data: unknown=JSON.parse(await file.text()); if(!validateCard(data)) throw new Error(); choose(data); } catch { setMessage('invalidCard'); } })(); }}/></label></div>
+    <label className="file-button">{t('import')}<input type="file" accept="application/json,.json" onChange={e => { const file=e.target.files?.[0]; if(file) void (async()=>{ try { if(file.size>7_000_000) throw new Error(); const data: unknown=JSON.parse(await file.text()); if(!validateCard(data)) throw new Error(); choose(data); } catch { setMessage('invalidCard'); } })(); }}/></label></div>
     <div className="editor-grid"><section className="editor-fields"><h2>{i18n.language === 'ru' ? 'Параметры карты' : 'Card details'}</h2>
       <label>{t('cardId')}<input value={card.id} maxLength={60} onChange={e=>setCard({...card,id:e.target.value})}/></label>
       {(['ru','en'] as const).map(lang=><label key={lang}>{t('name')} ({lang})<input value={card.name[lang] ?? ''} maxLength={100} onChange={e=>setCard({...card,name:{...card.name,[lang]:e.target.value}})}/></label>)}

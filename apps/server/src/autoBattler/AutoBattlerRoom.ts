@@ -5,19 +5,26 @@ import { CloseCode, Room, ServerError, type Client } from '@colyseus/core';
 import {
   AB_ANOMALIES,
   AUTO_BATTLER,
+  catalogFromCardSet,
+  pickMatchTribes,
+  restrictCatalogToTribes,
+  heroAllowed,
   AUTO_BATTLER_CLIENT_EVENTS as EV,
   AUTO_BATTLER_MESSAGES as MSG,
   AutoBattlerPlayerState,
   AutoBattlerRoomState,
   CombatPairState,
   battlegroundsCurrencyReward,
+  DEFAULT_BATTLEGROUNDS_ELO,
   HeroState,
   battlegroundsXp,
   beerMlForPlace,
   initialUpgradeCost,
   resolveAutoBattlerCatalog,
+  resolveLeveling,
   tavernSizeForTier,
   type ActionErrorCode,
+  type AutoBattlerCatalog,
   type AutoBattlerHeroDef,
   type BattlegroundsRewards,
   type CombatEvent,
@@ -69,10 +76,19 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
   state = new AutoBattlerRoomState();
   private readonly playerIds = new Map<string, string>();
   private readonly settledIds = new Set<string>();
+  /** Seats forfeited by walking out (consented leave or reconnection grace expired), not by dying. */
+  private readonly leftIds = new Set<string>();
 
-  private readonly catalog = resolveAutoBattlerCatalog(catalogStore.snapshot());
-  private readonly pool = new SharedMinionPool(this.catalog);
-  private readonly registry = createDefaultRegistry(this.catalog.minions);
+  /** One catalog clone per room: the tavern and the leveling table are both read from it. */
+  private readonly published = catalogStore.snapshot();
+  /** The starter tavern, or the Workshop set the table was created with (see onCreate). */
+  private catalog: AutoBattlerCatalog = resolveAutoBattlerCatalog(this.published);
+  /** 1st-place beer from the editor's leveling table; last place loses as much. */
+  private readonly ratingAmount = resolveLeveling(this.published.playerLeveling).battlegroundsElo ?? DEFAULT_BATTLEGROUNDS_ELO;
+  private pool = new SharedMinionPool(this.catalog);
+  private registry = createDefaultRegistry(this.catalog.minions);
+  /** Per seat: bought heroes and the equipped skin of the account behind it (guests get the free roster, no skin). */
+  private readonly seatCosmetics = new Map<string, { unlocks: string[]; heroSkin: string }>();
   private readonly heroOffers = new Map<string, AutoBattlerHeroDef[]>();
   private readonly readyClients = new Set<string>();
   private readonly lastBoards = new Map<string, ReturnType<typeof snapshotBoard>>();
@@ -123,9 +139,17 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     };
   }
 
-  onCreate(options: { recruitMs?: unknown; heroMs?: unknown; debug?: unknown; table?: unknown; anomaly?: unknown } = {}) {
+  onCreate(options: { recruitMs?: unknown; heroMs?: unknown; debug?: unknown; table?: unknown; anomaly?: unknown; set?: unknown; tribes?: unknown } = {}) {
     this.clock.start();
-    this.setMetadata({ table: typeof options.table === 'string' ? options.table.slice(0, 64) : '' });
+    // A table may play a published Workshop set instead of the starter tavern; an unknown id falls back silently.
+    const set = typeof options.set === 'string' && options.set ? catalogStore.cardSet(options.set) : undefined;
+    if (set) {
+      this.catalog = catalogFromCardSet(set, this.catalog.version, this.catalog.heroes);
+      this.pool = new SharedMinionPool(this.catalog);
+      this.registry = createDefaultRegistry(this.catalog.minions);
+      this.state.setId = set.id;
+    }
+    this.setMetadata({ table: typeof options.table === 'string' ? options.table.slice(0, 64) : '', set: set?.id ?? '' });
     const testMode = process.env.AB_TEST_MODE === '1' && process.env.NODE_ENV !== 'production';
     const requested = testMode && typeof options.recruitMs === 'number' && Number.isFinite(options.recruitMs) ? options.recruitMs : AUTO_BATTLER.RECRUIT_MS;
     this.recruitMs = Math.min(120_000, Math.max(200, Math.floor(requested)));
@@ -140,6 +164,13 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.anomalyId = AB_ANOMALIES[createRng(hashSeed(['anomaly', this.state.combatSeed])).int(AB_ANOMALIES.length)] ?? '';
     // Tests pin the twist ('' = none) so turn-one gold and prices are predictable.
     if (testMode && typeof options.anomaly === 'string') this.state.anomalyId = options.anomaly;
+    // Hearthstone rule: a handful of the tavern's tribes play at this table; the rest sit out (tests may pin the list).
+    const pinned = testMode && Array.isArray(options.tribes) ? options.tribes.filter((id): id is string => typeof id === 'string') : undefined;
+    const tribes = pinned ?? pickMatchTribes(this.catalog, createRng(hashSeed(['tribes', this.state.combatSeed])).int);
+    this.catalog = restrictCatalogToTribes(this.catalog, tribes);
+    this.pool = new SharedMinionPool(this.catalog);
+    this.registry = createDefaultRegistry(this.catalog.minions);
+    for (const id of tribes) this.state.tribes.push(id);
     this.pool.syncToState(this.state);
     abLog('room.create', { seed: this.state.combatSeed, anomaly: this.state.anomalyId });
     const recruit = (message: string, act: (player: AutoBattlerPlayerState, input: unknown, client: Client) => ActionResult, whenReady = false) => {
@@ -251,7 +282,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     }
   }
 
-  onJoin(client: Client, options: { displayName?: unknown } = {}, auth: { playerId?: string } = {}) {
+  async onJoin(client: Client, options: { displayName?: unknown } = {}, auth: { playerId?: string } = {}) {
     const existing = this.state.players.get(client.sessionId);
     if (existing) {
       existing.connected = true;
@@ -264,6 +295,13 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       if ([...this.playerIds.values()].includes(auth.playerId)) throw new ServerError(409, 'alreadyInMatch');
       this.playerIds.set(client.sessionId, auth.playerId);
     }
+    // Bought heroes and the equipped skin are read once per seat; a store hiccup seats the player as a guest.
+    let cosmetics = { unlocks: [] as string[], heroSkin: '' };
+    if (auth.playerId && this.playerStore) {
+      try { cosmetics = await this.playerStore.cosmetics(auth.playerId); } catch (error) { console.error('Failed to read cosmetics', error); }
+    }
+    if (this.state.phase !== 'LOBBY') { this.playerIds.delete(client.sessionId); throw new ServerError(409, 'matchInProgress'); }
+    this.seatCosmetics.set(client.sessionId, cosmetics);
     const player = new AutoBattlerPlayerState();
     player.sessionId = client.sessionId;
     player.displayName = typeof options.displayName === 'string' && options.displayName.trim()
@@ -275,7 +313,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.players.set(client.sessionId, player);
     this.grantPrivateView(client, player);
     this.state.playerOrder.push(client.sessionId);
-    this.heroOffers.set(client.sessionId, this.dealHeroes());
+    this.heroOffers.set(client.sessionId, this.dealHeroes(client.sessionId));
     abLog('player.join', { id: client.sessionId, name: player.displayName });
     if (this.state.players.size >= AUTO_BATTLER.MAX_PLAYERS) this.beginHeroSelection();
   }
@@ -299,6 +337,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
     if (this.state.phase === 'LOBBY') {
       this.heroOffers.delete(client.sessionId);
+      this.seatCosmetics.delete(client.sessionId);
       this.state.players.delete(client.sessionId);
       this.playerIds.delete(client.sessionId);
       const order = [...this.state.playerOrder].filter(id => id !== client.sessionId);
@@ -316,8 +355,26 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         return;
       } catch { /* grace expired: the seat is forfeited below */ }
     }
-    if (!player.eliminated && this.state.phase !== 'GAME_OVER') this.eliminate(player);
+    if (!player.eliminated && this.state.phase !== 'GAME_OVER') this.eliminate(player, true);
     this.settleAfterLeave();
+  }
+
+  /** More than half the table walked out: nobody plays on, nobody is paid. */
+  private walkedOut(): boolean {
+    return this.leftIds.size * 2 > this.state.players.size;
+  }
+
+  private cancelMatch(): void {
+    if (this.state.phase === 'GAME_OVER') return;
+    this.state.phase = 'GAME_OVER';
+    this.state.cancelled = true;
+    this.state.winnerId = '';
+    this.clearRecruitClock();
+    this.clearHeroClock();
+    this.combatDeadline?.clear();
+    this.state.phaseEndsAt = 0;
+    this.state.revision++;
+    abLog('game.cancelled', { left: [...this.leftIds] });
   }
 
   /** A forfeited seat may have been the last thing the phase waited on. */
@@ -372,9 +429,12 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     client.send(EV.actionError, errorPayload(code));
   }
 
-  private dealHeroes(): AutoBattlerHeroDef[] {
+  private dealHeroes(sessionId: string): AutoBattlerHeroDef[] {
     const rng = createRng(hashSeed(['heroes', this.state.combatSeed, this.serial, this.state.players.size]));
-    const pool = [...this.catalog.heroes];
+    const unlocks = this.seatCosmetics.get(sessionId)?.unlocks ?? [];
+    // Premium heroes are offered only to the accounts that bought them; a set roster is free for everyone.
+    const roster = this.state.setId ? this.catalog.heroes : this.catalog.heroes.filter(hero => heroAllowed(hero.id, unlocks));
+    const pool = roster.length >= AUTO_BATTLER.HERO_CHOICES ? [...roster] : [...this.catalog.heroes];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = rng.int(i + 1);
       [pool[i], pool[j]] = [pool[j]!, pool[i]!];
@@ -393,7 +453,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     player.hero.power.targeted = hero.power.targeted;
     player.hero.power.targetDomain = hero.power.targetDomain;
     player.hero.power.isExhausted = false;
-    abLog('hero.choice', { id: player.sessionId, hero: hero.id });
+    player.hero.skin = this.seatCosmetics.get(player.sessionId)?.heroSkin ?? '';
+    abLog('hero.choice', { id: player.sessionId, hero: hero.id, skin: player.hero.skin });
   }
 
   private everyoneHasHero(): boolean {
@@ -709,7 +770,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     abLog('pairing', { pairs });
   }
 
-  private eliminate(player: AutoBattlerPlayerState): void {
+  private eliminate(player: AutoBattlerPlayerState, left = false): void {
     if (player.eliminated) return;
     if (!this.lastBoards.has(player.sessionId)) this.lastBoards.set(player.sessionId, snapshotBoard(player));
     const remaining = [...this.state.players.values()].filter(item => !item.eliminated).length;
@@ -720,14 +781,20 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     player.recruitReady = true;
     returnOwnedMinionsToPool(player, this.pool);
     this.pool.syncToState(this.state);
-    abLog('player.eliminated', { id: player.sessionId, place: remaining });
+    abLog('player.eliminated', { id: player.sessionId, place: remaining, left });
+    if (left) {
+      // Walk-outs are paid with everyone else at the end, and only if the match is not cancelled.
+      this.leftIds.add(player.sessionId);
+      if (this.walkedOut()) this.cancelMatch();
+      return;
+    }
     // The place is final now, so the beer, cash and xp are too — no need to wait for the winner.
-    void this.persistRewards([player]);
+    if (!this.state.cancelled) void this.persistRewards([player]);
   }
 
   private finishIfNeeded(): boolean {
     const alive = [...this.state.players.values()].filter(player => !player.eliminated);
-    if (alive.length > 1) return false;
+    if (alive.length > 1) return this.state.phase === 'GAME_OVER';
     if (this.state.phase === 'GAME_OVER') return true;
     if (alive[0]) {
       alive[0].placement = 1;
@@ -740,11 +807,12 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.phaseEndsAt = 0;
     this.state.revision++;
     abLog('game.over', { winner: this.state.winnerId });
-    void this.persistRewards();
+    if (!this.state.cancelled) void this.persistRewards();
     return true;
   }
 
   private async persistRewards(only?: AutoBattlerPlayerState[]) {
+    if (this.state.cancelled) return;
     const count = this.state.players.size;
     const players = (only ?? [...this.state.players.values()]).filter(player => player.placement > 0 && !this.settledIds.has(player.sessionId));
     if (!players.length) return;
@@ -755,7 +823,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     });
     let persisted: Record<string, { elo: number; currency: number; gained: number; xp: number; beerMl: number }> = {};
     try {
-      if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, undefined, count);
+      if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, this.ratingAmount, count);
     } catch (error) { console.error('Failed to persist battlegrounds result', error); }
     for (const player of players) {
       if (player.placement < 1) continue;
@@ -763,7 +831,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       if (!client) continue;
       const playerId = this.playerIds.get(player.sessionId);
       const row = playerId ? persisted[playerId] : undefined;
-      const beerMlGain = beerMlForPlace(player.placement, count);
+      const beerMlGain = beerMlForPlace(player.placement, count, this.ratingAmount);
       const eloDelta = beerMlGain;
       const xpGain = battlegroundsXp(player.placement, count);
       const payload: BattlegroundsRewards = {

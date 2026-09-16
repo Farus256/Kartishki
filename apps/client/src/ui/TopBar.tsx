@@ -42,13 +42,13 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
       </div>
       <div className="ml-auto flex items-center gap-5">
         <div className="top-rank">
-          <span className={`beer-league-badge${dark ? ' is-dark' : ''}`} data-testid="beer-league">{dark ? 'II / ЛИГА «ТЁМНОЕ»' : 'I / ЛИГА «СВЕТЛОЕ»'}</span>
-          <strong data-testid="beer-volume" className="top-rank-ml">{rank.remainingMl.toLocaleString('ru-RU')}<small>мл</small></strong>
+          <span className={`beer-league-badge${dark ? ' is-dark' : ''}`} data-testid="beer-league">{t(dark ? 'leagueDark' : 'leagueLight')}</span>
+          <strong data-testid="beer-volume" className="top-rank-ml">{rank.remainingMl.toLocaleString('ru-RU')}<small>{t('ml')}</small></strong>
         </div>
         <div className="relative">
-          <div title={profile ? 'Доллары аккаунта' : 'Доллары • локальная демо-экономика'} className="ink-edge flex min-w-[168px] shrink-0 items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
+          <div title={t(profile ? 'dollarsAccount' : 'dollarsDemo')} className="ink-edge flex min-w-[168px] shrink-0 items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
             <b data-testid="balance" className="min-w-[7.5rem] text-right font-hand text-[30px] tabular-nums">$ {economy.dollars.toLocaleString('en-US')}</b>
-            <button aria-label="Магазин" onClick={onPlus} disabled={!onPlus} className="border-2 border-ink px-2 text-[24px] disabled:opacity-30">+</button>
+            <button aria-label={t('menuShop')} onClick={onPlus} disabled={!onPlus} className="border-2 border-ink px-2 text-[24px] disabled:opacity-30">+</button>
           </div>
           <div className="pointer-events-none absolute inset-x-0 top-full z-[10000] mt-1 flex justify-end gap-1" aria-hidden>
             {economy.currencyEvents.map((event, index) => (
@@ -64,7 +64,7 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
             ))}
           </div>
         </div>
-        <button aria-label="Настройки" onClick={() => window.dispatchEvent(new Event('open-settings'))} className="border-[3px] border-ink px-3 py-2 text-[25px]">⚙</button>
+        <button aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))} className="border-[3px] border-ink px-3 py-2 text-[25px]">⚙</button>
         {right}
       </div>
       <span className="ink-rule" aria-hidden />

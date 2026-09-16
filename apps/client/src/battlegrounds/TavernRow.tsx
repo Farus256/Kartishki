@@ -1,3 +1,4 @@
+import { TribesBadge } from './TribesBadge';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AB_LAYOUT, tavernGap } from './battlegroundsLayout';
@@ -12,6 +13,8 @@ import { useAbDnd } from './abDndContext';
 type Props = {
   me: AbPlayer;
   catalog: AutoBattlerCatalog;
+  /** Tribes in play at this table (neutral always plays). */
+  tribes?: string[];
   recruit: boolean;
   aimingTavern: boolean;
   onBuy: (id: string) => void;
@@ -47,7 +50,7 @@ function UpgradeIcon() {
   );
 }
 
-export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll, onFreeze, onTierUp, error }: Props) {
+export function TavernRow({ me, catalog, tribes = [], recruit, aimingTavern, onBuy, onReroll, onFreeze, onTierUp, error }: Props) {
   const { t, i18n } = useTranslation();
   const dnd = useAbDnd();
   const reaction = useTavernReaction(me, error);
@@ -65,7 +68,18 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
     <section className={`ab-tavern ${me.tavern.frozen ? 'is-frozen' : ''} reaction-${reaction.toLowerCase()}`} data-testid="ab-tavern" style={{ '--ab-card': `${AB_LAYOUT.TAVERN_W}px`, '--ab-tavern-gap': `${tavernGap(me.tavern.offers.length)}px` } as CSSProperties}>
       <div className="ab-tavern-head">
         <header className="ab-tier-sign">
-          <PaperTooltip content={t('abTierHint')}><strong>{t('abTier', { tier: me.tavernTier })} <small>{'★'.repeat(me.tavernTier)}</small></strong></PaperTooltip>
+          <TribesBadge tribes={tribes} copy={catalog.copy} />
+          <PaperTooltip content={<><strong>{t('abTier', { tier: me.tavernTier })}</strong><p>{t('abTierHint')}</p></>}>
+            <strong className="ab-tier-shield" role="img" aria-label={t('abTier', { tier: me.tavernTier })} data-testid="ab-tier-sign" data-tier={me.tavernTier}>
+              <svg viewBox="0 0 100 112" aria-hidden><path d="M50 3 90 16v38c0 26-18 46-40 55C28 100 10 80 10 54V16Z" /><path className="ab-tier-shield-inner" d="M50 11 83 22v32c0 21-15 38-33 46-18-8-33-25-33-46V22Z" /></svg>
+              {/* Stars: one row up to three, then two rows (2+2, 3+2, 3+3). The last star is the one the upgrade just lit. */}
+              <span className="ab-tier-stars">
+                {(me.tavernTier <= 3 ? [me.tavernTier] : [Math.ceil(me.tavernTier / 2), Math.floor(me.tavernTier / 2)]).map((n, row) => (
+                  <span key={row}>{Array.from({ length: n }, (_, i) => <i key={i}>★</i>)}</span>
+                ))}
+              </span>
+            </strong>
+          </PaperTooltip>
           <PaperTooltip content={t('abTierHint')}>
             <button type="button" className={`ab-tavern-btn is-upgrade ${canUpgrade ? 'is-ready' : ''}`}
               disabled={!canUpgrade} onClick={onTierUp} data-testid="ab-tier-up"
@@ -77,7 +91,7 @@ export function TavernRow({ me, catalog, recruit, aimingTavern, onBuy, onReroll,
         </header>
         <div className={`ab-bartender ${dnd?.armed && (dnd.kind === 'board' || dnd.kind === 'hand') ? 'is-sell-ready' : ''} ${sellHot ? 'is-hot' : ''}`} data-testid="ab-sell-zone">
           <Bartender mood={mood} />
-          {sellHot && <b className="ab-sell-tag" aria-hidden>+{AUTO_BATTLER.SELL_REWARD}$</b>}
+          {sellHot && <b className="ab-sell-tag" aria-hidden>+{me.sellReward}$</b>}
           <span>{t('abDealerName')}</span>
           <small role="status" key={reaction}>{reaction ? lines[reaction]?.[i18n.language.startsWith('ru') ? 0 : 1] : t('abSellHint')}</small>
         </div>

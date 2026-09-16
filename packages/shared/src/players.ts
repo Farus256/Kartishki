@@ -1,3 +1,4 @@
+import { DEFAULT_BATTLEGROUNDS_ELO, battlegroundsEloDelta } from './leveling';
 export const DAILY_REWARD = 100;
 export const WIN_REWARD = 50;
 export const PACK_COST = 100;
@@ -30,12 +31,10 @@ export function beerMlForResult(score: number, random = Math.random) {
   if (score === 0.5) return beerMlBetween(BEER_DRAW_MIN, BEER_DRAW_MAX, random);
   return beerMlBetween(BEER_LOSS_MIN, BEER_LOSS_MAX, random);
 }
-/** Beer for a Battlegrounds place: a win range for 1st, a loss range for last, a graded slope between (2nd ≈ +30 … penultimate ≈ −30, ±5 luck). */
-export function beerMlForPlace(place: number, field: number, random = Math.random) {
-  if (field <= 1 || place <= 1) return beerMlForResult(1, random);
-  if (place >= field) return beerMlForResult(0, random);
-  const t = (place - 1) / (field - 1);
-  return Math.round(30 - 60 * t) + beerMlBetween(-5, 5, random);
+/** Beer for a Battlegrounds place: the Hearthstone top-half-gains / bottom-half-loses split, no luck roll. */
+export function beerMlForPlace(place: number, field: number, amount = DEFAULT_BATTLEGROUNDS_ELO) {
+  if (field <= 1) return amount;
+  return battlegroundsEloDelta(place, field, amount);
 }
 export function applyBeerMl(current: number, delta: number) {
   return Math.max(0, (Number.isFinite(current) ? current : 0) + (Number.isFinite(delta) ? Math.trunc(delta) : 0));
@@ -46,10 +45,15 @@ export type PlayerSettings = {
   sfxVolume: number;
   musicVolume: number;
   selectedDeck: string;
+  /** Equipped table preset (see BOARD_PRESETS); '' = the default oak table. */
+  board: string;
+  /** Equipped hero frame (see HERO_SKINS); '' = plain. */
+  heroSkin: string;
 };
 export function defaultSettings(): PlayerSettings {
-  return { language: 'ru', sound: true, sfxVolume: 1, musicVolume: 0.5, selectedDeck: '' };
+  return { language: 'ru', sound: true, sfxVolume: 1, musicVolume: 0.5, selectedDeck: '', board: '', heroSkin: '' };
 }
+const cosmeticId = (value: unknown) => typeof value === 'string' && /^[a-z0-9-]{0,40}$/.test(value);
 function unit(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : fallback;
 }
@@ -63,6 +67,8 @@ export function resolveSettings(value: unknown): PlayerSettings {
     sfxVolume: unit(row.sfxVolume, fallback.sfxVolume),
     musicVolume: unit(row.musicVolume, fallback.musicVolume),
     selectedDeck: typeof row.selectedDeck === 'string' && row.selectedDeck.length <= 64 ? row.selectedDeck : '',
+    board: cosmeticId(row.board) ? row.board as string : '',
+    heroSkin: cosmeticId(row.heroSkin) ? row.heroSkin as string : '',
   };
 }
 export function validateSettingsPatch(value: unknown): Partial<PlayerSettings> | undefined {
@@ -89,14 +95,23 @@ export function validateSettingsPatch(value: unknown): Partial<PlayerSettings> |
     if (typeof row.selectedDeck !== 'string' || row.selectedDeck.length > 64) return undefined;
     patch.selectedDeck = row.selectedDeck;
   }
+  if (row.board !== undefined) {
+    if (!cosmeticId(row.board)) return undefined;
+    patch.board = row.board as string;
+  }
+  if (row.heroSkin !== undefined) {
+    if (!cosmeticId(row.heroSkin)) return undefined;
+    patch.heroSkin = row.heroSkin as string;
+  }
   return patch;
 }
 export type PlayerProfile = {
   id: string; username: string; elo: number; currency: number; xp: number; beerMl: number;
   lastDaily: string | null; dailyAvailable: boolean; settings: PlayerSettings;
+  /** Admin accounts open the in-game editor; everyone else sees "in development". */ isAdmin: boolean;
 };
 export type SavedDeck = { id: string; name: string; cards: string[]; version: number };
-export type PlayerLibrary = { profile: PlayerProfile; collection: { cardId: string; copies: number }[]; decks: SavedDeck[] };
+export type PlayerLibrary = { profile: PlayerProfile; collection: { cardId: string; copies: number }[]; decks: SavedDeck[]; /** Bought cosmetics and heroes (ids from COSMETICS). */ unlocks?: string[] };
 export type PlayerLogin = { token: string; library: PlayerLibrary };
 export type LootCard = { id: string; rarity: string; name: Record<string, string> };
 export type PackResult = { cards: LootCard[]; currency: number; xp: number; duplicates: { id: string; amount: number }[] };

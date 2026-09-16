@@ -21,10 +21,12 @@ export const AUTO_BATTLER = {
   DISCOVER_SPELL_ID: 'ab-discover',
   HERO_CHOICES: 2,
   /** Authoritative recruit-phase length. Room clock ticks seconds; at 0 combat starts. */
-  /** Turn 1 recruit length; each later turn adds RECRUIT_STEP_MS up to RECRUIT_MAX_MS (bigger boards need more time). */
-  RECRUIT_MS: 35_000,
-  RECRUIT_STEP_MS: 8_000,
-  RECRUIT_MAX_MS: 80_000,
+  /** Hearthstone curve: turn 1 = 60s, +15s per turn, capped at 120s. */
+  RECRUIT_MS: 60_000,
+  RECRUIT_STEP_MS: 15_000,
+  RECRUIT_MAX_MS: 120_000,
+  /** The first turns are short on choices: a Ready button lets the table skip the wait. */
+  EARLY_READY_TURNS: 4,
   HERO_SELECT_MS: 20_000,
   RECONNECT_GRACE_SECONDS: 45,
   MAX_COMBAT_ACTIONS: 512,
@@ -159,6 +161,8 @@ export const HeroState = schema({
   health: t.number().default(AUTO_BATTLER.STARTING_HEALTH),
   maxHealth: t.number().default(AUTO_BATTLER.STARTING_HEALTH),
   power: HeroPowerState,
+  /** Equipped hero skin (a purchased frame, see cosmetics.ts); '' = plain. */
+  skin: t.string().default(''),
 }, 'AutoBattlerHeroState');
 export type HeroState = InstanceType<typeof HeroState>;
 export const Hero = HeroState;
@@ -222,7 +226,10 @@ export const AutoBattlerPlayerState = schema({
   /** Current prices, so anomalies and free-refresh spells reach every client check. */
   buyCost: t.number().default(AUTO_BATTLER.BUY_COST),
   rerollCost: t.number().default(AUTO_BATTLER.REROLL_COST),
+  sellReward: t.number().default(AUTO_BATTLER.SELL_REWARD),
   freeRerolls: t.number().default(0),
+  /** Gold earned by end-of-turn effects; paid out on top of next turn's income (the turn reset would otherwise eat it). */
+  bankedGold: t.number().default(0),
   buysThisTurn: t.number().default(0),
   nextOpponentId: t.string().default(''),
   lastOpponentId: t.string().default(''),
@@ -260,6 +267,12 @@ export const AutoBattlerRoomState = schema({
   phaseEndsAt: t.number().default(0),
   /** One rule twist for the whole table, chosen at game start (see AB_ANOMALIES). */
   anomalyId: t.string().default(''),
+  /** More than half the table walked out: the game ends without rewards. */
+  cancelled: t.boolean().default(false),
+  /** Workshop card set this table plays with ('' = the starter tavern). */
+  setId: t.string().default(''),
+  /** Tribes in play at this table (see pickMatchTribes); neutral always plays and is not listed. */
+  tribes: t.array('string'),
 }, 'AutoBattlerRoomState');
 export type AutoBattlerRoomState = InstanceType<typeof AutoBattlerRoomState>;
 
@@ -339,8 +352,18 @@ export type DiscoverOptionsMessage = {
 export const autoBattlerKeywords = ['taunt', 'divineShield', 'poisonous', 'deathrattle', 'battlecry', 'windfury', 'reborn', 'cleave', 'immune', 'cannotAttack', 'humiliate', 'bait'] as const;
 export type AutoBattlerKeyword = typeof autoBattlerKeywords[number];
 
+/** Built-in tribes. A catalog (or a Workshop set) may add its own: any entry in `copy.tribes` with an unknown id is a new tribe. */
 export const autoBattlerTribes = ['beast', 'mech', 'pirate', 'undead', 'dragon', 'neutral'] as const;
-export type AutoBattlerTribe = typeof autoBattlerTribes[number];
+export type AutoBattlerBuiltinTribe = typeof autoBattlerTribes[number];
+/** Tribe id: a built-in or a custom one declared in the copy block (`^[a-z0-9][a-z0-9-]{0,59}$`). */
+export type AutoBattlerTribe = string;
+export const AB_TRIBE_LIMIT = 24;
+export const AB_TRIBE_ID = /^[a-z0-9][a-z0-9-]{0,59}$/;
+/** Every tribe a catalog knows: built-ins, then custom ones from the copy block, `neutral` always last. */
+export function abTribes(copy?: AutoBattlerCopy): AutoBattlerTribe[] {
+  const custom = Object.keys(copy?.tribes ?? {}).filter(id => !(autoBattlerTribes as readonly string[]).includes(id));
+  return [...autoBattlerTribes.filter(id => id !== 'neutral'), ...custom, 'neutral'];
+}
 export const autoBattlerBattlecries = ['ab-bc-gold'] as const;
 export const autoBattlerAuras = ['ab-aura-beasts'] as const;
 
@@ -369,22 +392,32 @@ export type AutoBattlerEffectAction =
   /** Summons tokens: onto your tavern board (battlecry/endTurn/…) or into combat (startCombat/deathrattle/friendlyDeath). */
   | { kind: 'summon'; summonId: string; count: number };
 export const autoBattlerEffectScales = ['tribes', 'minions'] as const;
-export type AutoBattlerEffect = {
-  trigger: AutoBattlerEffectTrigger;
+/** One action of a scenario: who gets it, how it scales, what it does. */
+export type AutoBattlerEffectStep = {
   /** Who receives a buff; defaults to 'self'. 'subject' = the minion that caused the trigger (played/bought/dying/attacking). */
   target?: AutoBattlerEffectTarget;
   /** Tribe filter for 'friendly' / 'random' / 'hand' / 'aura' targets. */
   tribe?: AutoBattlerTribe | 'all';
-  /** For play/buy/sell/friendlyDeath/shieldPop/friendlyAttack: only fire when the subject minion has this tribe. */
-  onTribe?: AutoBattlerTribe | 'all';
-  /** Same, by keyword (e.g. only when a Deathrattle minion dies). */
-  onKeyword?: AutoBattlerKeyword;
   /** Multiply buff amounts: 'tribes' = distinct tribes on your board (menagerie), 'minions' = friendly minions matching perTribe/perKeyword. */
   per?: typeof autoBattlerEffectScales[number];
   perTribe?: AutoBattlerTribe | 'all';
   perKeyword?: AutoBattlerKeyword;
   action: AutoBattlerEffectAction;
 };
+export const AB_EFFECT_STEP_LIMIT = 4;
+export type AutoBattlerEffect = AutoBattlerEffectStep & {
+  trigger: AutoBattlerEffectTrigger;
+  /** For play/buy/sell/friendlyDeath/shieldPop/friendlyAttack: only fire when the subject minion has this tribe. */
+  onTribe?: AutoBattlerTribe | 'all';
+  /** Same, by keyword (e.g. only when a Deathrattle minion dies). */
+  onKeyword?: AutoBattlerKeyword;
+  /** Scenario: further actions that run in order after `action`, on the same trigger and subject (each picks its own targets). */
+  steps?: AutoBattlerEffectStep[];
+};
+/** The first action and every scenario step, in execution order. */
+export function effectParts(effect: AutoBattlerEffect): AutoBattlerEffectStep[] {
+  return [effect, ...(effect.steps ?? [])];
+}
 
 export const autoBattlerSpellKinds = ['discover', 'coin', 'freeReroll', 'tonic'] as const;
 export type AutoBattlerSpellKind = typeof autoBattlerSpellKinds[number];
@@ -557,31 +590,42 @@ export function validateAutoBattlerCopy(value: unknown): value is AutoBattlerCop
     return Object.entries(items).every(([id, entry]) => (allowed ? (allowed as readonly string[]).includes(id) : typeof id === 'string' && id.length <= 60) && copyEntryOk(entry));
   };
   return bag(copy.keywords as Record<string, AutoBattlerCopyEntry> | undefined, autoBattlerKeywords)
-    && bag(copy.tribes as Record<string, AutoBattlerCopyEntry> | undefined, autoBattlerTribes)
+    && bag(copy.tribes as Record<string, AutoBattlerCopyEntry> | undefined) && Object.keys(copy.tribes ?? {}).length <= AB_TRIBE_LIMIT && Object.keys(copy.tribes ?? {}).every(id => AB_TRIBE_ID.test(id))
     && bag(copy.powers as Record<string, AutoBattlerCopyEntry> | undefined, Object.keys(autoBattlerHeroPowerPresets))
     && bag(copy.battlecries as Record<string, AutoBattlerCopyEntry> | undefined, autoBattlerBattlecries)
     && bag(copy.auras as Record<string, AutoBattlerCopyEntry> | undefined, autoBattlerAuras);
 }
 
-export function validateAutoBattlerEffect(value: unknown): value is AutoBattlerEffect {
+const tribeOk = (tribe: unknown) => tribe === undefined || tribe === 'all' || (typeof tribe === 'string' && AB_TRIBE_ID.test(tribe));
+const keywordOk = (k: unknown) => k === undefined || autoBattlerKeywords.includes(k as AutoBattlerKeyword);
+
+/** One scenario step (the first action of an effect is validated the same way). */
+export function validateAutoBattlerEffectStep(value: unknown, trigger: AutoBattlerEffectTrigger): value is AutoBattlerEffectStep {
   if (!value || typeof value !== 'object') return false;
-  const e = value as AutoBattlerEffect;
-  if (!autoBattlerEffectTriggers.includes(e.trigger)) return false;
+  const e = value as AutoBattlerEffectStep;
   if (e.target !== undefined && !autoBattlerEffectTargets.includes(e.target)) return false;
-  const tribeOk = (tribe: unknown) => tribe === undefined || tribe === 'all' || autoBattlerTribes.includes(tribe as AutoBattlerTribe);
-  if (!tribeOk(e.tribe) || !tribeOk(e.onTribe) || !tribeOk(e.perTribe)) return false;
-  const keywordOk = (k: unknown) => k === undefined || autoBattlerKeywords.includes(k as AutoBattlerKeyword);
-  if (!keywordOk(e.onKeyword) || !keywordOk(e.perKeyword)) return false;
+  if (!tribeOk(e.tribe) || !tribeOk(e.perTribe)) return false;
+  if (!keywordOk(e.perKeyword)) return false;
   if (e.per !== undefined && !autoBattlerEffectScales.includes(e.per)) return false;
   const a = e.action;
   if (!a || typeof a !== 'object') return false;
   const num = (n: unknown, min: number, max: number) => Number.isInteger(n) && (n as number) >= min && (n as number) <= max;
   if (a.kind === 'buff') return num(a.attack, -20, 20) && num(a.health, -20, 20);
   if (a.kind === 'gold') return num(a.amount, 1, 10);
-  if (a.kind === 'aura') return e.trigger === 'aura' && num(a.attack, 1, 10);
+  if (a.kind === 'aura') return trigger === 'aura' && num(a.attack, 1, 10);
   if (a.kind === 'keyword') return autoBattlerKeywords.includes(a.keyword);
   if (a.kind === 'summon') return idOk(a.summonId) && num(a.count, 1, 7);
   return false;
+}
+
+export function validateAutoBattlerEffect(value: unknown): value is AutoBattlerEffect {
+  if (!value || typeof value !== 'object') return false;
+  const e = value as AutoBattlerEffect;
+  if (!autoBattlerEffectTriggers.includes(e.trigger)) return false;
+  if (!tribeOk(e.onTribe) || !keywordOk(e.onKeyword)) return false;
+  if (!validateAutoBattlerEffectStep(e, e.trigger)) return false;
+  if (e.steps !== undefined && (!Array.isArray(e.steps) || e.steps.length > AB_EFFECT_STEP_LIMIT || !e.steps.every(step => validateAutoBattlerEffectStep(step, e.trigger)))) return false;
+  return true;
 }
 
 export function validateAutoBattlerMinion(value: unknown): value is AutoBattlerMinionDef {
@@ -595,7 +639,7 @@ export function validateAutoBattlerMinion(value: unknown): value is AutoBattlerM
   if (!Number.isInteger(m.health) || m.health < 1 || m.health > 99) return false;
   if (!Array.isArray(m.keywords) || m.keywords.length > 8 || new Set(m.keywords).size !== m.keywords.length
     || m.keywords.some(k => !autoBattlerKeywords.includes(k))) return false;
-  if (m.tribes && (!Array.isArray(m.tribes) || m.tribes.length > 3 || m.tribes.some(t => !autoBattlerTribes.includes(t)))) return false;
+  if (m.tribes && (!Array.isArray(m.tribes) || m.tribes.length > 3 || m.tribes.some(t => !AB_TRIBE_ID.test(t)))) return false;
   if (m.poolCopies !== undefined && (!Number.isInteger(m.poolCopies) || m.poolCopies < 1 || m.poolCopies > 30)) return false;
   if (m.token !== undefined && typeof m.token !== 'boolean') return false;
   if (m.generated !== undefined && typeof m.generated !== 'boolean') return false;

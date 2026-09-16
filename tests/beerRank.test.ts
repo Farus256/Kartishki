@@ -34,8 +34,13 @@ test('filling the bottle unlocks dark; losses can drop it back', () => {
   assert.equal(addBeerMl(promoted, BEER_WIN_MAX).league, 'dark');
   assert.equal(addBeerMl(promoted, BEER_LOSS_MIN).remainingMl, 1920);
   assert.equal(addBeerMl(promoted, BEER_LOSS_MIN).league, 'light');
-  assert.equal(beerMlForPlace(1, 2, low), BEER_WIN_MIN);
-  assert.equal(beerMlForPlace(2, 2, high), BEER_LOSS_MAX);
+  // Battlegrounds: Hearthstone split — the top half gains, the bottom half loses, scaled by rank.
+  assert.equal(beerMlForPlace(1, 2, 60), 60);
+  assert.equal(beerMlForPlace(2, 2, 60), -60);
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(place => beerMlForPlace(place, 8, 60)), [60, 45, 30, 15, -15, -30, -45, -60]);
+  assert.deepEqual([1, 2, 3, 4].map(place => beerMlForPlace(place, 4, 60)), [60, 30, -30, -60]);
+  // Odd tables round toward more losers: 5 players → 2 gain, 3 lose.
+  assert.deepEqual([1, 2, 3, 4, 5].map(place => beerMlForPlace(place, 5, 60)), [60, 30, -20, -40, -60]);
 });
 test('invalid persisted ranks cannot produce a negative bottle', () => {
   assert.equal(isBeerRank({ league: 'light', remainingMl: -1, lastElo: 1000 }), false);

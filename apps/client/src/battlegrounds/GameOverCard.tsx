@@ -7,11 +7,11 @@ import { spawnBurst } from './tableFx';
 type Reward = { elo: number; previousElo: number; gained: number; xpGain?: number };
 
 /** End of a Battlegrounds run: a placement banner (gold / silver / bronze for the podium) and the three rewards. */
-export function GameOverCard({ placement, finished, winner, reward, onAgain, onLeave }: { placement: number; finished: boolean; winner: boolean; reward?: Reward; onAgain: () => void; onLeave: () => void }) {
+export function GameOverCard({ placement, finished, winner, cancelled = false, reward, onAgain, onLeave }: { placement: number; finished: boolean; winner: boolean; /** More than half the table walked out: no place, no rewards. */ cancelled?: boolean; reward?: Reward; onAgain: () => void; onLeave: () => void }) {
   const { t, i18n } = useTranslation();
   const ru = i18n.language.startsWith('ru');
   const place = placement || (winner ? 1 : 0);
-  const tier = place === 1 ? 'top1' : place === 2 ? 'top2' : place === 3 ? 'top3' : 'out';
+  const tier = cancelled ? 'out' : place === 1 ? 'top1' : place === 2 ? 'top2' : place === 3 ? 'top3' : 'out';
   const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
     audioManager.play(tier === 'top1' ? 'case_win' : tier === 'out' ? 'ab_stamp' : 'ab_upgrade');
@@ -23,7 +23,7 @@ export function GameOverCard({ placement, finished, winner, reward, onAgain, onL
     const timers = [0, 380, 760, 1200, 1700].map((ms, i) => window.setTimeout(() => spawnBurst({ x: host.offsetWidth * (i % 2 ? .82 : .18), y: 40 + (i % 3) * 30, w: 10, h: 10 }, color, 16, host), ms));
     return () => timers.forEach(clearTimeout);
   }, [tier]);
-  const title = tier === 'top1' ? (ru ? 'ПОБЕДА!' : 'VICTORY!') : tier === 'top2' ? (ru ? 'ВТОРОЕ МЕСТО' : 'SECOND PLACE') : tier === 'top3' ? (ru ? 'ТРЕТЬЕ МЕСТО' : 'THIRD PLACE') : finished ? t('abGameOver') : t('abEliminated');
+  const title = cancelled ? (ru ? 'МАТЧ ОТМЕНЁН' : 'MATCH CANCELLED') : tier === 'top1' ? (ru ? 'ПОБЕДА!' : 'VICTORY!') : tier === 'top2' ? (ru ? 'ВТОРОЕ МЕСТО' : 'SECOND PLACE') : tier === 'top3' ? (ru ? 'ТРЕТЬЕ МЕСТО' : 'THIRD PLACE') : finished ? t('abGameOver') : t('abEliminated');
   const beer = reward ? reward.elo - reward.previousElo : 0;
   return (
     <div className="ab-modal" data-testid="ab-gameover">
@@ -34,9 +34,10 @@ export function GameOverCard({ placement, finished, winner, reward, onAgain, onL
           {tier === 'out' && <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="44" fill="#5a4a48" stroke="#2a1a10" strokeWidth="5" /><path d="M40 44l40 32M80 44 40 76" stroke="#b32e23" strokeWidth="8" strokeLinecap="round" /></svg>}
         </div>
         <h2>{title}</h2>
-        {place > 0 && tier === 'out' && <p className="ab-final-place">{t('abPlace', { n: place })}</p>}
-        {!finished && !reward && <p className="ab-final-note">{ru ? 'Награды придут после финала.' : 'Rewards arrive after the final.'}</p>}
-        {reward && (
+        {place > 0 && tier === 'out' && !cancelled && <p className="ab-final-place">{t('abPlace', { n: place })}</p>}
+        {cancelled && <p className="ab-final-note">{ru ? 'Больше половины игроков вышли из матча — награды не начисляются.' : 'More than half the table left the match — no rewards are paid.'}</p>}
+        {!finished && !reward && !cancelled && <p className="ab-final-note">{ru ? 'Награды придут после финала.' : 'Rewards arrive after the final.'}</p>}
+        {reward && !cancelled && (
           <div className="ab-final-rewards">
             <div className={`ab-final-reward ${beer >= 0 ? 'is-gain' : 'is-loss'}`}><i>🍺</i><b>{beer > 0 ? '+' : ''}{beer}</b><small>{ru ? 'мл пива' : 'ml beer'}</small></div>
             <div className="ab-final-reward is-gain"><i>$</i><b>+{reward.gained}</b><small>{ru ? 'наличные' : 'cash'}</small></div>

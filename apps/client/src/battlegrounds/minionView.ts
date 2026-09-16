@@ -7,7 +7,7 @@ export function localizedName(name: { ru: string; en: string }, lang: string): s
 
 export function minionName(cardId: string, catalog: AutoBattlerCatalog, lang: string): string {
   const def = catalog.minions.find(item => item.id === cardId);
-  if (!def) return cardId === 'ab-discover' ? (lang.startsWith('en') ? 'Discover' : 'Открытие') : cardId;
+  if (!def) return cardId === 'ab-discover' ? (lang.startsWith('en') ? 'Discover' : 'Открытие') /* built-in spell: both names inline */ : cardId;
   return localizedName(def.name, lang);
 }
 

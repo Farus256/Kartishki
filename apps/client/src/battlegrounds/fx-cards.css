@@ -43,7 +43,7 @@
 @keyframes ab-dossier-in { from { opacity:0; transform:translateX(-10px) scale(.92); } to { opacity:1; transform:none; } }
 .ab-dossier { width:264px; min-height:392px; border:0; border-radius:10px; padding:10px 10px 8px; background:linear-gradient(180deg,#f6efdc,#e9dfc4); box-shadow:0 0 0 4px #3a2a20,0 0 0 6px #c9a463,10px 14px 0 #1a1a1a66; }
 .ab-dossier.is-golden { background:repeating-linear-gradient(115deg,#d9b866 0 15px,#f2e4ac 17px,#c49b48 22px,#e5cf8a 28px); box-shadow:0 0 0 4px #5a3f12,0 0 0 6px #ffd76a,0 0 24px #ffd76a88,10px 14px 0 #1a1a1a66; }
-.ab-dossier-stars { padding:0 4px 4px; font-size:15px; color:#8a6a2b; text-shadow:0 1px 0 #fff8e6; }
+.ab-dossier-stars { padding:0 4px 4px; font-size:18px; color:#8a6a2b; text-shadow:0 1px 0 #fff8e6; }
 .ab-dossier-art { margin:0; height:158px; border:3px solid #2a1a10; border-radius:8px 8px 40% 40% / 8px 8px 22% 22%; background:#d5cfbd; box-shadow:inset 0 0 0 2px #f6efdc; }
 .ab-dossier-name { margin:-14px 8px 0; padding:6px 10px; border:3px solid #2a1a10; border-radius:8px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; font:21px/1.1 var(--font-hand); box-shadow:0 3px 0 #1a1a1a55; }
 .ab-dossier-text { margin:10px 6px 6px; padding:8px 10px; min-height:104px; max-height:150px; border:0; border-radius:6px; background:#fff9ea; box-shadow:inset 0 0 0 1px #c9b78e; font:bold 18px/1.25 var(--font-hand); text-align:center; color:#2a1f18; }
@@ -53,7 +53,7 @@
 .ab-dossier.is-spell .ab-dossier-name { background:linear-gradient(180deg,#8a5a1e,#5a3a12); }
 
 /* Hand: the hovered card grows, neighbours lean away */
-.ab-hand .ab-minion-wrap { transition:translate .18s ease; }
+.ab-hand .ab-minion-wrap { transition:translate .18s ease,transform .15s cubic-bezier(.2,.8,.3,1); }
 .ab-hand .ab-minion-wrap:hover ~ .ab-minion-wrap { translate:22px 0; }
 .ab-hand .ab-minion-wrap:has(~ .ab-minion-wrap:hover) { translate:-22px 0; }
 .ab-screen.is-ab-dragging .ab-hand .ab-minion-wrap { translate:0 0!important; }
@@ -89,7 +89,7 @@
 /* Hand: each card is the hover dossier itself, zoomed to the 170×252 hand slot (ghost too) */
 .ab-minion.is-dossier { height:auto; padding:0; border:0; background:transparent; box-shadow:none; }
 .ab-minion.is-dossier::after { content:none; }
-.ab-minion.is-dossier .ab-dossier { zoom:.53; }
+.ab-minion.is-dossier .ab-dossier { zoom:.53; height:392px; }
 .ab-minion.is-dossier .ab-minion-act { z-index:2; }
 .ab-hand .ab-minion:hover .ab-dossier,.ab-hand .ab-minion:focus-visible .ab-dossier { box-shadow:0 0 0 4px #3a2a20,0 0 0 8px var(--gold),0 0 34px #ffd76a,10px 14px 0 #1a1a1a66; }
 

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, coercePlayerLeveling, validateMenuMusic, emptyMenuMusic, defaultShop, resolveShop, validateShopConfig, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic, type ShopConfig } from '@kartishki/shared';
+import { abTribes, starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, coercePlayerLeveling, validateMenuMusic, emptyMenuMusic, defaultShop, resolveShop, validateShopConfig, validateCardSet, setFairness, cardSetSummary, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic, type ShopConfig, type CardSet, type CardSetSummary } from '@kartishki/shared';
 import { catalogFile } from './catalogFile';
 
 export class CatalogStore {
@@ -20,6 +20,7 @@ export class CatalogStore {
       }
       if (data.menuMusic && !validateMenuMusic(data.menuMusic)) throw new Error('Invalid menu music');
       if (data.shop && !validateShopConfig(data.shop)) throw new Error('Invalid shop');
+      if (data.cardSets && (!Array.isArray(data.cardSets) || data.cardSets.length > 50 || !data.cardSets.every(validateCardSet) || new Set(data.cardSets.map(s => s.id)).size !== data.cardSets.length)) throw new Error('Invalid card sets');
       this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: mergeById(starterAutoBattlerMinions, data.autoBattlerMinions), autoBattlerHeroes: mergeById(starterAutoBattlerHeroes, data.autoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling), menuMusic: data.menuMusic ?? structuredClone(emptyMenuMusic), shop: data.shop ?? structuredClone(defaultShop) };
     }
   }
@@ -52,6 +53,9 @@ export class CatalogStore {
     if (minions.length >= 200) throw new Error('catalogFull');
     const nextList = [...minions, structuredClone(minion)];
     if (minion.deathrattle && !nextList.some(m => m.id === minion.deathrattle!.summonId)) throw new Error('invalidCard');
+    // A tribe must be declared (built-in or in the copy block) before minions can carry it.
+    const known = abTribes(this.catalog.autoBattlerCopy);
+    if (minion.tribes?.some(id => !known.includes(id))) throw new Error('unknownTribe');
     const next = { ...this.catalog, version: version + 1, autoBattlerMinions: nextList };
     mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(`${this.file}.tmp`, JSON.stringify(next)); renameSync(`${this.file}.tmp`, this.file);
     this.catalog = next; return this.snapshot();
@@ -88,6 +92,34 @@ export class CatalogStore {
     const next = { ...this.catalog, version: version + 1, shop: structuredClone(shop) };
     mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(`${this.file}.tmp`, JSON.stringify(next)); renameSync(`${this.file}.tmp`, this.file);
     this.catalog = next; return this.snapshot();
+  }
+  /** A Workshop set: validated, judged for fairness (a broken set is refused), then stored under its id. */
+  publishCardSet(set: CardSet, version: number) {
+    if (!validateCardSet(set)) throw new Error('invalidSet');
+    if (version !== this.catalog.version) throw new Error('catalogConflict');
+    if (setFairness(set.minions).grade === 'broken') throw new Error('unfairSet');
+    const sets = (this.catalog.cardSets ?? []).filter(s => s.id !== set.id);
+    if (sets.length >= 50) throw new Error('catalogFull');
+    const previous = this.catalog.cardSets?.find(s => s.id === set.id);
+    const stored: CardSet = { ...structuredClone(set), version: previous ? previous.version + 1 : Math.max(1, set.version) };
+    const next = { ...this.catalog, version: version + 1, cardSets: [...sets, stored] };
+    mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(`${this.file}.tmp`, JSON.stringify(next)); renameSync(`${this.file}.tmp`, this.file);
+    this.catalog = next; return this.snapshot();
+  }
+  removeCardSet(id: string, version: number) {
+    if (version !== this.catalog.version) throw new Error('catalogConflict');
+    if (!this.catalog.cardSets?.some(s => s.id === id)) throw new Error('invalidSet');
+    const next = { ...this.catalog, version: version + 1, cardSets: this.catalog.cardSets.filter(s => s.id !== id) };
+    mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(`${this.file}.tmp`, JSON.stringify(next)); renameSync(`${this.file}.tmp`, this.file);
+    this.catalog = next; return this.snapshot();
+  }
+  /** Lobby list: summaries only, no clone of every set's minions. */
+  cardSetSummaries(): CardSetSummary[] {
+    return (this.catalog.cardSets ?? []).map(cardSetSummary);
+  }
+  cardSet(id: string): CardSet | undefined {
+    const set = this.catalog.cardSets?.find(s => s.id === id);
+    return set ? structuredClone(set) : undefined;
   }
   publishAutoBattlerCopy(copy: AutoBattlerCopy, version: number) {
     if (!validateAutoBattlerCopy(copy)) throw new Error('invalidCard');

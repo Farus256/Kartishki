@@ -92,3 +92,22 @@ test('a consented leave settles the phase the table was waiting on',{timeout:200
   assert.equal(h.host.state.players.get(c.sessionId)!.placement,3);
  }finally{await h.server.gracefullyShutdown(false);}
 });
+
+test('more than half the table walking out cancels the match without rewards',{timeout:20000},async()=>{
+ const h=await harness(4);try{
+  const [a,b,c,d]=h.rooms as [Room<AutoBattlerRoomState>,Room<AutoBattlerRoomState>,Room<AutoBattlerRoomState>,Room<AutoBattlerRoomState>];
+  const settled=(h.host as any).settledIds as Set<string>;
+  await c.leave(true);
+  await until(()=>h.host.state.players.get(c.sessionId)!.eliminated);
+  await d.leave(true);
+  await until(()=>h.host.state.players.get(d.sessionId)!.eliminated);
+  // 2 of 4 is exactly half: the game goes on and nobody has been paid yet (walk-outs settle at the end).
+  assert.equal(h.host.state.phase,'RECRUIT_PHASE');assert.equal(h.host.state.cancelled,false);assert.equal(settled.size,0);
+  await b.leave(true);
+  await until(()=>h.host.state.phase==='GAME_OVER');
+  assert.equal(h.host.state.cancelled,true);assert.equal(h.host.state.winnerId,'');
+  await until(()=>a.state.cancelled===true);
+  assert.equal(settled.size,0,'a cancelled match pays no beer, cash or xp');
+  assert.equal(h.host.state.players.get(a.sessionId)!.placement,0);
+ }finally{await h.server.gracefullyShutdown(false);}
+});

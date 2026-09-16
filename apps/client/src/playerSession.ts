@@ -116,6 +116,13 @@ export const playerSession = {
   async refresh() { await run(async()=>setLibrary(await request<PlayerLibrary>('/me'), true)); },
   async logout() { await run(async()=>{ await request('/logout','POST'); token=''; localStorage.removeItem('playerToken'); publish({library:undefined,selectedDeck:'',beerRank:loadGuestRank(), xp: loadGuestXp(), lastReward: undefined}); }); },
   async claimDaily() { await run(async()=>setLibrary(await request<PlayerLibrary>('/daily','POST',{}))); },
+  /** Buys a table preset, hero frame or premium hero once; prices live on the server. */
+  async buyCosmetic(itemId: string) {
+    if (!token || !snapshot.library) return false;
+    let ok = false;
+    await run(async()=>{ setLibrary(await request<PlayerLibrary>('/unlocks','POST',{ itemId })); ok = true; });
+    return ok;
+  },
   async changeCurrency(delta: number) {
     if (!token || !snapshot.library || !Number.isInteger(delta)) return false;
     if (!delta) return true;

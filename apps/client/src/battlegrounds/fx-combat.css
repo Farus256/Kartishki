@@ -1,8 +1,7 @@
 /* fx-combat: duel camera, blood, crumble, poison mist, shield shards, hero stamp. transform/opacity only. */
 
-/* Camera: the duelling pair steps forward, the rest fall back */
+/* Camera: the duelling pair steps forward; the table itself stays lit and sharp */
 .ab-combat-card { transition:left .13s ease-out,opacity .16s ease,filter .16s ease,scale .16s ease; }
-.ab-combat.is-duel .ab-combat-card:not(.is-attacking):not(.is-defending) { opacity:.74; filter:saturate(.75) brightness(.92); }
 .ab-combat.is-duel .ab-combat-card.is-defending { z-index:5; scale:1.06; }
 .ab-combat.is-duel .ab-combat-card.is-attacking { scale:1.06; }
 .ab-combat-card .ab-combat-flip { will-change:translate,rotate; }
@@ -10,8 +9,8 @@
 /* Impact */
 .ab-combat-veil { position:absolute; inset:-20px; pointer-events:none; z-index:11; background:radial-gradient(ellipse at 50% 50%,transparent 45%,#b2201a55 100%); animation:ab-veil .42s ease-out forwards; }
 @keyframes ab-veil { from { opacity:1; } to { opacity:0; } }
-.ab-combat-splat { position:absolute; width:110px; height:90px; margin:0; pointer-events:none; z-index:10; background:radial-gradient(ellipse at 40% 45%,#7a0f0c 0 22%,transparent 24%),radial-gradient(circle at 70% 30%,#8f1511 0 12%,transparent 14%),radial-gradient(circle at 25% 70%,#6e0b09 0 10%,transparent 12%),radial-gradient(circle at 75% 72%,#8f1511 0 8%,transparent 10%); will-change:transform,opacity; }
-.ab-combat-drop { position:absolute; width:9px; height:11px; margin:-5px 0 0 -4px; border-radius:50% 50% 55% 55%; background:#8f1511; box-shadow:inset -1px -2px 0 #4d0705; pointer-events:none; z-index:10; will-change:transform,opacity; }
+.ab-combat-splat { position:absolute; width:58px; height:46px; margin:0; pointer-events:none; z-index:10; background:radial-gradient(ellipse at 40% 45%,#7a0f0c 0 22%,transparent 24%),radial-gradient(circle at 70% 30%,#8f1511 0 12%,transparent 14%),radial-gradient(circle at 25% 70%,#6e0b09 0 10%,transparent 12%),radial-gradient(circle at 75% 72%,#8f1511 0 8%,transparent 10%); will-change:transform,opacity; }
+.ab-combat-drop { position:absolute; width:6px; height:8px; margin:-4px 0 0 -3px; border-radius:50% 50% 55% 55%; background:#8f1511; box-shadow:inset -1px -2px 0 #4d0705; pointer-events:none; z-index:10; will-change:transform,opacity; }
 .ab-combat-card.is-hit .ab-minion-art::after { background:#8f1511; }
 
 /* Death: crumble pieces and dust */
@@ -50,12 +49,12 @@
 .ab-combat-shard.is-reborn { filter:none; }
 .ab-combat-hero-shard { border-radius:38% 38% 8% 8%; filter:brightness(.85) sepia(.3); }
 .ab-combat-foe.is-lethal,.ab-combat-me.is-lethal { outline:0; }
-.ab-combat-chip { position:absolute; width:12px; height:8px; margin:-4px 0 0 -6px; border-radius:2px; background:linear-gradient(135deg,#f6ecd4,#d9c39a); box-shadow:0 1px 1px #0008; pointer-events:none; z-index:10; will-change:transform,opacity; }
-.ab-combat-drop { width:14px; height:17px; margin:-8px 0 0 -7px; background:radial-gradient(circle at 35% 30%,#ff6a55,#b3150e 55%,#5a0805); box-shadow:inset -1px -2px 0 #3a0503,0 0 6px #7a0f0c88; }
+.ab-combat-chip { position:absolute; width:7px; height:5px; margin:-2px 0 0 -3px; border-radius:2px; background:linear-gradient(135deg,#f6ecd4,#d9c39a); box-shadow:0 1px 1px #0008; pointer-events:none; z-index:10; will-change:transform,opacity; }
+.ab-combat-drop { width:6px; height:8px; margin:-4px 0 0 -3px; background:radial-gradient(circle at 35% 30%,#ff6a55,#b3150e 55%,#5a0805); box-shadow:inset -1px -2px 0 #3a0503,0 0 6px #7a0f0c88; }
 
 /* Impact debris: drops stretch along their flight, chips tumble, sparks flare */
 .ab-combat-drop { transform-origin:50% 50%; }
-.ab-combat-spark { position:absolute; width:16px; height:5px; margin:-2px 0 0 -8px; border-radius:3px; background:linear-gradient(90deg,#fff6c8,#ffd66b 60%,transparent); box-shadow:0 0 8px 2px #ffb347aa; pointer-events:none; z-index:11; will-change:transform,opacity; }
+.ab-combat-spark { position:absolute; width:10px; height:3px; margin:-1px 0 0 -5px; border-radius:3px; background:linear-gradient(90deg,#fff6c8,#ffd66b 60%,transparent); box-shadow:0 0 8px 2px #ffb347aa; pointer-events:none; z-index:11; will-change:transform,opacity; }
 
 /* Deathrattle: a skull with crossed bones rises from the grave, bone chips scatter */
 .ab-combat-skull { position:absolute; width:96px; height:96px; margin:0; pointer-events:none; z-index:13; filter:drop-shadow(0 4px 0 #1a1a1a66) drop-shadow(0 0 14px #e9dfc4aa); will-change:transform,opacity; }
@@ -67,3 +66,24 @@
 
 /* Hero damage: survivor tiers fly from their tiles into the tally */
 .ab-tier-fly { position:absolute; z-index:22; pointer-events:none; width:44px; height:44px; display:grid; place-items:center; border:3px solid var(--ink); background:var(--gold); color:var(--ink); font:26px/1 var(--font-stencil); box-shadow:0 0 18px #ffd76a,3px 4px 0 #1a1a1a70; will-change:transform,opacity; }
+
+/* ── Dynamism (overlays only: no pause or animation duration changed) ────────────────────────────── */
+/* Camera: no zoom on the field (a scaled raster blurs the cards); the WAAPI shake alone moves it */
+/* Idle: every card breathes on its own phase; the defender braces (translate composes with the sway on transform) */
+.ab-combat-card .ab-combat-face { animation:ab-idle-sway 3.4s ease-in-out infinite; animation-delay:var(--idle-phase,0s); transition:translate .25s ease; }
+@keyframes ab-idle-sway { 0%,100% { transform:rotateY(0deg) translateY(0); } 50% { transform:rotateY(0deg) translateY(-3px); } }
+.ab-combat-card.is-down .ab-combat-face,.ab-combat-card.is-rip .ab-combat-face { animation:none; }
+.ab-combat-card.is-defending .ab-combat-face { translate:0 -6px; }
+/* Speed lines behind the dashing attacker */
+.ab-combat-card.is-dashing::before { content:''; position:absolute; inset:-30% -60%; z-index:-1; pointer-events:none; background:repeating-linear-gradient(90deg,transparent 0 9px,#fff6c866 9px 11px,transparent 11px 22px); mask:radial-gradient(ellipse at 50% 50%,#000 20%,transparent 70%); -webkit-mask:radial-gradient(ellipse at 50% 50%,#000 20%,transparent 70%); opacity:.9; animation:ab-speed-lines .14s linear infinite; }
+@keyframes ab-speed-lines { to { background-position:-22px 0; } }
+/* Afterimages: copies of the face left on the dash path */
+/* Dust: soft puffs at impacts, landings and graves */
+.ab-combat-dust-puff { position:absolute; width:52px; height:34px; margin:0; border-radius:50%; pointer-events:none; z-index:8; background:radial-gradient(ellipse,#e2cfa9cc 0 30%,#b59a72 55% ,transparent 72%); filter:blur(2px); will-change:transform,opacity; }
+/* Lethal cloud */
+.ab-combat-pop.is-lethal { background:#e04b3a; color:#fff3d2; min-width:86px; padding:20px 20px 18px; font-size:44px; text-shadow:1px 1px #4a0d0a; transform:translate(-50%,-50%) rotate(-12deg) scale(1.1); }
+@media(prefers-reduced-motion:reduce) {
+  .ab-combat { transition:none; }
+  .ab-combat-card .ab-combat-face { animation:none; transition:none; }
+  .ab-combat-card.is-dashing::before,.ab-combat-dust-puff { display:none; }
+}

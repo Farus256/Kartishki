@@ -1,0 +1,221 @@
+/* Editor chrome in the game's noir-comic language: paper sheets, ink borders, hard offset shadows, Neucha headings, PT Mono fields. */
+:root { --sheet: #f6f3ea; --line: #1a1a1a; --muted: #5e5b54; --field: #fffdf7; }
+body { background: #0d0d0d radial-gradient(ellipse at 50% 0, #2a2a2a, #0d0d0d 70%); }
+
+main.editor { position: relative; max-width: 1680px; min-height: calc(100vh - 32px); margin: 16px auto; padding: 0 28px 28px; background: var(--paper); border: 3px solid var(--ink); box-shadow: 10px 12px 0 #1a1a1a99; color: var(--ink); font: 14px/1.4 var(--font-mono); }
+main.editor > header { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: 18px 0 14px; border-bottom: 3px solid var(--ink); }
+main.editor h1 { margin: 0; font: 40px/1 var(--font-hand); letter-spacing: 2px; }
+main.editor h2 { margin: 0 0 12px; font: 26px/1.1 var(--font-hand); }
+main.editor h3 { margin: 16px 0 6px; font: 20px/1.1 var(--font-hand); }
+main.editor > header > button { margin-left: auto; }
+
+/* Tabs: nav between editors, toolbar between panes. The active one is a gold stamp. */
+.editor-nav { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+main.editor button, main.editor select, main.editor input, main.editor textarea { font: 13px var(--font-mono); color: var(--ink); background: var(--field); border: 2px solid var(--ink); border-radius: 0; padding: 7px 10px; min-width: 0; max-width: 100%; }
+main.editor button { cursor: pointer; padding: 7px 12px; background: var(--paper); text-transform: uppercase; letter-spacing: 1px; box-shadow: 3px 3px 0 var(--ink); transition: transform .08s, box-shadow .08s; }
+main.editor button:hover:enabled { background: repeating-linear-gradient(-35deg, #1a1a1a12 0 1px, transparent 1px 4px), var(--paper); }
+main.editor button:active:enabled { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+main.editor button[aria-pressed=true] { background: var(--gold); }
+main.editor button:disabled { color: var(--pencil); border-color: var(--pencil); box-shadow: none; cursor: default; }
+main.editor select { cursor: pointer; }
+main.editor textarea { min-height: 80px; width: 100%; resize: vertical; line-height: 1.4; }
+main.editor input[type=file] { padding: 5px; font-size: 11px; }
+main.editor input[type=range] { padding: 0; border: 0; background: transparent; width: 100%; }
+main.editor input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
+main.editor output { float: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+main.editor audio { display: block; width: 100%; max-width: 100%; margin: 6px 0; }
+main.editor a { color: var(--blood); }
+main.editor p { margin: 8px 0; }
+main.editor [role=status] { font: 13px var(--font-mono); }
+
+.toolbar { display: flex; gap: 8px 10px; align-items: center; flex-wrap: wrap; padding: 12px 0; border-bottom: 2px dashed #1a1a1a66; }
+.toolbar label, .toolbar .check { display: inline-flex; align-items: center; gap: 8px; margin: 0; max-width: none; }
+.toolbar select, .toolbar input[type=search] { max-width: 220px; }
+.catalog-filter { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.catalog-filter input { width: 140px; }
+.catalog-filter small, .editor-autosave, .editor-note { color: var(--muted); font-size: 12px; }
+.editor-autosave { margin: 8px 0 0; }
+
+/* Panes: fields | art | sticky preview. Every pane is its own sheet so nothing bleeds into its neighbour. */
+.editor-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr) 320px; gap: 20px; align-items: start; margin-top: 20px; }
+.editor-fields, .editor-art-panel, .editor-preview-panel, .editor-copy-col { min-width: 0; padding: 18px; background: var(--sheet); border: 2px solid var(--ink); box-shadow: 5px 5px 0 #1a1a1a55; }
+.editor-preview-panel { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; overflow-x: clip; }
+.editor-preview-panel > h2, .editor-preview > h2 { text-align: center; }
+.editor-copy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+.editor-copy-preview { margin: 14px 0; font: 18px/1.4 var(--font-hand); }
+
+main.editor label { display: grid; gap: 5px; margin: 12px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #3a3833; }
+main.editor label > input, main.editor label > select, main.editor label > textarea { text-transform: none; letter-spacing: 0; }
+main.editor label.check { display: flex; align-items: center; gap: 10px; margin: 8px 0; text-transform: none; letter-spacing: 0; font-size: 13px; cursor: pointer; }
+main.editor label.check input { width: auto; }
+.check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; }
+.stats-fields { display: flex; gap: 12px; }
+.stats-fields label { flex: 1; }
+.stats-fields input { width: 100%; }
+main.editor fieldset { min-width: 0; margin: 16px 0; padding: 12px 14px 14px; border: 2px solid var(--ink); background: #fbf9f3; }
+main.editor legend { padding: 0 8px; font: 20px var(--font-hand); }
+main.editor label.file-button, .file-button { position: relative; display: inline-flex; width: auto; align-items: center; padding: 7px 12px; border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); cursor: pointer; font: 13px var(--font-mono); text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+.file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.photo-actions, .trigger-buttons, .effect-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.audio-row { margin-bottom: 12px; }
+.audio-row button { margin-top: 4px; }
+.ability { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.ability input, .ability select { width: 100%; }
+.ability-editor { margin: 16px 0; }
+
+/* Photo pipeline: preview on top, controls under it, inside the art pane. */
+.photo-pipeline { display: block; }
+.photo-preview { max-width: 180px; margin: 0 auto 14px; border: 2px solid var(--ink); background: var(--paper); aspect-ratio: 1; box-shadow: 4px 4px 0 #1a1a1a55; }
+.photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-controls { min-width: 0; }
+.photo-controls label { margin: 10px 0; }
+.photo-controls select, .photo-controls button { width: 100%; }
+.photo-controls button + button { margin-top: 8px; }
+
+/* Previews: the game's own components, at game size, one under another so they never stack. */
+.editor-inspect { position: static; max-height: none; margin: 0 0 16px; flex-wrap: wrap; justify-content: center; gap: 16px; }
+.editor-inspect .inspect-hints { max-width: none; width: 100%; max-height: 260px; }
+.editor-inspect .inspect-hint { width: 100%; }
+.editor-preview-row { display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 6px 0 14px; --ab-card: 140px; }
+.editor-preview-row > div { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.editor-preview-row .ab-minion-wrap { animation: none; }
+.editor-preview-row .ab-minion { transform: none; cursor: default; }
+.editor-preview-row .ab-minion:hover, .editor-preview-row .ab-minion:focus-visible { transform: none; outline: 0; }
+.editor-preview-row small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.editor-effect-lines { margin: 8px 0; padding-left: 18px; font-size: 13px; }
+.editor-preview-panel .hero-portrait { max-width: 260px; margin: 0 auto; }
+.editor-issues { margin: 12px 0 0; padding-left: 18px; font-size: 12px; color: var(--blood); }
+.editor-issues:empty { display: none; }
+
+/* Lists of catalog entries (heroes, set minions) */
+.editor-hero-list { list-style: none; margin: 12px 0 0; padding: 0; font-size: 12px; max-height: 360px; overflow: auto; border-top: 2px solid var(--ink); }
+.editor-hero-list li { display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px dashed #1a1a1a55; }
+.editor-hero-list li button { padding: 2px 8px; font-size: 11px; box-shadow: none; }
+.editor-hero-list li span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-minions { max-height: 640px; }
+.set-minions li.is-over { background: #f5d97a; }
+.set-minions li.is-broken { background: #f2b3a8; }
+.set-minions li.is-under { color: var(--muted); }
+.set-verdict { font-weight: bold; min-width: 16px; text-align: center; }
+
+/* Effects list inside a minion */
+.effects-editor { padding: 12px 14px; }
+.effect-card { margin: 10px 0; padding: 10px 12px; background: var(--paper); border: 1px solid var(--ink); box-shadow: 3px 3px 0 #1a1a1a33; }
+.effect-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.effect-summary { margin: 0 0 6px; font: 16px/1.35 var(--font-hand); }
+.effect-buttons { flex-shrink: 0; }
+.effect-buttons button { padding: 2px 8px; font-size: 11px; box-shadow: 2px 2px 0 var(--ink); }
+.effect-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 10px; }
+.effect-fields label { margin: 4px 0; font-size: 11px; }
+.effect-steps { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--gold); background: #fbf9f3; }
+.effect-steps-title { margin: 0 0 4px; font-size: 12px; color: var(--muted); }
+.effect-step { margin: 6px 0; padding: 6px 8px; background: var(--paper); border: 1px solid #1a1a1a44; }
+
+/* Scenario runner */
+.scenario-runner { padding: 12px 14px; margin-top: 10px; }
+.scenario-runner select[multiple] { min-height: 90px; }
+.scenario-steps { margin-top: 10px; }
+.scenario-steps .effect-buttons { align-items: center; gap: 10px; font-size: 13px; }
+.scenario-state { margin-top: 8px; padding: 8px 10px; background: var(--paper); border: 1px solid var(--ink); font-size: 13px; }
+.scenario-state p { margin: 4px 0; }
+.scenario-board { margin: 6px 0; padding-left: 20px; }
+.scenario-board li.is-hit { background: #f5d97a; font-weight: bold; }
+.scenario-board li span { color: var(--muted); font-size: 11px; margin-right: 6px; }
+
+/* Workshop sets */
+.card-sets h3 { margin: 14px 0 6px; }
+.fairness { padding: 10px 12px; background: var(--paper); border: 2px solid var(--ink); font-size: 13px; }
+.fairness-fair { box-shadow: inset 5px 0 0 var(--acid); }
+.fairness-strong { box-shadow: inset 5px 0 0 var(--gold); }
+.fairness-broken { box-shadow: inset 5px 0 0 var(--blood); }
+.fairness-grade { margin: 0 0 8px; font: 20px var(--font-hand); }
+.fairness-tiers { border-collapse: collapse; margin: 6px 0; }
+.fairness-tiers th, .fairness-tiers td { padding: 2px 10px 2px 0; text-align: left; }
+
+/* Tables and lists of the smaller editors */
+.levels-table { width: 100%; border-collapse: collapse; margin-top: 16px; background: var(--sheet); }
+.levels-table th, .levels-table td { border: 2px solid var(--ink); padding: 6px 8px; text-align: left; }
+.levels-table th { font: 16px var(--font-hand); }
+.levels-table input { width: 100%; }
+.shop-editor { display: grid; gap: 16px; margin-top: 16px; }
+.shop-product { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; padding: 14px; background: var(--sheet); border: 2px solid var(--ink); box-shadow: 4px 4px 0 #1a1a1a55; }
+.shop-product label { margin: 0; }
+.shop-product > button { align-self: end; }
+.shop-product textarea { grid-column: 1 / -1; min-height: 52px; }
+.music-tracks { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+.music-tracks li { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; padding: 12px; background: var(--sheet); border: 2px solid var(--ink); box-shadow: 4px 4px 0 #1a1a1a55; }
+.music-tracks audio { grid-column: 1 / -1; }
+
+/* Publish bar: the ink stamp pinned to the bottom of the sheet. */
+.editor-preview-panel .publish { position: static; margin-top: 16px; }
+main.editor .publish { position: sticky; bottom: 12px; z-index: 20; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 24px; padding: 12px 16px; background: var(--ink); color: var(--paper); box-shadow: 5px 5px 0 #1a1a1a66, 0 0 0 2px var(--paper); }
+main.editor .publish button { background: var(--gold); box-shadow: 3px 3px 0 #000; }
+main.editor .publish button:disabled { background: #444; color: #999; border-color: #666; }
+main.editor .publish p { margin: 0; }
+
+@media (max-width: 1200px) {
+  .editor-grid { grid-template-columns: minmax(280px, 1fr) 300px; }
+  .editor-preview-panel { grid-column: 2; grid-row: 1 / span 2; }
+  .editor-art-panel { grid-column: 1; grid-row: 2; }
+}
+@media (max-width: 750px) {
+  main.editor { margin: 0; padding: 0 12px 12px; border-width: 0; box-shadow: none; min-height: 100vh; }
+  main.editor h1 { font-size: 30px; }
+  .editor-grid { grid-template-columns: minmax(0, 1fr); }
+  .editor-preview-panel { position: static; max-height: none; grid-column: 1; grid-row: 1; }
+  .editor-art-panel { grid-row: 2; }
+  .editor-fields { grid-row: 3; }
+  .ability, .stats-fields { grid-template-columns: 1fr; flex-direction: column; }
+}
+
+/* Section tabs (what am I editing) sit above the toolbar (what can I do with it). */
+.editor-tabs { display: flex; gap: 0; margin-top: 14px; border-bottom: 3px solid var(--ink); }
+.editor-tabs button { border-bottom: 0; box-shadow: none; margin-bottom: -3px; padding: 9px 16px; background: #e4e0d4; }
+.editor-tabs button[aria-pressed=true] { background: var(--sheet); border-bottom: 3px solid var(--sheet); font-weight: bold; }
+.editor-tabs button + button { margin-left: -2px; }
+.toolbar { justify-content: space-between; border-bottom: 0; padding: 14px 0 0; }
+.toolbar-group { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toolbar-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+.toolbar-actions { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.toolbar .editor-note { flex: 1 1 100%; margin: 0; }
+
+/* Button hierarchy: gold = the one thing to do, paper = everything else, red outline = destructive. */
+main.editor button.is-primary { background: var(--gold); }
+main.editor button.is-danger { color: var(--blood); border-color: var(--blood); box-shadow: 3px 3px 0 var(--blood); }
+.field-hint { display: block; margin-top: 6px; font-size: 11px; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+main.editor .chip { padding: 6px 12px; text-transform: none; letter-spacing: 0; border-radius: 999px; box-shadow: 2px 2px 0 var(--ink); }
+main.editor .chip[aria-pressed=true] { background: var(--gold); font-weight: bold; }
+main.editor label.check span { display: grid; gap: 1px; }
+main.editor label.check small { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.editor-dropzone { display: grid; gap: 10px; justify-items: center; padding: 28px 16px; border: 2px dashed var(--ink); background: var(--paper); text-align: center; }
+.editor-dropzone p { margin: 0; font: 18px var(--font-hand); }
+.editor-dropzone small { color: var(--muted); font-size: 11px; }
+.publish-state { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+.publish-state.is-new { color: #f5d97a; }
+.publish-state.is-changed { color: var(--gold); }
+.publish-state.is-same { color: #9aa08f; }
+.publish-issues { padding: 3px 8px; background: var(--blood); color: #fff; font-size: 12px; }
+main.editor .publish p[data-tone=ok] { color: #b9ffc6; }
+main.editor .publish p[data-tone=error] { color: #ffb3ad; }
+
+/* Tribes pane: one card per tribe with its roster. */
+.tribe-card h2 small { font: 11px var(--font-mono); color: var(--muted); letter-spacing: 1px; }
+.tribe-tiers { display: flex; gap: 6px; list-style: none; margin: 0 0 8px; padding: 0; }
+.tribe-tiers li { flex: 1; display: grid; gap: 2px; justify-items: center; padding: 4px 2px; border: 1px solid var(--ink); background: var(--paper); font-size: 13px; }
+.tribe-tiers li b { font-size: 9px; letter-spacing: -1px; color: #7a5a12; }
+.tribe-tiers li.is-empty { opacity: .4; }
+
+/* Set theme: wallpaper thumbnails, track list, compact level table. */
+.theme-wallpaper { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+.theme-wallpaper span { position: relative; width: 64px; height: 64px; border: 2px solid var(--ink); background: var(--paper); }
+.theme-wallpaper img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.theme-wallpaper button { position: absolute; top: -8px; right: -8px; padding: 0 5px; font-size: 10px; box-shadow: none; }
+.set-theme .editor-hero-list li { grid-template-columns: 1fr; }
+.set-theme .editor-hero-list audio { width: 180px; margin: 0; }
+.set-levels { margin-top: 8px; font-size: 12px; }
+.set-levels td:first-child { width: 32px; color: var(--muted); }
+.set-levels input { padding: 3px 6px; }
+.tribe-card h2 { display: flex; align-items: center; gap: 8px; }
+.tribe-card h2 button { margin-left: auto; padding: 2px 7px; font-size: 11px; }
+.tribe-new { border-style: dashed; }

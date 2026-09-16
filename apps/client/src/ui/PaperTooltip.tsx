@@ -46,7 +46,7 @@ export function PaperTooltip({ children, content, className = '', style, placeme
       if (!r) return;
       if (placement === 'beside') {
         // Small box to the right of the anchor, top-aligned (standings rows).
-        const w = 280, h = 340, gap = 10;
+        const w = 350, h = 520, gap = 10;
         const left = r.right + gap + w <= innerWidth - 8 ? r.right + gap : r.left - w - gap;
         setPoint({ left: Math.max(8, left), top: Math.max(8, Math.min(innerHeight - h - 8, r.top - 4)) });
         return;

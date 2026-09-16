@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AutoBattlerCatalog } from '@kartishki/shared';
 import type { AbPlayer } from '../autoBattlerSession';
-import { AB_LAYOUT, lineGap } from './battlegroundsLayout';
+import { AB_LAYOUT, tavernGap } from './battlegroundsLayout';
 import { AB_DND } from './pointerDnd';
 import { MinionTile } from './MinionTile';
 import { useAbDnd } from './abDndContext';
@@ -63,7 +63,7 @@ export function BoardRow({ me, catalog, recruit, aimingBoard, selectedId, onActi
       data-testid="ab-board"
       data-preview-index={previewIndex !== null ? String(previewIndex) : ''}
       data-board-count={String(me.board.length)}
-      style={{ '--ab-card': `${AB_LAYOUT.MINION_W}px`, '--ab-line-gap': `${lineGap(count)}px` } as CSSProperties}
+      style={{ '--ab-card': `${AB_LAYOUT.MINION_W}px`, '--ab-line-gap': `${tavernGap(count)}px` } as CSSProperties}
     >
       {me.board.map((minion, index) => {
         const hold = previewing && minion.id === dragging;

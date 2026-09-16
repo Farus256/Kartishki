@@ -87,7 +87,7 @@ test('Combat 1v1 and 7v7 retain Heroes and shared center at all sizes',async({pa
    expect(layout.foe).toBeLessThan(layout.me);
    await page.screenshot({path:`artifacts/ui-after/combat-${size.width}-${n}.png`});
   }
-  await page.locator('.ab-combat-speed button').last().click();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:100})));
   await expect(page.getByTestId('ab-combat')).toBeHidden();
  }
 });
@@ -106,7 +106,7 @@ for(const speed of [1,2,100])test(`authoritative damage, stats, death, summon an
  ];
  await openMockAb(page,abFixture());await setFixture(page,s);
  await expect(page.getByTestId('ab-combat')).toBeVisible();
- if(speed!==1)await page.locator('.ab-combat-speed button').nth(speed===2?1:2).click();
+ if(speed!==1)await page.evaluate(r=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:r})),speed);
  await expect(page.getByTestId('ab-combat')).toBeHidden({timeout:15000});
  const results=await page.evaluate(()=>import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/autoBattlerSession.ts'))!.name).then(m=>m.combatResults));
  expect(results).toHaveLength(1);
@@ -129,7 +129,7 @@ test('Hand hover lifts a full card; reduced motion avoids large movement',async(
  await setFixture(page,combatFixture(7));
  await expect(page.getByTestId('ab-combat')).toBeVisible();
  expect(await page.locator('.ab-combat').evaluate(el=>el.getAnimations().length)).toBe(0);
- await page.locator('.ab-combat-speed button').last().click();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:100})));
  await expect(page.getByTestId('ab-combat')).toBeHidden();
 });
 
@@ -138,7 +138,7 @@ test('Skip keeps the settled Combat table until the authoritative Recruit phase'
  await page.evaluate(()=>import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/autoBattlerSession.ts'))!.name).then(m=>m.setHoldCombat(true)));
  await setFixture(page,combatFixture(7));
  await expect(page.getByTestId('ab-combat')).toBeVisible();
- await page.locator('.ab-combat-speed button').last().click();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('ab-combat-rate',{detail:100})));
  await expect(page.locator('.ab-combat-wrap')).toHaveClass(/is-settled/);
  await expect(page.locator('.ab-combat-hero-image')).toHaveCount(2);
  await expect(page.locator('.ab-zone-tavern')).toHaveCSS('visibility','hidden');

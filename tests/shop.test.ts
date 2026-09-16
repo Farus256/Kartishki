@@ -38,7 +38,7 @@ test('wheel manual land costs 400 and uses the chosen sector', () => {
   assert.equal(land.kind, 'wheel');
   assert.equal(land.cost, 400);
   assert.equal(land.prizeIndex, 3);
-  assert.deepEqual(land.rewards, [{ kind: 'currency', amount: 500 }]);
+  assert.deepEqual(land.rewards, [{ kind: 'currency', amount: 200 }]);
 });
 
 test('weighted sampling respects rarity boundaries and empty pools', () => {

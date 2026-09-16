@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import i18n from '@kartishki/i18n';
-import { type PlayerSettings } from '@kartishki/shared';
+import { BOARD_PRESETS, HERO_SKINS, boardOwned, heroSkinOwned, pickLoc, type PlayerSettings } from '@kartishki/shared';
+import { equipBoard, equippedBoard, onBoardChange } from '../cosmeticsLocal';
 import { playerSession } from '../playerSession';
 import { InkButton, spring } from '../ui/InkButton';
 
@@ -13,6 +14,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [sound, setSound] = useState(() => localStorage.getItem('sound') !== 'off');
   const [sfx, setSfx] = useState(() => Math.round(audioManager.sfxVolume * 100));
   const [music, setMusic] = useState(() => Math.round(audioManager.musicVolume * 100));
+  const board = useSyncExternalStore(onBoardChange, () => equippedBoard().id);
+  const unlocks = player.library?.unlocks ?? [];
+  const heroSkin = player.library?.profile.settings.heroSkin ?? '';
   const pending = useRef<Partial<PlayerSettings>>({});
   const persist = useRef<ReturnType<typeof setTimeout>>(undefined);
   function flush() {
@@ -75,6 +79,22 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             className="mt-2 w-full accent-[#1a1a1a]"
             onChange={e => { const n = Number(e.target.value); audioManager.setMusicVolume(n / 100); setMusic(n); save({ musicVolume: n / 100 }); }} />
         </label>
+
+        <label className="mt-5 block font-mono text-[13px] text-ink/70">
+          {t('boardPreset')}
+          <select aria-label={t('boardPreset')} value={board} onChange={e => void equipBoard(e.target.value)}
+            className="mt-2 w-full border-[3px] border-ink bg-paper px-3 py-2 font-mono text-[14px] text-ink">
+            {BOARD_PRESETS.map(preset => <option key={preset.id} value={preset.id} disabled={!boardOwned(preset.id, unlocks)}>{pickLoc(preset.name, i18n.language)}{boardOwned(preset.id, unlocks) ? '' : ` · $${preset.cost}`}</option>)}
+          </select>
+        </label>
+        {player.library && <label className="mt-4 block font-mono text-[13px] text-ink/70">
+          {t('heroSkin')}
+          <select aria-label={t('heroSkin')} value={heroSkin} onChange={e => void playerSession.saveSettings({ heroSkin: e.target.value })}
+            className="mt-2 w-full border-[3px] border-ink bg-paper px-3 py-2 font-mono text-[14px] text-ink">
+            <option value="">{t('heroSkinNone')}</option>
+            {HERO_SKINS.map(item => <option key={item.id} value={item.id} disabled={!heroSkinOwned(item.id, unlocks)}>{pickLoc(item.name, i18n.language)}{heroSkinOwned(item.id, unlocks) ? '' : ` · $${item.cost}`}</option>)}
+          </select>
+        </label>}
 
         <div className="mt-8 flex justify-end">
           <InkButton tone="blood" onClick={() => { flush(); onClose(); }}>{t('close')}</InkButton>

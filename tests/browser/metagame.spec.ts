@@ -175,7 +175,7 @@ test('casino wheel reveals and settles a prize once', async ({ page }) => {
   await page.getByRole('button', { name: /Колесо фортуны/ }).click();
   await expect(page.getByRole('button', { name: /Машина Юзи/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Крутить за $75' })).toBeVisible();
-  await expect(page.getByText(/вручную за \$200/)).toBeVisible();
+  await expect(page.getByText(/вручную за \$400/)).toBeVisible();
   await expect(page.locator('.casino-rules')).toHaveCount(0);
   await page.screenshot({ path: 'artifacts/metagame-casino.png' });
 

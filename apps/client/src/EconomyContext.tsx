@@ -1,3 +1,4 @@
+import i18n from '@kartishki/i18n';
 import { audioManager } from './AudioManager';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { applyShopCredit, applyShopDebit, applyShopResult, resolveShopAction, shopBonusXp, shopCard, shopCash, shopMixed, type CardDefinition, type ShopAction, type ShopProduct, type ShopResult, type ShopReward, type ShopWallet } from '@kartishki/shared';
@@ -14,8 +15,8 @@ export type LocalDeck = { id: string; name: string; cards: string[] };
 type State = { dollars: number; owned: Record<string, number>; decks: LocalDeck[]; activeDeck: string; inventory: Record<string, number>; opening?: Opening };
 const KEY = 'kartishki-demo-economy-v1';
 const SHOP_ERRORS: Record<string, string> = {
-  insufficientFunds: 'Не хватает долларов.', invalidProduct: 'Нет такого товара.', invalidCard: 'Нет такой карты.',
-  emptyCatalog: 'В каталоге нет карт этой редкости.', invalidRequest: 'Некорректный запрос.',
+  insufficientFunds: 'insufficientFunds', invalidProduct: 'invalidProduct', invalidCard: 'cardsNotOwned',
+  emptyCatalog: 'emptyCatalog', invalidRequest: 'invalidRequest',
 };
 function initial(): State {
   const cards = demoCards.slice(0, 15).flatMap(c => [c.id, c.id]);
@@ -43,10 +44,10 @@ function cardsOf(result: ShopResult, catalog: CardDefinition[]) { return lootOf(
 function extrasOf(result: ShopResult) { return result.rewards.filter(reward => reward.kind === 'currency' || reward.kind === 'xp'); }
 function slotLabel(result: ShopResult) {
   const amount = result.rewards[0]?.kind === 'currency' ? result.rewards[0].amount : 0;
-  if (!result.reels || !amount) return 'В этот раз без выигрыша.';
+  if (!result.reels || !amount) return i18n.t('noWin');
   const counts = [0, 1, 2, 3, 4, 5, 6, 7].map(i => result.reels!.filter(n => n === i).length);
   const n = Math.max(...counts);
-  return n >= 3 ? `Тройка: $ ${amount}!` : n >= 2 ? `Пара: $ ${amount}!` : 'В этот раз без выигрыша.';
+  return n >= 3 ? i18n.t('slotTriple', { amount }) : n >= 2 ? i18n.t('slotPair', { amount }) : i18n.t('noWin');
 }
 function prizeTile(prize: ShopProduct['prizes'][number]): ChestTile {
   if (prize.kind === 'currency' || prize.kind === 'xp') return { kind: prize.kind, amount: prize.amount };
@@ -82,7 +83,7 @@ function useEconomyState() {
     setCurrencyEvents(events => [...events.slice(-5), { id: ++eventId.current, amount }]);
     audioManager.play(amount < 0 ? 'coins_spend' : 'coins_win');
   }
-  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { setMessage('Хранилище недоступно: прогресс сохранён только до закрытия страницы.'); } }, [state]);
+  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { setMessage(i18n.t('storageUnavailable')); } }, [state]);
   useEffect(() => {
     const reward = account.lastReward;
     if (!reward || reward === appliedReward.current) return;
@@ -98,7 +99,7 @@ function useEconomyState() {
   }
   function fail(error: unknown) {
     const code = error instanceof Error ? error.message : '';
-    setMessage(SHOP_ERRORS[code] ?? (account.error && SHOP_ERRORS[account.error]) ?? 'Не хватает долларов.');
+    setMessage(i18n.t(SHOP_ERRORS[code] ?? (account.error && SHOP_ERRORS[account.error]) ?? 'insufficientFunds'));
     return false;
   }
   function openingFor(result: ShopResult): Opening | undefined {
@@ -109,7 +110,7 @@ function useEconomyState() {
   }
   async function play(action: ShopAction, free = false) {
     const s = current.current;
-    if (s.opening) { setMessage('Сначала заберите награду.'); return false; }
+    if (s.opening) { setMessage(i18n.t('claimFirst')); return false; }
     try {
       let result: ShopResult;
       if (account.library) {
@@ -170,10 +171,10 @@ function useEconomyState() {
     selectDeck(id: string) { if (current.current.decks.some(d => d.id === id)) commit({ ...current.current, activeDeck: id }); },
     saveDeck(deck: LocalDeck) {
       const s = current.current;
-      if (!deck.name.trim() || deck.cards.length !== 30 || deck.cards.some(id => !catalog.some(c => c.id === id) || deck.cards.filter(c => c === id).length > Math.min(2, s.owned[id] ?? 0))) { setMessage('Нужно 30 карт, максимум 2 принадлежащие вам копии каждой.'); return false; }
-      commit({ ...s, decks: [...s.decks.filter(d => d.id !== deck.id), { ...deck, name: deck.name.trim() }], activeDeck: deck.id }); setMessage('Колода сохранена.'); return true;
+      if (!deck.name.trim() || deck.cards.length !== 30 || deck.cards.some(id => !catalog.some(c => c.id === id) || deck.cards.filter(c => c === id).length > Math.min(2, s.owned[id] ?? 0))) { setMessage(i18n.t('deckRule')); return false; }
+      commit({ ...s, decks: [...s.decks.filter(d => d.id !== deck.id), { ...deck, name: deck.name.trim() }], activeDeck: deck.id }); setMessage(i18n.t('deckSaved')); return true;
     },
-    deleteDeck(id: string) { const s = current.current; const decks = s.decks.filter(d => d.id !== id); commit({ ...s, decks, activeDeck: s.activeDeck === id ? decks[0]?.id ?? '' : s.activeDeck }); setMessage('Колода удалена.'); },
+    deleteDeck(id: string) { const s = current.current; const decks = s.decks.filter(d => d.id !== id); commit({ ...s, decks, activeDeck: s.activeDeck === id ? decks[0]?.id ?? '' : s.activeDeck }); setMessage(i18n.t('deckDeleted')); },
     openPack(id: string) { return play({ type: 'buy', productId: id }, (current.current.inventory[id] ?? 0) > 0); },
     openCase(id: string) { return play({ type: 'buy', productId: id }); },
     spin(bet?: number) { const product = shop.products.find(p => p.kind === 'slots'); return product ? play({ type: 'buy', productId: product.id, bet }) : false; },

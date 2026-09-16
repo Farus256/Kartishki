@@ -80,5 +80,17 @@ export async function migratePlayers(db: Database) {
       await tx.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS beer_ml INTEGER NOT NULL DEFAULT 0 CHECK (beer_ml >= 0)');
       await tx.query('INSERT INTO player_schema_version (version) VALUES (5)');
     }
+    if (current < 6) {
+      // Bought cosmetics and premium heroes (ids from COSMETICS in shared/cosmetics.ts).
+      await tx.query(`CREATE TABLE IF NOT EXISTS player_unlocks (
+        player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE, item_id TEXT NOT NULL,
+        bought_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (player_id, item_id))`);
+      await tx.query('INSERT INTO player_schema_version (version) VALUES (6)');
+    }
+    if (current < 7) {
+      // Admin role: opens the in-game editor. Grant by hand: UPDATE players SET is_admin = TRUE WHERE username = '...'.
+      await tx.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE');
+      await tx.query('INSERT INTO player_schema_version (version) VALUES (7)');
+    }
   });
 }

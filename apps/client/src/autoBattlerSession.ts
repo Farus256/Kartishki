@@ -1,3 +1,4 @@
+import i18n from '@kartishki/i18n';
 import { Client, type Room } from '@colyseus/sdk';
 import {
   AUTO_BATTLER,
@@ -15,10 +16,13 @@ import {
   type DiscoverOptionsMessage,
 } from '@kartishki/shared';
 import { playerSession } from './playerSession';
+import { chosenCardSet, rememberCardSet } from './activeCardSet';
 import { serverOrigin } from './serverUrl';
 import { applyOptimistic, type OptimisticIntent } from './battlegrounds/abOptimistic';
 
 const RECONNECT_KEY = 'kartishki-ab-reconnect';
+
+
 
 export type AbMinion = {
   id: string; cardId: string; baseId: string; kind: string;
@@ -33,7 +37,7 @@ export type AbPower = {
 
 export type AbPlayer = {
   sessionId: string; displayName: string;
-  heroId: string; portraitKey: string; health: number; maxHealth: number;
+  heroId: string; portraitKey: string; skin: string; health: number; maxHealth: number;
   power: AbPower; gold: number; tavernTier: number; upgradeCost: number;
   board: AbMinion[]; hand: AbMinion[];
   tavern: { offers: AbMinion[]; frozen: boolean; size: number };
@@ -41,7 +45,7 @@ export type AbPlayer = {
   recruitReady: boolean; lastCombatResult: string; lastCombatDamage: number; lastCombatOpponentId: string;
   tripleSerial: number;
   lastActionId: number;
-  buyCost: number; rerollCost: number; freeRerolls: number;
+  buyCost: number; rerollCost: number; sellReward: number; freeRerolls: number;
   lastCombatSummary: string; discoverOpen: boolean; pendingDiscover: AbMinion[];
 };
 
@@ -49,7 +53,7 @@ export type AbCombatBoards = { playerA: string; playerB: string; a: AbMinion[]; 
 
 export type AbSnapshot = {
   status: 'offline' | 'connecting' | 'online';
-  phase: string; turn: number; revision: number; recruitSeconds: number; heroSeconds: number; phaseEndsAt: number; sessionId: string; error: string; winnerId: string; anomalyId: string;
+  phase: string; turn: number; revision: number; recruitSeconds: number; heroSeconds: number; phaseEndsAt: number; sessionId: string; error: string; winnerId: string; anomalyId: string; cancelled: boolean; setId: string; /** Tribes in play at this table (neutral always plays). */ tribes: string[];
   players: AbPlayer[];
   catalog: AutoBattlerCatalog;
   heroOffers: AutoBattlerHeroDef[];
@@ -60,7 +64,7 @@ export type AbSnapshot = {
 };
 
 const empty = (): AbSnapshot => ({
-  status: 'offline', phase: 'LOBBY', turn: 0, revision: 0, recruitSeconds: 0, heroSeconds: 0, phaseEndsAt: 0, sessionId: '', error: '', winnerId: '', anomalyId: '',
+  status: 'offline', phase: 'LOBBY', turn: 0, revision: 0, recruitSeconds: 0, heroSeconds: 0, phaseEndsAt: 0, sessionId: '', error: '', winnerId: '', anomalyId: '', cancelled: false, setId: '', tribes: [],
   players: [], catalog: starterAutoBattlerCatalog, heroOffers: [], discover: null, combat: null, combatBoards: null, pairing: [],
 });
 
@@ -75,7 +79,7 @@ function toMinion(m: AutoBattlerMinionState): AbMinion {
 function toPlayer(p: AutoBattlerPlayerState): AbPlayer {
   return {
     sessionId: p.sessionId, displayName: p.displayName || p.sessionId.slice(0, 8),
-    heroId: p.hero.heroId, portraitKey: p.hero.portraitKey,
+    heroId: p.hero.heroId, portraitKey: p.hero.portraitKey, skin: p.hero.skin ?? '',
     health: p.hero.health, maxHealth: p.hero.maxHealth,
     power: {
       id: p.hero.power.id, isPassive: p.hero.power.isPassive, goldCost: p.hero.power.goldCost,
@@ -89,7 +93,7 @@ function toPlayer(p: AutoBattlerPlayerState): AbPlayer {
     lastCombatSummary: p.lastCombatSummary, discoverOpen: p.discoverOpen,
     pendingDiscover: [...(p.pendingDiscover ?? [])].map(toMinion), tripleSerial: p.tripleSerial,
     lastActionId: p.lastActionId ?? 0,
-    buyCost: p.buyCost ?? AUTO_BATTLER.BUY_COST, rerollCost: p.rerollCost ?? AUTO_BATTLER.REROLL_COST, freeRerolls: p.freeRerolls ?? 0,
+    buyCost: p.buyCost ?? AUTO_BATTLER.BUY_COST, rerollCost: p.rerollCost ?? AUTO_BATTLER.REROLL_COST, sellReward: p.sellReward ?? AUTO_BATTLER.SELL_REWARD, freeRerolls: p.freeRerolls ?? 0,
   };
 }
 
@@ -130,7 +134,7 @@ function sync(joined: Room<AutoBattlerRoomState>) {
   publish({
     status: 'online', phase: s.phase, turn: s.turn, revision: s.revision, recruitSeconds: s.recruitSeconds,
     phaseEndsAt: s.phaseEndsAt ?? 0,
-    sessionId: joined.sessionId, winnerId: s.winnerId, heroSeconds: s.heroSeconds, anomalyId: s.anomalyId ?? '',
+    sessionId: joined.sessionId, winnerId: s.winnerId, heroSeconds: s.heroSeconds, anomalyId: s.anomalyId ?? '', cancelled: s.cancelled === true, setId: s.setId ?? '', tribes: s.tribes ? [...s.tribes] : [],
     players: [...s.players.values()].map(toPlayer),
     pairing: [...(s.pairing ?? [])].map(p => ({ playerA: p.playerA, playerB: p.playerB, ghost: p.ghost })),
     discover: null,
@@ -146,12 +150,12 @@ export const autoBattlerSession = {
     publish({ ...empty(), status: 'connecting' });
     try {
       const client = new Client(serverOrigin());
-      const name = playerSession.getSnapshot().library?.profile.username ?? 'Гость';
+      const name = playerSession.getSnapshot().library?.profile.username ?? i18n.t('guest');
       let table = '';
       try { table = sessionStorage.getItem('kartishki-ab-table') ?? ''; } catch { /* optional */ }
       let joined: Room<AutoBattlerRoomState>;
       const token = sessionStorage.getItem(RECONNECT_KEY);
-      const join = (auth: { playerToken?: string }) => client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table, ...auth }, AutoBattlerRoomState);
+      const join = (auth: { playerToken?: string }) => client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table, set: chosenCardSet(), ...auth }, AutoBattlerRoomState);
       try {
         joined = token ? await client.reconnect<AutoBattlerRoomState>(token, AutoBattlerRoomState) : await join(playerSession.authOptions());
       } catch {
@@ -207,6 +211,12 @@ export const autoBattlerSession = {
     }
   },
   startGame() { room?.send(MSG.startGame); },
+  /** Pick a set for the next table: leave the current lobby and sit down at one matched by the new set. */
+  chooseCardSet(setId: string) {
+    rememberCardSet(setId);
+    autoBattlerSession.leave();
+    void autoBattlerSession.connect();
+  },
   chooseHero(heroId: string) { room?.send(MSG.chooseHero, { heroId }); },
   buy(offerId: string) {
     sendIntent(MSG.buy, { offerId }, { type: 'buy', id: offerId });

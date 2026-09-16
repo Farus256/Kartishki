@@ -1,8 +1,10 @@
 import {
   AUTO_BATTLER,
+  effectParts,
   hasTribe,
   minionTribes,
   type AutoBattlerEffect,
+  type AutoBattlerEffectStep,
   type AutoBattlerEffectTrigger,
   type AutoBattlerKeyword,
   type AutoBattlerMinionDef,
@@ -35,7 +37,7 @@ function subjectOk(effect: AutoBattlerEffect, subject: Body | undefined): boolea
 }
 
 /** Menagerie / count scaling: how many times the buff applies. */
-function multiplier(effect: AutoBattlerEffect, board: Body[]): number {
+function multiplier(effect: AutoBattlerEffectStep, board: Body[]): number {
   if (!effect.per) return 1;
   if (effect.per === 'tribes') {
     const tribes = new Set<string>();
@@ -70,9 +72,13 @@ export type RecruitEffectDeps = {
   onDiscover?: () => void;
   /** Reports each permanent buff (owner → target) so the room can replay end-of-turn effects on the combat table. */
   onBuff?: (owner: AutoBattlerMinionState, target: AutoBattlerMinionState) => void;
+  /** Scenario trace: one line per executed step (the editor's step-through preview reads it). */
+  trace?: (line: EffectTraceLine) => void;
 };
 
-function pickTargets(player: AutoBattlerPlayerState, owner: AutoBattlerMinionState, effect: AutoBattlerEffect, rng: SeededRng, subject?: AutoBattlerMinionState): AutoBattlerMinionState[] {
+export type EffectTraceLine = { owner: string; trigger: AutoBattlerEffectTrigger; step: number; action: AutoBattlerEffectStep['action']; times: number; targets: string[] };
+
+function pickTargets(player: AutoBattlerPlayerState, owner: AutoBattlerMinionState, effect: AutoBattlerEffectStep, rng: SeededRng, subject?: AutoBattlerMinionState): AutoBattlerMinionState[] {
   const board = [...player.board].filter(m => m.kind !== 'spell');
   switch (effect.target ?? 'self') {
     case 'self': return [owner];
@@ -102,23 +108,33 @@ export function runTavernEffects(deps: RecruitEffectDeps, trigger: AutoBattlerEf
   for (const effect of def.effects) {
     if (effect.trigger !== trigger) continue;
     if (!subjectOk(effect, subject)) continue;
-    const action = effect.action;
-    const times = multiplier(effect, [...deps.player.board].filter(m => m.kind !== 'spell'));
-    if (!times) continue;
-    if (action.kind === 'gold') deps.player.gold += scale(action.amount, owner.golden) * times;
-    else if (action.kind === 'buff') {
-      for (const target of pickTargets(deps.player, owner, effect, deps.rng, subject)) { buffTavernMinion(target, scale(action.attack, owner.golden) * times, scale(action.health, owner.golden) * times); deps.onBuff?.(owner, target); }
-    } else if (action.kind === 'keyword') {
-      for (const target of pickTargets(deps.player, owner, effect, deps.rng, subject)) grantKeyword(target.keywords, action.keyword);
-    } else if (action.kind === 'summon' && deps.nextId) {
-      const token = deps.defFor(action.summonId);
-      if (!token) continue;
-      // ponytail: tokens go to the end of the board; a mid-board insert rewrites the list and stales every ref held by the caller.
-      for (let n = 0; n < action.count * (owner.golden ? 2 : 1); n++) {
-        if (deps.player.board.length >= AUTO_BATTLER.BOARD_LIMIT) break;
-        deps.player.board.push(createMinionState(token, deps.nextId(), deps.player.sessionId));
+    // A scenario runs its steps in order; each step scales and targets on its own, on the board as the previous step left it.
+    effectParts(effect).forEach((part, step) => {
+      const action = part.action;
+      const times = multiplier(part, [...deps.player.board].filter(m => m.kind !== 'spell'));
+      if (!times) return;
+      const hit: string[] = [];
+      if (action.kind === 'gold') {
+        // End-of-turn gold lands next turn: beginRecruitTurn resets gold to the turn's income before paying the bank out.
+        if (trigger === 'endTurn') deps.player.bankedGold += scale(action.amount, owner.golden) * times;
+        else deps.player.gold += scale(action.amount, owner.golden) * times;
+      } else if (action.kind === 'buff') {
+        for (const target of pickTargets(deps.player, owner, part, deps.rng, subject)) { buffTavernMinion(target, scale(action.attack, owner.golden) * times, scale(action.health, owner.golden) * times); deps.onBuff?.(owner, target); hit.push(target.id); }
+      } else if (action.kind === 'keyword') {
+        for (const target of pickTargets(deps.player, owner, part, deps.rng, subject)) if (grantKeyword(target.keywords, action.keyword)) hit.push(target.id);
+      } else if (action.kind === 'summon' && deps.nextId) {
+        const token = deps.defFor(action.summonId);
+        if (!token) return;
+        // ponytail: tokens go to the end of the board; a mid-board insert rewrites the list and stales every ref held by the caller.
+        for (let n = 0; n < action.count * (owner.golden ? 2 : 1); n++) {
+          if (deps.player.board.length >= AUTO_BATTLER.BOARD_LIMIT) break;
+          const born = createMinionState(token, deps.nextId(), deps.player.sessionId);
+          deps.player.board.push(born);
+          hit.push(born.id);
+        }
       }
-    }
+      deps.trace?.({ owner: owner.id, trigger, step, action, times, targets: hit });
+    });
   }
 }
 
@@ -142,42 +158,44 @@ export function runCombatEffects(ctx: CombatContext, trigger: CombatTrigger, own
   for (const effect of def.effects) {
     if (effect.trigger !== trigger) continue;
     if (!subjectOk(effect, subject)) continue;
-    const alive = board.filter(m => m.health > 0);
-    const times = multiplier(effect, alive);
-    if (!times) continue;
-    if (effect.action.kind === 'summon') {
-      const token = ctx.definition(effect.action.summonId);
-      if (!token) continue;
-      const at = board.findIndex(m => m.id === owner.id);
-      ctx.currentSourceId = owner.id;
-      for (let n = 0; n < effect.action.count * (owner.golden ? 2 : 1); n++) {
-        ctx.summon(side as 0 | 1, (at < 0 ? board.length : at + 1) + n, {
-          id: ctx.nextId(), cardId: token.id, baseId: token.id,
-          attack: token.attack * (owner.golden ? 2 : 1), health: token.health * (owner.golden ? 2 : 1),
-          tavernTier: token.tavernTier, keywords: [...token.keywords], tribes: [...minionTribes(token)], golden: owner.golden, owner: owner.owner, auraAttack: 0,
-        });
+    for (const part of effectParts(effect)) {
+      const alive = board.filter(m => m.health > 0);
+      const times = multiplier(part, alive);
+      if (!times) continue;
+      if (part.action.kind === 'summon') {
+        const token = ctx.definition(part.action.summonId);
+        if (!token) continue;
+        const at = board.findIndex(m => m.id === owner.id);
+        ctx.currentSourceId = owner.id;
+        for (let n = 0; n < part.action.count * (owner.golden ? 2 : 1); n++) {
+          ctx.summon(side as 0 | 1, (at < 0 ? board.length : at + 1) + n, {
+            id: ctx.nextId(), cardId: token.id, baseId: token.id,
+            attack: token.attack * (owner.golden ? 2 : 1), health: token.health * (owner.golden ? 2 : 1),
+            tavernTier: token.tavernTier, keywords: [...token.keywords], tribes: [...minionTribes(token)], golden: owner.golden, owner: owner.owner, auraAttack: 0,
+          });
+        }
+        continue;
       }
-      continue;
-    }
-    if (effect.action.kind !== 'buff' && effect.action.kind !== 'keyword') continue;
-    let targets: CombatMinion[] = [];
-    switch (effect.target ?? 'self') {
-      case 'self': targets = owner.health > 0 || trigger === 'startCombat' ? [owner] : []; break;
-      case 'subject': case 'bought': targets = subject && subject.health > 0 ? [subject] : []; break;
-      case 'adjacent': { const i = board.findIndex(m => m.id === owner.id); targets = [board[i - 1], board[i + 1]].filter((m): m is CombatMinion => !!m && m.health > 0); break; }
-      case 'friendly': targets = alive.filter(m => m.id !== owner.id && tribeMatch(m.tribes, effect.tribe)); break;
-      case 'random': { const pool = alive.filter(m => m.id !== owner.id && tribeMatch(m.tribes, effect.tribe)); targets = pool.length ? [ctx.rng.pick(pool)] : []; break; }
-      default: targets = [];
-    }
-    if (effect.action.kind === 'keyword') {
-      for (const target of targets) if (grantKeyword(target.keywords, effect.action.keyword)) ctx.emit({ kind: 'STATS', sourceId: owner.id, targetId: target.id, attack: target.attack + target.auraAttack, remainingHealth: target.health, keywords: [...target.keywords] });
-      continue;
-    }
-    const attack = scale(effect.action.attack, owner.golden) * times, health = scale(effect.action.health, owner.golden) * times;
-    for (const target of targets) {
-      target.attack = Math.max(0, target.attack + attack);
-      target.health = Math.max(1, target.health + health);
-      ctx.emit({ kind: 'STATS', sourceId: owner.id, targetId: target.id, attack: target.attack + target.auraAttack, remainingHealth: target.health });
+      if (part.action.kind !== 'buff' && part.action.kind !== 'keyword') continue;
+      let targets: CombatMinion[] = [];
+      switch (part.target ?? 'self') {
+        case 'self': targets = owner.health > 0 || trigger === 'startCombat' ? [owner] : []; break;
+        case 'subject': case 'bought': targets = subject && subject.health > 0 ? [subject] : []; break;
+        case 'adjacent': { const i = board.findIndex(m => m.id === owner.id); targets = [board[i - 1], board[i + 1]].filter((m): m is CombatMinion => !!m && m.health > 0); break; }
+        case 'friendly': targets = alive.filter(m => m.id !== owner.id && tribeMatch(m.tribes, part.tribe)); break;
+        case 'random': { const pool = alive.filter(m => m.id !== owner.id && tribeMatch(m.tribes, part.tribe)); targets = pool.length ? [ctx.rng.pick(pool)] : []; break; }
+        default: targets = [];
+      }
+      if (part.action.kind === 'keyword') {
+        for (const target of targets) if (grantKeyword(target.keywords, part.action.keyword)) ctx.emit({ kind: 'STATS', sourceId: owner.id, targetId: target.id, attack: target.attack + target.auraAttack, remainingHealth: target.health, keywords: [...target.keywords] });
+        continue;
+      }
+      const attack = scale(part.action.attack, owner.golden) * times, health = scale(part.action.health, owner.golden) * times;
+      for (const target of targets) {
+        target.attack = Math.max(0, target.attack + attack);
+        target.health = Math.max(1, target.health + health);
+        ctx.emit({ kind: 'STATS', sourceId: owner.id, targetId: target.id, attack: target.attack + target.auraAttack, remainingHealth: target.health });
+      }
     }
   }
 }
