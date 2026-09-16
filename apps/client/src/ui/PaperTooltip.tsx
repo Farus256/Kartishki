@@ -11,7 +11,7 @@ export function PaperTooltip({ children, content, className = '', style, placeme
   content: ReactNode;
   className?: string;
   style?: CSSProperties;
-  placement?: 'above' | 'right' | 'beside';
+  placement?: 'above' | 'right' | 'beside' | 'left';
   boxClassName?: string;
   delay?: number;
   'data-buff'?: string;
@@ -44,6 +44,12 @@ export function PaperTooltip({ children, content, className = '', style, placeme
     const place = () => {
       const r = anchor.current?.getBoundingClientRect();
       if (!r) return;
+      if (placement === 'left') {
+        // Paper tip to the left of a right-edge control (anomaly gem).
+        const w = 270, h = 210, gap = 12, drop = 36;
+        setPoint({ left: Math.max(8, r.left - w - gap), top: Math.max(8, Math.min(innerHeight - h - 8, r.top + r.height / 2 - h / 2 + drop)) });
+        return;
+      }
       if (placement === 'beside') {
         // Small box to the right of the anchor, top-aligned (standings rows).
         const w = 350, h = 520, gap = 10;

@@ -14,7 +14,7 @@ import { idlePhase } from './cardBadges';
 type Props = { combat: CombatEventsMessage; boards: AbCombatBoards; meId: string; catalog: AutoBattlerCatalog; players: AbPlayer[]; pairing?: { playerA: string; playerB: string }[]; initialHeroes?: AbPlayer[]; waiting?: boolean; recruitAfter?: boolean; phaseReady?: boolean; onDone: () => void; /** Fires when a hero hit lands on screen, so standings drop in sync with the stamp. */ onHeroHealth?: (sessionId: string, health: number) => void };
 type Piece = { minion: AbMinion; side: 0 | 1 };
 const W=AB_LAYOUT.COMBAT_W,H=AB_LAYOUT.COMBAT_H,CW=AB_LAYOUT.MINION_W,CH=AB_LAYOUT.MINION_H;
-const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?3200:e.kind==='DEATH'?500:e.kind==='SUMMON'?580:['DEATHRATTLE','REBORN'].includes(e.kind)?660:e.kind==='PLAYER_DAMAGE'?3400:e.kind==='STATS'?460:200;
+const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?3200:e.kind==='DEATH'?500:e.kind==='SUMMON'?580:['DEATHRATTLE','REBORN'].includes(e.kind)?660:e.kind==='PLAYER_DAMAGE'?4000:e.kind==='STATS'?460:200;
 
 /** HTML cards match the tavern tile. Pixi is not used for combat minions. */
 export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],initialHeroes,waiting=false,recruitAfter=true,phaseReady=true,onDone,onHeroHealth}:Props){
@@ -350,7 +350,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       await pause(reduced?1:70*budget,u=>{const coil=1-(1-u)**3;if(!reduced)place(event.sourceId!,src.x-dx/distance*32*coil,src.y-dy/distance*32*coil,variant===1?-.18*coil:variant===2?.06*coil:0,1+.1*coil);});
       el?.classList.add('is-dashing');
       await pause(reduced?1:170*budget,u=>{
-       const ease=u**3,arc=Math.sin(Math.PI*u)*(variant===1?52:variant===2?-28:0);
+       const ease=u**3.5,arc=Math.sin(Math.PI*u)*(variant===1?52:variant===2?-28:0);
        if(!reduced)place(event.sourceId!,src.x-dx/distance*32*(1-ease)+(impact.x-src.x)*ease-dy/distance*arc,src.y-dy/distance*32*(1-ease)+(impact.y-src.y)*ease+dx/distance*arc,variant===1?Math.sin(Math.PI*u)*.22:variant===2?-.12*u:.04*u,1+(variant===2?.18:.04)*Math.sin(Math.PI*u));
       });
       el?.classList.remove('is-dashing');
@@ -420,9 +420,10 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       if(rowIdx<0)next.push({minion:born,side});else next.splice(insert,0,{minion:born,side});
       audioManager.play('ab_summon');await commit(next);restack(next);
       const bornEl=tiles.current.get(born.id);
-      if(bornEl&&!reduced&&rate.current<100&&rebornOwner===born.owner){
+      const fromReborn=rebornOwner===born.owner;
+      if(fromReborn)rebornOwner='';
+      if(bornEl&&!reduced&&rate.current<100&&fromReborn){
        // Reborn: the pieces of the fallen minion fly back together and fuse with a cold flash.
-       rebornOwner='';
        const face=bornEl.querySelector<HTMLElement>('.ab-combat-face');
        if(face){
         face.style.visibility='hidden';
@@ -441,7 +442,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
        animate(bornEl.querySelector<HTMLElement>('.ab-combat-flip')??bornEl,[{transform:'translateY(70px) scale(.6)',clipPath:'inset(70% -24px -24px -24px)',filter:'brightness(.4)'},{transform:'translateY(-12px) scale(1.05)',clipPath:'inset(-24px)',filter:'brightness(1.6)',offset:.7},{transform:'none',clipPath:'inset(-24px)',filter:'none'}],460);
        const dust=document.createElement('i');dust.className='ab-combat-dust';bornEl.append(dust);animate(dust,[{transform:'translate(-50%,0) scale(.5)',opacity:.9},{transform:'translate(-50%,-14px) scale(1.9)',opacity:0}],520).onfinish=()=>dust.remove();
       }
-      await pause(ms);
+      await pause(fromReborn?ms*.45:ms);
      }else if(event.kind==='PLAYER_DAMAGE'){
       if(event.targetId){
        const id=event.targetId;
@@ -450,23 +451,23 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
        const victim=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me .ab-hero-face':'.ab-combat-foe .ab-hero-face');
        const amount=event.amount??0;
        if(winnerId&&amount>0){
-         await pause(reduced?8:480*budget);
+         await pause(reduced?8:560*budget);
         // Hearthstone maths on screen: the tally opens at the winner's tavern tier, then each survivor's tier flies in.
         const tier=players.find(p=>p.sessionId===winnerId)?.tavernTier??1;
         const survivors=piecesRef.current.filter(p=>p.side===(winnerId===topOwner?0:1));
         let total=Math.min(amount,tier);
         setTally({id:winnerId,amount:total});
-        await pause(reduced?8:420*budget);
-        const flyMs=Math.min(560,2000/Math.max(1,survivors.length));
+        await pause(reduced?8:520*budget);
+        const flyMs=Math.min(720,2600/Math.max(1,survivors.length));
         for(const s of survivors){
          if(cancelled)return;
          await flyTier(s.minion.id,s.minion.tavernTier,flyMs*budget);
          total=Math.min(amount,total+s.minion.tavernTier);
          setTally({id:winnerId,amount:total});
-         await pause(reduced?8:150*budget);
+         await pause(reduced?8:220*budget);
         }
         setTally({id:winnerId,amount});
-         await pause(reduced?8:650*budget);
+         await pause(reduced?8:780*budget);
         if(striker&&victim&&!reduced){
          const a=striker.getBoundingClientRect(),b=victim.getBoundingClientRect();
          const scale=field.current!.getBoundingClientRect().height/field.current!.offsetHeight;
@@ -501,21 +502,23 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
         await pause(reduced?8:420*budget,u=>{const e=1-(1-u)**3;striker.style.translate=`${x*(1-e)}px ${y*(1-e)}px`;striker.style.rotate=`${r*(1-e)}deg`;striker.style.scale=String(1+s*(1-e));});
         striker.style.translate='';striker.style.rotate='';striker.style.scale='';striker.style.zIndex='';
        }
-       // Lethal: the portrait breaks apart like a minion.
+       // Beat after the slam settles; lethal shatter only then, and results wait for the shards to finish.
+       await pause(reduced?8:1200*budget);
        if(heroEl&&(event.remainingHealth??1)<=0&&!reduced&&rate.current<100){
         const img=heroEl.querySelector<HTMLElement>('.ab-combat-hero-image');
         if(img){
          const cuts=['polygon(0 0,55% 0,45% 35%,0 45%)','polygon(55% 0,100% 0,100% 40%,45% 35%)','polygon(0 45%,45% 35%,58% 65%,0 72%)','polygon(45% 35%,100% 40%,100% 70%,58% 65%)','polygon(0 72%,58% 65%,50% 100%,0 100%)','polygon(58% 65%,100% 70%,100% 100%,50% 100%)'];
          const box=img.getBoundingClientRect(),base=heroEl.getBoundingClientRect(),z=base.width/heroEl.offsetWidth||1;
+         const shardMs=700+cuts.length*50;
          cuts.forEach((cut,i)=>{const piece=img.cloneNode(true) as HTMLElement;piece.className='ab-combat-hero-shard';piece.style.cssText=`position:absolute;left:${(box.left-base.left)/z}px;top:${(box.top-base.top)/z}px;width:${box.width/z}px;height:${box.height/z}px;clip-path:${cut};margin:0;pointer-events:none;z-index:8`;heroEl.appendChild(piece);
           const dx=(i%2?1:-1)*(30+Math.random()*70),rot=(Math.random()-.5)*80;
           animate(piece,[{transform:'translate(0,0) rotate(0)',opacity:1},{transform:`translate(${dx*.4}px,${-12-Math.random()*24}px) rotate(${rot*.3}deg)`,opacity:1,offset:.25},{transform:`translate(${dx}px,${140+Math.random()*80}px) rotate(${rot}deg)`,opacity:0}],700+i*50,{fill:'forwards'}).onfinish=()=>piece.remove();});
          img.style.visibility='hidden';
          audioManager.play('ab_death');
-         await pause(600*budget);
+         await pause(shardMs*budget);
         }
        }
-        setTally(null);await pause(reduced?8:300*budget);
+        setTally(null);await pause(reduced?8:380*budget);
       }
      }else if(event.kind==='DEATHRATTLE'||event.kind==='REBORN'){
       if(event.kind==='REBORN')rebornOwner=event.owner??'';
@@ -542,9 +545,9 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     rate.current=1;
     if(transition.current.recruitAfter){
      setResult(null);setSettled(false);
-     setRecruit(true);await pause(reduced?100:750);
+     setRecruit(true);await pause(reduced?100:1100);
      if(!cancelled)setLeaving(true);
-     await pause(reduced?20:300);
+     await pause(reduced?20:450);
     }
     // Flush the final presentation once, including when Skip consumes the queue
     // synchronously. No simulation or network state is changed here.
