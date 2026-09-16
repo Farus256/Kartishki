@@ -17,11 +17,10 @@ const W=AB_LAYOUT.COMBAT_W,H=AB_LAYOUT.COMBAT_H,CW=AB_LAYOUT.MINION_W,CH=AB_LAYO
 const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?3200:e.kind==='DEATH'?500:e.kind==='SUMMON'?580:['DEATHRATTLE','REBORN'].includes(e.kind)?660:e.kind==='PLAYER_DAMAGE'?4000:e.kind==='STATS'?460:200;
 
 /** HTML cards match the tavern tile. Pixi is not used for combat minions. */
-export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],initialHeroes,waiting=false,recruitAfter=true,phaseReady=true,onDone,onHeroHealth}:Props){
- const otherFights=pairing.length>1;
+export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pairing=[],initialHeroes,waiting=false,recruitAfter=true,phaseReady=true,onDone,onHeroHealth}:Props){
  const done=useRef(onDone);done.current=onDone;
  const heroHealth=useRef(onHeroHealth);heroHealth.current=onHeroHealth;
- const transition=useRef({phaseReady,recruitAfter,otherFights});transition.current={phaseReady,recruitAfter,otherFights};
+ const transition=useRef({phaseReady,recruitAfter});transition.current={phaseReady,recruitAfter};
  const [tally,setTally]=useState<{id:string;amount:number}|null>(null);
  const [settled,setSettled]=useState(false);
  const rate=useRef(1);const field=useRef<HTMLDivElement>(null);const tiles=useRef(new Map<string, HTMLDivElement>());
@@ -350,7 +349,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
       await pause(reduced?1:70*budget,u=>{const coil=1-(1-u)**3;if(!reduced)place(event.sourceId!,src.x-dx/distance*32*coil,src.y-dy/distance*32*coil,variant===1?-.18*coil:variant===2?.06*coil:0,1+.1*coil);});
       el?.classList.add('is-dashing');
       await pause(reduced?1:170*budget,u=>{
-       const ease=u**3.5,arc=Math.sin(Math.PI*u)*(variant===1?52:variant===2?-28:0);
+       const ease=u**5,arc=Math.sin(Math.PI*u)*(variant===1?52:variant===2?-28:0);
        if(!reduced)place(event.sourceId!,src.x-dx/distance*32*(1-ease)+(impact.x-src.x)*ease-dy/distance*arc,src.y-dy/distance*32*(1-ease)+(impact.y-src.y)*ease+dx/distance*arc,variant===1?Math.sin(Math.PI*u)*.22:variant===2?-.12*u:.04*u,1+(variant===2?.18:.04)*Math.sin(Math.PI*u));
       });
       el?.classList.remove('is-dashing');
@@ -537,17 +536,15 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     // The result must remain readable even after Skip or with reduced motion.
     await new Promise<void>(resolve=>setTimeout(resolve,AUTO_BATTLER.RESULT_STAMP_MS));
     setSettled(true);
-    // Only park on the result if another pair is still presenting.
-    if(transition.current.otherFights){
-     while(!cancelled&&!transition.current.phaseReady)await new Promise<void>(resolve=>setTimeout(resolve,100));
-     if(cancelled)return;
-    }
+    // Always wait for the server to leave COMBAT — otherwise a short fight skips the recruit stamp.
+    while(!cancelled&&!transition.current.phaseReady)await new Promise<void>(resolve=>setTimeout(resolve,100));
+    if(cancelled)return;
     rate.current=1;
     if(transition.current.recruitAfter){
      setResult(null);setSettled(false);
-     setRecruit(true);await pause(reduced?100:1100);
+     setRecruit(true);await pause(reduced?100:700);
      if(!cancelled)setLeaving(true);
-     await pause(reduced?20:450);
+     await pause(reduced?20:320);
     }
     // Flush the final presentation once, including when Skip consumes the queue
     // synchronously. No simulation or network state is changed here.
@@ -600,9 +597,9 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing=[],in
     </div>;
    })}
   </div>}
-  {settled&&!phaseReady&&otherFights&&<p className="ab-combat-wait" role="status">{t('abCombatWaiting')}</p>}
+  {settled&&!phaseReady&&<p className="ab-combat-wait" role="status">{t('abCombatWaiting')}</p>}
   {result&&<div className={`ab-result-stamp is-${result}${leaving?' is-leave':''}`} data-testid="ab-result-stamp" role="status"><b>{result==='win'?t('win'):result==='loss'?t('loss'):t('draw')}</b></div>}
-  {recruit&&recruitAfter&&<div className={`ab-recruit-stamp${leaving?' is-leave':''}`} data-testid="ab-recruit-stamp" role="status"><b>{t('abRecruitStamp')}</b></div>}
+  {recruit&&<div className={`ab-recruit-stamp${leaving?' is-leave':''}`} data-testid="ab-recruit-stamp" role="status"><b>{t('abRecruitStamp')}</b></div>}
  </div>;
 }
 
