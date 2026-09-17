@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { applyShopResult, defaultShop, parseShopAction, resolveShop, resolveShopAction, shopCard, shopCash, shopMixed, shopProducts, takeAlbumCard, validateShopConfig, weightedIndex } from '@kartishki/shared';
 import { demoCards } from '../apps/client/src/economy';
 
-const wallet = { currency: 2000, xp: 0, owned: Object.fromEntries(demoCards.slice(0, 18).map(card => [card.id, 6])) };
+const wallet = { currency: 8000, xp: 0, owned: Object.fromEntries(demoCards.slice(0, 18).map(card => [card.id, 6])) };
 
 test('default shop validates and mixed packs sit next to card packs', () => {
   assert.equal(validateShopConfig(defaultShop), true);

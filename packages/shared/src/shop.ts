@@ -33,11 +33,11 @@ export const defaultShop: ShopConfig = {
     { id: 'elite', name: 'Элитный куш', kind: 'pack', cost: 300, draws: 5, weights: [20, 45, 25, 9, 1], prizes: cardPrizes },
     { id: 'ultimate', name: 'Золотой свёрток', kind: 'pack', cost: 750, draws: 5, weights: [0, 20, 45, 30, 5], prizes: cardPrizes },
     { id: 'mixed-pack', name: 'Всё включено', kind: 'pack', cost: 150, draws: 3, weights: [55, 30, 12, 2.5, .5], prizes: mixed },
-    { id: 'wardrobe-pack', name: 'Гардероб', kind: 'pack', cost: 400, draws: 3, weights: [55, 30, 12, 2.5, .5], prizes: wardrobe },
+    { id: 'wardrobe-pack', name: 'Гардероб', kind: 'pack', cost: 2200, draws: 3, weights: [55, 30, 12, 2.5, .5], prizes: wardrobe },
     { id: 'yard', name: 'Дворовый тайник', kind: 'chest', cost: 150, draws: 1, weights: [55, 30, 12, 2.5, .5], prizes: cardPrizes },
     { id: 'vault', name: 'Сейф коллекционера', kind: 'chest', cost: 500, draws: 1, weights: [0, 40, 40, 17, 3], prizes: cardPrizes },
     { id: 'mixed-chest', name: 'Контрабанда', kind: 'chest', cost: 200, draws: 1, weights: [30, 40, 22, 7, 1], prizes: mixed },
-    { id: 'atelier', name: 'Ателье', kind: 'chest', cost: 350, draws: 1, weights: [30, 40, 22, 7, 1], prizes: wardrobe },
+    { id: 'atelier', name: 'Ателье', kind: 'chest', cost: 1800, draws: 1, weights: [30, 40, 22, 7, 1], prizes: wardrobe },
   ],
   // 3 reels x weightedIndex: EV $44.49 per $50 bet (RTP 89.0%), any payout 50.9%, jackpot 1 in 296k.
   slots: { weights: [32, 23, 16, 11, 8, 5.5, 3, 1.5], pair: [25, 50, 100, 150, 250, 300, 500, 1000], triple: [150, 300, 500, 900, 1250, 2000, 3000, 10000] },

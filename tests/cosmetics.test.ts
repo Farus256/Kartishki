@@ -15,10 +15,10 @@ test('every hero slam on sale has a hit-effect config, and every config is on sa
 test('cosmetic ids are unique across kinds and tiers follow price', () => {
   assert.equal(new Set(COSMETICS.map(c => c.id)).size, COSMETICS.length);
   assert.ok(PORTRAIT_FX.length >= 4 && NAME_FX.length >= 8);
-  assert.equal(cosmeticTier(250), 'common');
-  assert.equal(cosmeticTier(400), 'rare');
-  assert.equal(cosmeticTier(600), 'epic');
-  assert.equal(cosmeticTier(900), 'legendary');
+  assert.equal(cosmeticTier(900), 'common');
+  assert.equal(cosmeticTier(1500), 'rare');
+  assert.equal(cosmeticTier(4500), 'epic');
+  assert.equal(cosmeticTier(8000), 'legendary');
 });
 
 test('portrait auras persist through settings and need their unlock', () => {

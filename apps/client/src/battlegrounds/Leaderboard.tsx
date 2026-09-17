@@ -79,7 +79,9 @@ export function Leaderboard({ players, meId, catalog, turn = 0 }: { players: AbP
             className={`${player?.eliminated ? 'is-out' : ''} ${player?.sessionId === meId ? 'is-me' : ''} ${player?.sessionId===opponentId ? 'has-swords' : ''}`}>
             {player ? (
               <PaperTooltip className="ab-lb-row" placement="beside" boxClassName="paper-tooltip is-lb-log" delay={160} content={<FightLog player={player} players={players} log={log} meId={meId} ru={ru} catalog={catalog} />}>
-                <div className="ab-lb-face" data-skin={player.skin}><AbHeroFace id={player.heroId || player.sessionId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} />
+                <div className="ab-lb-face ab-hero-face" data-skin={player.skin || undefined} data-aura={player.aura || undefined}>
+                  <AbHeroFace id={player.heroId || player.sessionId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} />
+                  <Aura id={player.aura} skin={player.skin} />
                   {player.eliminated && <span className="ab-out-mark" aria-label={t('abEliminated')} />}
                 </div>
                 <div className="ab-lb-copy">
