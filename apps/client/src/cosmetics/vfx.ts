@@ -5,7 +5,7 @@
  * canvas instead of breaking the table. Everything here is transform-free for the DOM: the canvas is
  * absolutely positioned once and only its pixels change.
  */
-export type Shape = 'glow' | 'wisp' | 'spark' | 'shard' | 'drop' | 'pixel' | 'star' | 'ring' | 'flake';
+export type Shape = 'glow' | 'wisp' | 'spark' | 'shard' | 'drop' | 'pixel' | 'star' | 'ring' | 'flake' | 'rune' | 'leaf' | 'bubble';
 export type Particle = {
   x: number; y: number; vx: number; vy: number;
   /** Constant acceleration (gravity / lift). */
@@ -40,12 +40,23 @@ export function noise2(x: number, y: number): number {
   return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
 }
 
+/** Six small rune glyphs as unit-square strokes; a particle picks one by its seed. */
+export const RUNE_STROKES: readonly (readonly [number, number, number, number])[][] = [
+  [[-.5, -1, -.5, 1], [-.5, -1, .6, -.3], [-.5, .2, .6, .9]],
+  [[0, -1, 0, 1], [-.7, -.5, .7, .5], [-.7, .5, .7, -.5]],
+  [[-.6, 1, 0, -1], [0, -1, .6, 1], [-.35, .2, .35, .2]],
+  [[-.5, -1, -.5, 1], [-.5, -1, .5, 0], [.5, 0, -.5, 1]],
+  [[-.6, -.6, .6, -.6], [0, -.6, 0, 1], [-.5, .5, .5, .5]],
+  [[-.6, -1, .6, 1], [.6, -1, -.6, 1], [0, -1, 0, 1]],
+];
 const sprites = new Map<string, HTMLCanvasElement>();
 /** Soft radial sprite in one colour, drawn once per colour+kind and reused by every particle. */
 function sprite(kind: 'glow' | 'wisp', color: string): HTMLCanvasElement {
   const key = `${kind}:${color}`;
   let c = sprites.get(key);
   if (c) return c;
+  // Bounded: a colour string that never repeats would otherwise grow this into a canvas per particle.
+  if (sprites.size >= 128) sprites.clear();
   c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d')!;
   const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -70,6 +81,7 @@ export class VfxLayer {
   private t = 0;
   private dead = false;
   private hidden = false;
+  private frozen = false;
   private observer?: ResizeObserver;
   private io?: IntersectionObserver;
   w = 0; h = 0;
@@ -99,6 +111,7 @@ export class VfxLayer {
     this.canvas.width = Math.max(1, Math.round(w * dpr)); this.canvas.height = Math.max(1, Math.round(h * dpr));
     this.canvas.style.width = `${w}px`; this.canvas.style.height = `${h}px`;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.frozen) this.still();
   }
   /** Host-relative coordinates (0,0 = host's top-left; the inset margin is negative space). */
   spawn(p: Partial<Particle> & Pick<Particle, 'x' | 'y'>): Particle {
@@ -110,10 +123,23 @@ export class VfxLayer {
   }
   /** Advance the simulation without drawing so an aura is already alive the moment it appears. */
   warm(seconds: number) { const dt = 1 / 30; for (let s = 0; s < seconds; s += dt) { this.t += dt; for (const e of this.emitters) e(dt, this.t, this); this.step(dt); } this.paints.length = 0; }
+  /** One still frame: simulate a couple of seconds, draw once, then stop for good (gallery tiles, reel tiles). */
+  freeze(seconds = 2) {
+    this.warm(seconds);
+    this.frozen = true;
+    this.still();
+  }
+  /** One emitter tick and one draw with the loop stopped; a frozen layer repeats this when its host resizes. */
+  private still() {
+    const dt = 1 / 30; this.t += dt;
+    for (const e of this.emitters) e(dt, this.t, this);
+    this.step(dt); this.draw();
+    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; }
+  }
   emitter(fn: Emitter): () => void { this.emitters.add(fn); this.kick(); return () => this.emitters.delete(fn); }
   get busy() { return this.particles.length > 0 || this.emitters.size > 0; }
   private readonly resume = () => this.kick();
-  private kick() { if (!this.raf && !this.dead && !this.hidden && !document.hidden) { this.last = performance.now(); this.raf = requestAnimationFrame(this.frame); } }
+  private kick() { if (!this.raf && !this.dead && !this.frozen && !this.hidden && !document.hidden) { this.last = performance.now(); this.raf = requestAnimationFrame(this.frame); } }
   private frame = (now: number) => {
     this.raf = 0;
     if (this.dead) return;
@@ -170,13 +196,16 @@ export class VfxLayer {
         }
         case 'pixel': ctx.fillStyle = p.color; ctx.fillRect(x - size, y - size * .35, size * 2, size * .7); break;
         case 'drop': ctx.fillStyle = p.color; ctx.beginPath(); ctx.ellipse(x, y, size, size * 1.25, p.rot, 0, Math.PI * 2); ctx.fill(); break;
-        case 'shard': case 'star': case 'ring': case 'flake': {
+        case 'shard': case 'star': case 'ring': case 'flake': case 'rune': case 'leaf': case 'bubble': {
           ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot);
           ctx.fillStyle = p.color; ctx.strokeStyle = p.color; ctx.lineWidth = Math.max(1, size * .25);
           ctx.beginPath();
           if (p.shape === 'shard') { ctx.moveTo(0, -size * 1.3); ctx.lineTo(size * .8, -size * .2); ctx.lineTo(size * .3, size * 1.1); ctx.lineTo(-size * .6, size * .7); ctx.lineTo(-size * .9, -size * .3); ctx.closePath(); ctx.fill(); }
           else if (p.shape === 'star') { for (let i = 0; i < 10; i++) { const r = i % 2 ? size * .45 : size; const t = i / 10 * Math.PI * 2 - Math.PI / 2; ctx.lineTo(Math.cos(t) * r, Math.sin(t) * r); } ctx.closePath(); ctx.fill(); }
           else if (p.shape === 'ring') { ctx.arc(0, 0, size, 0, Math.PI * 2); ctx.stroke(); }
+          else if (p.shape === 'rune') { ctx.lineWidth = Math.max(1.2, size * .28); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; for (const [x0, y0, x1, y1] of RUNE_STROKES[Math.floor(p.seed) % RUNE_STROKES.length]!) { ctx.moveTo(x0 * size, y0 * size); ctx.lineTo(x1 * size, y1 * size); } ctx.stroke(); }
+          else if (p.shape === 'leaf') { ctx.moveTo(0, -size); ctx.quadraticCurveTo(size * .9, -size * .2, 0, size); ctx.quadraticCurveTo(-size * .9, -size * .2, 0, -size); ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.moveTo(0, -size * .8); ctx.lineTo(0, size * .8); ctx.stroke(); }
+          else if (p.shape === 'bubble') { ctx.lineWidth = Math.max(1, size * .18); ctx.arc(0, 0, size, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(-size * .35, -size * .35, size * .22, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill(); }
           else { for (let i = 0; i < 6; i++) { const t = i / 6 * Math.PI * 2; ctx.moveTo(0, 0); ctx.lineTo(Math.cos(t) * size, Math.sin(t) * size); } ctx.stroke(); }
           ctx.restore();
           break;

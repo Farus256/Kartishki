@@ -82,7 +82,7 @@ function MinionDossier({ minion, catalog, inline = false }: { minion: AbMinion; 
   return (
     <article className={`ab-dossier ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''}`} data-testid={inline ? undefined : 'ab-dossier'}>
       <span className="ab-dossier-stars">{'★'.repeat(minion.tavernTier)}</span>
-      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" />}</div>
+      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" />}</div>
       <h3 className="ab-dossier-name">{name}</h3>
       <div className="ab-dossier-text">
         {lines.map(line => <p key={line}><CardText line={line} titles={titles} /></p>)}
@@ -157,7 +157,7 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
           {actionLabel && <span className="ab-minion-act">{actionLabel}</span>}
         </> : <>
         {!fullCard && !ghost && <i className="ab-token-shadow" aria-hidden />}
-        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" draggable={false} />}</span>
+        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" draggable={false} />}</span>
         <span className="ab-minion-tier">{spell ? '★' : minion.tavernTier}</span>
         {minion.keywords.includes('taunt') && <TauntFrame />}
         {minion.keywords.includes('divineShield') && <span className="ab-shield-bubble" aria-hidden="true" />}

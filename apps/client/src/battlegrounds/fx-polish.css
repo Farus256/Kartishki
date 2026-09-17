@@ -135,50 +135,9 @@
    The ember is a flame tongue over a glowing core; sparks fly up, ash flakes drift back over the char and sink. */
 .ab-rope { height:9px; background:repeating-linear-gradient(90deg,#3a2a20 0 6px,#2a1c14 6px 12px); box-shadow:inset 0 1px 0 #ffffff18,0 1px 2px #000a,0 0 18px #ff641b22; border-radius:5px; opacity:.9; }
 .ab-rope-remaining { position:relative; height:9px; border-radius:0 5px 5px 0; background:repeating-linear-gradient(115deg,#6e3b19 0 2.7px,#dbac60 3.6px 6.3px,#b8833a 7.2px 9.06px); background-size:10px 9px; background-position:100% 0; box-shadow:0 2px 3px #3a201b,inset 0 1px 0 #fff3,-10px 0 14px #ff641b55; }
-.ab-rope-remaining::before { content:''; position:absolute; left:-2px; top:-5px; bottom:-5px; width:18px; border-radius:50%; background:radial-gradient(circle,#ffcc3988 0%,#ff641b44 45%,transparent 70%); pointer-events:none; animation:ab-scorch-pulse .7s ease-in-out infinite alternate; }
-.ab-rope-ember { position:absolute; left:-10px; top:-10px; width:28px; height:28px; border-radius:50%; background:radial-gradient(circle,#fffbe0 0 16%,#ffcc39 34%,#ff641b 58%,#ff3a1000 72%); box-shadow:0 0 10px 4px #ffcc39aa,0 0 26px 10px #ff641b66,0 0 40px 16px #ff3a1028; animation:ab-ember-glow .42s ease-in-out infinite alternate,ab-ember-bob .9s ease-in-out infinite; }
-.ab-rope-ember::before,.ab-rope-ember::after { content:''; position:absolute; left:50%; bottom:48%; transform-origin:50% 100%; border-radius:50% 50% 45% 45% / 70% 70% 30% 30%; will-change:transform,opacity; }
-.ab-rope-ember::before { width:13px; height:26px; margin-left:-6.5px; background:linear-gradient(180deg,#ff3a1000 0%,#ff641b 22%,#ffcc39 62%,#fffbe0 92%); filter:blur(.35px); animation:ab-flame .28s ease-in-out infinite; }
-.ab-rope-ember::after { display:block; width:7px; height:14px; margin-left:-3.5px; background:linear-gradient(180deg,#ffcc3900,#fffef0); opacity:.95; animation:ab-flame .22s ease-in-out .08s infinite reverse; }
-@keyframes ab-flame {
-  0% { transform:translateX(0) scale(1,.92) rotate(-6deg) skewX(-2deg); opacity:.9; }
-  25% { transform:translateX(1.5px) scale(.88,1.22) rotate(7deg) skewX(3deg); opacity:1; }
-  50% { transform:translateX(-1px) scale(1.06,.96) rotate(-3deg) skewX(-4deg); opacity:.95; }
-  75% { transform:translateX(2px) scale(.9,1.16) rotate(5deg) skewX(2deg); opacity:1; }
-  100% { transform:translateX(-.5px) scale(1.02,1) rotate(-5deg) skewX(-1deg); opacity:.92; }
-}
-@keyframes ab-ember-glow { from { box-shadow:0 0 8px 3px #ffcc3999,0 0 20px 8px #ff641b55,0 0 34px 12px #ff3a1020; filter:brightness(1); } to { box-shadow:0 0 16px 7px #ffcc39dd,0 0 36px 14px #ff641b99,0 0 52px 20px #ff3a1040; filter:brightness(1.22); } }
-@keyframes ab-ember-bob { 0%,100% { transform:translate(0,1px); } 50% { transform:translate(.5px,-1.5px); } }
-@keyframes ab-scorch-pulse { from { opacity:.55; transform:scaleX(.85); } to { opacity:1; transform:scaleX(1.15); } }
-.ab-rope-ember i { position:absolute; left:50%; top:42%; width:3px; height:5px; margin:-2px; border-radius:50% 50% 40% 40%; background:linear-gradient(180deg,#fff6c8,#ff9a3a); box-shadow:0 0 6px 2px #ff9a3aaa; animation:ab-spark .85s ease-out infinite; opacity:0; }
-.ab-rope-ember i:nth-child(1) { --sx:-4px; --sy:-38px; animation-duration:.75s; }
-.ab-rope-ember i:nth-child(2) { animation-delay:.2s; --sx:-20px; --sy:-32px; width:4px; height:4px; }
-.ab-rope-ember i:nth-child(3) { animation-delay:.42s; --sx:18px; --sy:-36px; animation-duration:.95s; }
-.ab-rope-ember i:nth-child(4) { animation-delay:.64s; --sx:8px; --sy:-28px; width:2px; height:4px; animation-duration:.7s; }
-@keyframes ab-spark {
-  0% { transform:translate(0,0) scale(.6) rotate(0); opacity:0; }
-  12% { opacity:1; transform:translate(calc(var(--sx,-6px) * .15),-6px) scale(1.15); }
-  55% { opacity:.85; }
-  100% { transform:translate(var(--sx,-6px),var(--sy,-34px)) scale(.15) rotate(40deg); opacity:0; }
-}
-.ab-rope-ember em { position:absolute; left:50%; top:55%; width:4px; height:3px; margin:-2px; border-radius:1px; background:#8d8781; box-shadow:0 0 0 .5px #4a4541; opacity:0; animation:ab-ash 1.65s ease-out infinite; }
-.ab-rope-ember em:nth-of-type(2) { animation-delay:.35s; --ax:-32px; --ay:16px; width:3px; height:3px; background:#a39d96; }
-.ab-rope-ember em:nth-of-type(3) { animation-delay:.7s; --ax:-14px; --ay:24px; animation-duration:1.85s; }
-.ab-rope-ember em:nth-of-type(4) { animation-delay:1.05s; --ax:-42px; --ay:10px; width:5px; height:2px; background:#6f6a66; }
-@keyframes ab-ash {
-  0% { transform:translate(0,0) rotate(0) scale(.7); opacity:0; }
-  10% { opacity:.9; }
-  35% { transform:translate(calc(var(--ax,-24px) * .4),-11px) rotate(100deg) scale(1); opacity:.75; }
-  70% { opacity:.35; }
-  100% { transform:translate(var(--ax,-24px),var(--ay,18px)) rotate(280deg) scale(.5); opacity:0; }
-}
-.ab-rope.is-short .ab-rope-ember { box-shadow:0 0 14px 6px #ffcc39,0 0 34px 14px #ff641baa,0 0 48px 18px #ff3a1033; }
+/* The ember, its sparks, smoke and ash are a canvas (fuseFx.ts); CSS only keeps a small glow under it and the rope stripes. */
+.ab-rope-ember { position:absolute; left:-6px; top:-6px; width:20px; height:20px; border-radius:50%; background:radial-gradient(circle,#ffcc3966 0 30%,#ff641b22 60%,transparent 72%); }
 .ab-rope.is-short .ab-rope-remaining { background-image:repeating-linear-gradient(115deg,#7a1e12 0 2.7px,#ff8a4a 3.6px 6.3px,#c94a20 7.2px 9.06px); }
-.ab-rope.is-critical .ab-rope-ember { animation-duration:.28s,.55s; }
-.ab-rope.is-critical .ab-rope-ember::before { animation-duration:.18s; filter:blur(.2px) brightness(1.15); }
-.ab-rope.is-critical .ab-rope-ember::after { animation-duration:.14s; }
-.ab-rope.is-critical .ab-rope-remaining::before { animation-duration:.35s; background:radial-gradient(circle,#ffe27acc 0%,#ff641b77 40%,transparent 70%); }
-.ab-rope.is-critical .ab-rope-ember i { animation-duration:.55s; }
 
 /* Hourglass: sand level follows the real clock, a stream runs while the turn ticks */
 .ab-clock-sand { transform-origin:30px 40px; transform:scale(var(--sand,1)); }

@@ -7,6 +7,9 @@ import lvivske from '../assets/lvivske-logo.png';
 const TOP = 106, BOTTOM = 658, HEIGHT = BOTTOM - TOP;
 const SHAPE = 'M170 80 L248 81 L250 135 C249 161 270 173 287 190 Q336 227 338 276 L350 606 Q352 652 326 672 Q312 687 288 674 Q266 695 244 680 Q220 697 199 681 Q175 695 152 680 Q122 690 100 670 Q76 651 80 612 L89 279 Q89 228 131 194 C153 176 169 158 168 132Z';
 const liquidPath = (y: number, wave: number) => `M65 ${y} Q140 ${y - wave} 211 ${y} T365 ${y} L365 700 L65 700Z`;
+/** Callout: from the beer surface (right of centre) straight up to the elbow beside the cap, then right to the label. Hand-drawn: the strokes wobble a px or two. */
+const CALLOUT_X = 322, ELBOW_Y = 96, LABEL_X = 404;
+const calloutPath = (surface: number) => `M${CALLOUT_X} ${surface} Q${CALLOUT_X + 1.5} ${(surface + ELBOW_Y) / 2} ${CALLOUT_X - .5} ${ELBOW_Y + 4} Q${CALLOUT_X} ${ELBOW_Y} ${CALLOUT_X + 4} ${ELBOW_Y} Q${(CALLOUT_X + LABEL_X) / 2} ${ELBOW_Y - 1.5} ${LABEL_X - 8} ${ELBOW_Y + .5}`;
 const foamPath = (y: number, wave: number) => `M65 ${y - 12} Q140 ${y - wave - 12} 211 ${y - 12} T365 ${y - 12} L365 ${y + 8} Q285 ${y + wave + 8} 211 ${y + 8} T65 ${y + 8}Z`;
 
 /** Procedural SVG bottle. Only SVG paths/particles update per frame; React does not re-render. */
@@ -17,6 +20,7 @@ export function BeerBottle({ remainingMl, league }: { remainingMl: number; leagu
   const ml = Math.max(0, Math.min(BOTTLE_CAPACITY, Number.isFinite(remainingMl) ? remainingMl : 0));
   const level = useSpring(ml, { stiffness: 65, damping: 18, mass: 1.2 });
   const liquid = useRef<SVGPathElement>(null), foam = useRef<SVGPathElement>(null);
+  const callout = useRef<SVGPathElement>(null), calloutDot = useRef<SVGCircleElement>(null), calloutText = useRef<SVGTextElement>(null);
   const bubbles = useRef<SVGGElement>(null), foamBubbles = useRef<SVGGElement>(null);
   const kick = useRef(0), elapsed = useRef(0);
   const dark = league === 'dark';
@@ -30,6 +34,11 @@ export function BeerBottle({ remainingMl, league }: { remainingMl: number; leagu
     const wave = Math.sin(age * 5.2) * amplitude;
     liquid.current?.setAttribute('d', liquidPath(y, wave));
     foam.current?.setAttribute('d', foamPath(y, wave));
+    // The callout rides the real surface: the wave at x=322 is about a third of the mid-bottle swell.
+    const surface = y + wave * .38 - 2;
+    callout.current?.setAttribute('d', calloutPath(surface));
+    calloutDot.current?.setAttribute('cy', String(surface));
+    if (calloutText.current) { const shown = String(Math.round(amount)); if (calloutText.current.textContent !== shown) calloutText.current.textContent = shown; }
     // No foam or suspended bubbles in a drained bottle; only the drawn bottom drops remain.
     const visible = amount > .2 ? '1' : '0';
     liquid.current?.setAttribute('opacity', visible); foam.current?.setAttribute('opacity', visible);
@@ -78,6 +87,11 @@ export function BeerBottle({ remainingMl, league }: { remainingMl: number; leagu
       <image href={lvivske} x="118" y="354" width="186" height="145" preserveAspectRatio="xMidYMid meet" />
       <text x="213" y="503" textAnchor="middle" fontFamily="var(--font-hand)" fontSize="21" fill="#302b22">{t(dark ? 'bottleLabelDark' : 'bottleLabelLight')}</text>
       <path d="M105 395l23-7-11 11 M307 477l-16 15 30-10 M123 514l14-5" fill="none" stroke="#f0e5c8" strokeWidth="5" />
+    </g>
+    <g className="beer-callout" aria-hidden data-testid="beer-callout">
+      <path ref={callout} d={calloutPath(initialY)} fill="none" stroke="#25231e" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle ref={calloutDot} cx={CALLOUT_X} cy={initialY} r="5" fill="#f4edd7" stroke="#25231e" strokeWidth="3" />
+      <text x={LABEL_X} y={ELBOW_Y + 9} fontFamily="var(--font-hand)" fontSize="30" fill="#25231e"><tspan ref={calloutText}>{ml}</tspan><tspan dx="6" fontSize="20">{t('bottleMl')}</tspan></text>
     </g>
     <text x="219" y="627" textAnchor="middle" fontFamily="var(--font-stencil)" fontSize="18" fill="#f7e5b9" opacity=".7">{t('bottleVolume')}</text>
   </motion.svg>;

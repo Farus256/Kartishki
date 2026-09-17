@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
+import { mountFuseFx } from './fuseFx';
 
 export type Deadline = { endsAt: number; totalMs: number };
 
@@ -48,12 +49,17 @@ export const FUSE_SECONDS = 10;
 export function FuseRope({ deadline, active }: { deadline: Deadline; active: boolean }) {
   const { t } = useTranslation();
   const fill = useRef<HTMLDivElement>(null);
+  const rope = useRef<HTMLDivElement>(null);
+  const critical = useRef(false);
   const secs = useCountdown(deadline, active, ratio => { if (fill.current) fill.current.style.width = `${Math.min(1, ratio * deadline.totalMs / (FUSE_SECONDS * 1000)) * 100}%`; });
-  if (!active || secs <= 0 || secs > FUSE_SECONDS) return null;
+  const lit = active && secs > 0 && secs <= FUSE_SECONDS;
+  critical.current = secs <= 3;
+  // The burning end is a canvas (fuseFx.ts) that reads the remaining width every frame; nothing here re-renders for it.
+  useEffect(() => { if (!lit || !rope.current || !fill.current || matchMedia('(prefers-reduced-motion: reduce)').matches) return; return mountFuseFx(rope.current, fill.current, () => critical.current); }, [lit]);
+  if (!lit) return null;
   return (
-    <div className={`ab-rope is-short${secs <= 3 ? ' is-critical' : ''}`} data-testid="ab-rope" aria-label={t('abTimer', { n: secs })}>
-      {/* Sparks (i) fly up off the ember; ash flakes (em) drift back along the burnt rope and sink. */}
-      <div ref={fill} className="ab-rope-remaining" style={{ width: `${Math.min(1, Math.max(0, deadline.endsAt - Date.now()) / (FUSE_SECONDS * 1000)) * 100}%` }}><span className="ab-rope-ember"><i /><i /><i /><i /><em /><em /><em /><em /></span></div>
+    <div ref={rope} className={`ab-rope is-short${secs <= 3 ? ' is-critical' : ''}`} data-testid="ab-rope" aria-label={t('abTimer', { n: secs })}>
+      <div ref={fill} className="ab-rope-remaining" style={{ width: `${Math.min(1, Math.max(0, deadline.endsAt - Date.now()) / (FUSE_SECONDS * 1000)) * 100}%` }}><span className="ab-rope-ember" /></div>
     </div>
   );
 }

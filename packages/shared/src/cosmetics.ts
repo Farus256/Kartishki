@@ -21,115 +21,145 @@ const TEXTURE = {
   glass: svg(`width='120' height='300' viewBox='0 0 120 300' fill='none' stroke='#dff4ff' stroke-opacity='.1' stroke-width='1.4'><path d='M14 0 v90 M38 40 v120 M62 0 v60 M86 80 v150 M108 20 v80'/>`),
   /** Garden: scattered leaves. */
   leaves: svg(`width='140' height='140' viewBox='0 0 140 140' fill='#2f6b2e' fill-opacity='.22'><path d='M20 30 q18 -18 30 0 q-18 18 -30 0z M90 20 q16 -12 28 4 q-16 12 -28 -4z M50 100 q14 -20 32 -4 q-14 20 -32 4z M110 110 q12 -16 26 2 q-12 16 -26 -2z'/>`),
+  /** Forge: scorched flagstones, hairline cracks lit from below. */
+  forge: svg(`width='220' height='220' viewBox='0 0 220 220' fill='none'><path d='M0 74 H220 M0 148 H220 M74 0 V74 M148 74 V148 M40 148 V220 M180 148 V220' stroke='#000' stroke-opacity='.35' stroke-width='3'/><path d='M20 30 L58 52 L50 70 M120 90 L150 104 L146 130 M90 170 L110 190 L140 186' stroke='#ff7a1a' stroke-opacity='.55' stroke-width='1.6'/><path d='M20 30 L58 52 L50 70 M120 90 L150 104 L146 130 M90 170 L110 190 L140 186' stroke='#fff1a8' stroke-opacity='.25' stroke-width='.6'/>`),
   /** Neon: wet asphalt grid. */
   grid: svg(`width='48' height='48' viewBox='0 0 48 48' fill='none'><path d='M0 .5 H48 M.5 0 V48' stroke='#62d8ff' stroke-opacity='.3'/><path d='M0 24.5 H48 M24.5 0 V48' stroke='#ff7de9' stroke-opacity='.16'/>`),
 };
 
+/**
+ * Cosmetic families: six themes that run through every category (frame, hit, aura, name, card/minion back, table).
+ * `set` on an item is shop metadata only (label, "part of a set" strip); nothing in the economy keys on it.
+ */
+export type CosmeticSetId = 'fire' | 'frost' | 'arcane' | 'neon' | 'occult' | 'tavern';
+export const COSMETIC_SETS: { id: CosmeticSetId; name: AutoBattlerLoc }[] = [
+  { id: 'fire', name: L('Пламя', 'Fire') },
+  { id: 'frost', name: L('Стужа', 'Frost') },
+  { id: 'arcane', name: L('Чародейство', 'Arcane') },
+  { id: 'neon', name: L('Неон', 'Neon') },
+  { id: 'occult', name: L('Оккульт', 'Occult') },
+  { id: 'tavern', name: L('Трактир', 'Tavern') },
+];
+export function cosmeticSet(id: string | undefined) { return COSMETIC_SETS.find(s => s.id === id); }
+
 /** Table look: CSS custom properties the Battlegrounds screen reads (see battlegrounds.css tokens). */
-export type BoardPreset = { id: string; name: AutoBattlerLoc; cost: number; vars: Record<string, string> };
+export type BoardPreset = { id: string; name: AutoBattlerLoc; cost: number; vars: Record<string, string>; set?: CosmeticSetId };
 export const BOARD_PRESETS: BoardPreset[] = [
   { id: 'oak', name: L('Дубовый стол', 'Oak table'), cost: 0, vars: {} },
   { id: 'green', name: L('Зелёное сукно', 'Green felt'), cost: 0, vars: { '--ab-felt': '#4f7d4a', '--ab-felt-light': '#79a86f', '--ab-felt-dark': '#2f5030', '--ab-wood': '#5a4030', '--ab-wood-light': '#8b6547', '--ab-wood-dark': '#1f181c' } },
   { id: 'crimson', name: L('Багровый бархат', 'Crimson velvet'), cost: 300, vars: { '--ab-felt': '#8f2f34', '--ab-felt-light': '#c25a5c', '--ab-felt-dark': '#571a1f', '--ab-wood': '#3d2a2c', '--ab-wood-light': '#6b4a4a', '--ab-wood-dark': '#17111a', '--ab-ridge': '#c9a04a' } },
   { id: 'night', name: L('Ночная смена', 'Night shift'), cost: 500, vars: { '--ab-felt': '#2c3a52', '--ab-felt-light': '#4a6080', '--ab-felt-dark': '#1a2334', '--ab-wood': '#2a2430', '--ab-wood-light': '#4a4054', '--ab-wood-dark': '#0f0c14', '--ab-ridge': '#8fa3c9', '--ab-ring': '#1a1620' } },
-  { id: 'ice', name: L('Ледяной погреб', 'Ice cellar'), cost: 500, vars: { '--ab-felt': '#7fb0c4', '--ab-felt-light': '#b6dceb', '--ab-felt-dark': '#4f7f95', '--ab-wood': '#5c6e78', '--ab-wood-light': '#8fa4ad', '--ab-wood-dark': '#232c33', '--ab-ridge': '#dfeef5', '--ab-amber': '#e8f6ff' } },
+  { id: 'ice', name: L('Ледяной погреб', 'Ice cellar'), cost: 500, set: 'frost', vars: { '--ab-felt': '#7fb0c4', '--ab-felt-light': '#b6dceb', '--ab-felt-dark': '#4f7f95', '--ab-wood': '#5c6e78', '--ab-wood-light': '#8fa4ad', '--ab-wood-dark': '#232c33', '--ab-ridge': '#dfeef5', '--ab-amber': '#e8f6ff' } },
   // Textured tables: the felt carries an SVG pattern (see --ab-felt-texture in battlegrounds.css) and its own ambience.
-  { id: 'tavern', name: L('Трактир', 'Tavern'), cost: 700, vars: { '--ab-felt': '#8a5a34', '--ab-felt-light': '#b98352', '--ab-felt-dark': '#4e2f1c', '--ab-wood': '#3b2416', '--ab-wood-light': '#6b4528', '--ab-wood-dark': '#160d08', '--ab-ridge': '#d9a253', '--ab-amber': '#ffd88a', '--ab-felt-texture': TEXTURE.wood, '--ab-felt-texture-size': '400px 400px', '--ab-felt-texture-repeat': 'repeat' } },
-  { id: 'occult', name: L('Оккультный круг', 'Occult circle'), cost: 800, vars: { '--ab-felt': '#2b1a3a', '--ab-felt-light': '#4a2f5e', '--ab-felt-dark': '#160c20', '--ab-wood': '#1d1420', '--ab-wood-light': '#3a2a3e', '--ab-wood-dark': '#090509', '--ab-ridge': '#b98cff', '--ab-ring': '#0d0710', '--ab-amber': '#e6c3ff', '--ab-felt-texture': TEXTURE.sigil, '--ab-felt-texture-size': 'min(88%, 620px)', '--ab-felt-texture-repeat': 'no-repeat' } },
-  { id: 'arcane', name: L('Чародейская лаборатория', 'Arcane lab'), cost: 800, vars: { '--ab-felt': '#1e2a5a', '--ab-felt-light': '#34468a', '--ab-felt-dark': '#10173a', '--ab-wood': '#1a1d33', '--ab-wood-light': '#2f3560', '--ab-wood-dark': '#07091a', '--ab-ridge': '#9bd7ff', '--ab-ring': '#0a0c22', '--ab-amber': '#dff4ff', '--ab-felt-texture': TEXTURE.hex, '--ab-felt-texture-size': '56px 97px', '--ab-felt-texture-repeat': 'repeat' } },
+  { id: 'tavern', name: L('Трактир', 'Tavern'), cost: 700, set: 'tavern', vars: { '--ab-felt': '#8a5a34', '--ab-felt-light': '#b98352', '--ab-felt-dark': '#4e2f1c', '--ab-wood': '#3b2416', '--ab-wood-light': '#6b4528', '--ab-wood-dark': '#160d08', '--ab-ridge': '#d9a253', '--ab-amber': '#ffd88a', '--ab-felt-texture': TEXTURE.wood, '--ab-felt-texture-size': '400px 400px', '--ab-felt-texture-repeat': 'repeat' } },
+  { id: 'occult', name: L('Оккультный круг', 'Occult circle'), cost: 800, set: 'occult', vars: { '--ab-felt': '#2b1a3a', '--ab-felt-light': '#4a2f5e', '--ab-felt-dark': '#160c20', '--ab-wood': '#1d1420', '--ab-wood-light': '#3a2a3e', '--ab-wood-dark': '#090509', '--ab-ridge': '#b98cff', '--ab-ring': '#0d0710', '--ab-amber': '#e6c3ff', '--ab-felt-texture': TEXTURE.sigil, '--ab-felt-texture-size': 'min(88%, 620px)', '--ab-felt-texture-repeat': 'no-repeat' } },
+  { id: 'arcane', name: L('Чародейская лаборатория', 'Arcane lab'), cost: 800, set: 'arcane', vars: { '--ab-felt': '#1e2a5a', '--ab-felt-light': '#34468a', '--ab-felt-dark': '#10173a', '--ab-wood': '#1a1d33', '--ab-wood-light': '#2f3560', '--ab-wood-dark': '#07091a', '--ab-ridge': '#9bd7ff', '--ab-ring': '#0a0c22', '--ab-amber': '#dff4ff', '--ab-felt-texture': TEXTURE.hex, '--ab-felt-texture-size': '56px 97px', '--ab-felt-texture-repeat': 'repeat' } },
   { id: 'industrial', name: L('Цех', 'Workshop floor'), cost: 800, vars: { '--ab-felt': '#4a4e52', '--ab-felt-light': '#6d7276', '--ab-felt-dark': '#2a2d30', '--ab-wood': '#2a2c2e', '--ab-wood-light': '#4a4d50', '--ab-wood-dark': '#0f1011', '--ab-ridge': '#c9a04a', '--ab-ring': '#141516', '--ab-amber': '#ffcf6a', '--ab-felt-texture': TEXTURE.plate, '--ab-felt-texture-size': '96px 96px', '--ab-felt-texture-repeat': 'repeat' } },
   { id: 'library', name: L('Библиотека', 'Library'), cost: 600, vars: { '--ab-felt': '#c9b58a', '--ab-felt-light': '#e6d6b0', '--ab-felt-dark': '#8f7a52', '--ab-wood': '#4a2e1a', '--ab-wood-light': '#7a4f2e', '--ab-wood-dark': '#1d110a', '--ab-ridge': '#c9a04a', '--ab-ring': '#2a1a0e', '--ab-amber': '#fff0c8', '--ab-felt-texture': TEXTURE.parchment, '--ab-felt-texture-size': '300px 300px', '--ab-felt-texture-repeat': 'repeat' } },
   { id: 'bloodpit', name: L('Кровавая яма', 'Blood pit'), cost: 700, vars: { '--ab-felt': '#3a1414', '--ab-felt-light': '#5a2020', '--ab-felt-dark': '#1a0808', '--ab-wood': '#2a1a1a', '--ab-wood-light': '#4a2a2a', '--ab-wood-dark': '#0c0505', '--ab-ridge': '#b23a2e', '--ab-ring': '#120606', '--ab-amber': '#ff8a7a', '--ab-felt-texture': TEXTURE.cracks, '--ab-felt-texture-size': '240px 240px', '--ab-felt-texture-repeat': 'repeat' } },
   { id: 'rain', name: L('Дождь за окном', 'Rain on the window'), cost: 800, vars: { '--ab-felt': '#3a4a5a', '--ab-felt-light': '#5a6f84', '--ab-felt-dark': '#1e2a36', '--ab-wood': '#2a2a30', '--ab-wood-light': '#4a4a54', '--ab-wood-dark': '#0f0f14', '--ab-ridge': '#9fb8cc', '--ab-ring': '#141820', '--ab-amber': '#dff4ff', '--ab-felt-texture': TEXTURE.glass, '--ab-felt-texture-size': '120px 300px', '--ab-felt-texture-repeat': 'repeat' } },
   { id: 'garden', name: L('Ночной сад', 'Night garden'), cost: 800, vars: { '--ab-felt': '#2f5a3a', '--ab-felt-light': '#4f8a58', '--ab-felt-dark': '#1a3322', '--ab-wood': '#3a2a1a', '--ab-wood-light': '#6b4a2a', '--ab-wood-dark': '#150e08', '--ab-ridge': '#ffb3d9', '--ab-ring': '#0f1a10', '--ab-amber': '#ffe1ee', '--ab-felt-texture': TEXTURE.leaves, '--ab-felt-texture-size': '140px 140px', '--ab-felt-texture-repeat': 'repeat' } },
-  { id: 'neon', name: L('Неоновый переулок', 'Neon alley'), cost: 900, vars: { '--ab-felt': '#14161f', '--ab-felt-light': '#232636', '--ab-felt-dark': '#0a0b10', '--ab-wood': '#1a1421', '--ab-wood-light': '#2c2236', '--ab-wood-dark': '#07050a', '--ab-ridge': '#ff7de9', '--ab-ring': '#08060c', '--ab-amber': '#9ef0ff', '--ab-felt-texture': TEXTURE.grid, '--ab-felt-texture-size': '48px 48px', '--ab-felt-texture-repeat': 'repeat' } },
+  { id: 'forge', name: L('Кузница', 'Forge'), cost: 800, set: 'fire', vars: { '--ab-felt': '#3a2420', '--ab-felt-light': '#5c3a2c', '--ab-felt-dark': '#1a0e0b', '--ab-wood': '#2a1d18', '--ab-wood-light': '#4a3128', '--ab-wood-dark': '#0d0706', '--ab-ridge': '#ff9a1f', '--ab-ring': '#140a08', '--ab-amber': '#ffd66b', '--ab-felt-texture': TEXTURE.forge, '--ab-felt-texture-size': '220px 220px', '--ab-felt-texture-repeat': 'repeat' } },
+  { id: 'neon', name: L('Неоновый переулок', 'Neon alley'), cost: 900, set: 'neon', vars: { '--ab-felt': '#14161f', '--ab-felt-light': '#232636', '--ab-felt-dark': '#0a0b10', '--ab-wood': '#1a1421', '--ab-wood-light': '#2c2236', '--ab-wood-dark': '#07050a', '--ab-ridge': '#ff7de9', '--ab-ring': '#08060c', '--ab-amber': '#9ef0ff', '--ab-felt-texture': TEXTURE.grid, '--ab-felt-texture-size': '48px 48px', '--ab-felt-texture-repeat': 'repeat' } },
 ];
 
 /** Hero frame: a CSS look applied to the portrait (data-skin on .ab-hero-face); bought once, worn by any hero. */
-export type HeroSkin = { id: string; name: AutoBattlerLoc; cost: number };
+export type HeroSkin = { id: string; name: AutoBattlerLoc; cost: number; set?: CosmeticSetId };
 export const HERO_SKINS: HeroSkin[] = [
   { id: 'skin-gold', name: L('Золотая рама', 'Gold frame'), cost: 400 },
-  { id: 'skin-ice', name: L('Ледяная рама', 'Frost frame'), cost: 400 },
+  { id: 'skin-ice', name: L('Ледяная рама', 'Frost frame'), cost: 400, set: 'frost' },
   { id: 'skin-blood', name: L('Кровавая рама', 'Blood frame'), cost: 400 },
   { id: 'skin-ink', name: L('Чернильный контур', 'Ink outline'), cost: 500 },
   { id: 'skin-comic', name: L('Комикс', 'Comic panel'), cost: 500 },
-  { id: 'skin-neon', name: L('Неоновая вывеска', 'Neon sign'), cost: 700 },
-  { id: 'skin-arcane', name: L('Чародейская рама', 'Arcane frame'), cost: 900 },
+  { id: 'skin-neon', name: L('Неоновая вывеска', 'Neon sign'), cost: 700, set: 'neon' },
+  { id: 'skin-arcane', name: L('Чародейская рама', 'Arcane frame'), cost: 900, set: 'arcane' },
   { id: 'skin-bone', name: L('Костяная рама', 'Bone frame'), cost: 600 },
   { id: 'skin-royal', name: L('Королевский пурпур', 'Royal purple'), cost: 800 },
   { id: 'skin-sketch', name: L('Набросок', 'Sketch'), cost: 350 },
   { id: 'skin-vines', name: L('Живые лозы', 'Living vines'), cost: 600 },
-  { id: 'skin-fire', name: L('Пламенная рама', 'Flame frame'), cost: 900 },
+  { id: 'skin-fire', name: L('Пламенная рама', 'Flame frame'), cost: 900, set: 'fire' },
   { id: 'skin-electric', name: L('Электрическая рама', 'Electric frame'), cost: 900 },
   { id: 'skin-liquid-gold', name: L('Жидкое золото', 'Liquid gold'), cost: 1000 },
+  { id: 'skin-occult', name: L('Оккультная рама', 'Occult frame'), cost: 800, set: 'occult' },
+  { id: 'skin-tavern', name: L('Дуб и латунь', 'Oak and brass'), cost: 500, set: 'tavern' },
 ];
 
 /** Hero slam: the effect that lands on the loser's portrait when a hero hits it (data-slam on .ab-slam-fx). */
-export type HeroSlam = { id: string; name: AutoBattlerLoc; cost: number };
+export type HeroSlam = { id: string; name: AutoBattlerLoc; cost: number; set?: CosmeticSetId };
 export const HERO_SLAMS: HeroSlam[] = [
-  { id: 'slam-fire', name: L('Огненный удар', 'Fire impact'), cost: 600 },
+  { id: 'slam-fire', name: L('Огненный удар', 'Fire impact'), cost: 600, set: 'fire' },
   { id: 'slam-lightning', name: L('Молния', 'Lightning strike'), cost: 600 },
-  { id: 'slam-ice', name: L('Ледяной раскол', 'Ice shatter'), cost: 600 },
+  { id: 'slam-ice', name: L('Ледяной раскол', 'Ice shatter'), cost: 600, set: 'frost' },
   { id: 'slam-ink', name: L('Чернильный взрыв', 'Ink explosion'), cost: 700 },
   { id: 'slam-comic', name: L('Комикс-удар', 'Comic impact'), cost: 700 },
-  { id: 'slam-arcane', name: L('Чародейский всплеск', 'Arcane burst'), cost: 800 },
-  { id: 'slam-neon', name: L('Неоновая волна', 'Neon shockwave'), cost: 800 },
+  { id: 'slam-arcane', name: L('Чародейский всплеск', 'Arcane burst'), cost: 800, set: 'arcane' },
+  { id: 'slam-neon', name: L('Неоновая волна', 'Neon shockwave'), cost: 800, set: 'neon' },
   { id: 'slam-glitch', name: L('Глитч', 'Glitch strike'), cost: 900 },
   { id: 'slam-comet', name: L('Комета', 'Comet'), cost: 1000 },
-  { id: 'slam-shadow', name: L('Теневой удар', 'Shadow strike'), cost: 800 },
+  { id: 'slam-shadow', name: L('Теневой удар', 'Shadow strike'), cost: 800, set: 'occult' },
   { id: 'slam-petal', name: L('Лепестковый вихрь', 'Petal storm'), cost: 700 },
+  { id: 'slam-tavern', name: L('Кружкой по лицу', 'Mug smash'), cost: 700, set: 'tavern' },
 ];
 
 /** Portrait effect: a living aura around the hero portrait for the whole match (data-aura on .ab-hero-face). */
-export type PortraitFx = { id: string; name: AutoBattlerLoc; cost: number };
+export type PortraitFx = { id: string; name: AutoBattlerLoc; cost: number; set?: CosmeticSetId };
 export const PORTRAIT_FX: PortraitFx[] = [
-  { id: 'aura-embers', name: L('Тлеющие угли', 'Embers'), cost: 500 },
-  { id: 'aura-frost', name: L('Иней', 'Frost'), cost: 500 },
+  { id: 'aura-embers', name: L('Тлеющие угли', 'Embers'), cost: 500, set: 'fire' },
+  { id: 'aura-frost', name: L('Иней', 'Frost'), cost: 500, set: 'frost' },
   { id: 'aura-sparks', name: L('Искры', 'Sparks'), cost: 500 },
   { id: 'aura-smoke', name: L('Дым', 'Smoke'), cost: 600 },
   { id: 'aura-halo', name: L('Нимб', 'Halo'), cost: 800 },
   { id: 'aura-fireflies', name: L('Светлячки', 'Fireflies'), cost: 600 },
-  { id: 'aura-shadow', name: L('Тень', 'Shadow'), cost: 700 },
+  { id: 'aura-shadow', name: L('Тень', 'Shadow'), cost: 700, set: 'occult' },
+  { id: 'aura-arcane', name: L('Рунный круг', 'Rune orbit'), cost: 700, set: 'arcane' },
+  { id: 'aura-neon', name: L('Неоновая дымка', 'Neon haze'), cost: 700, set: 'neon' },
+  { id: 'aura-hops', name: L('Хмель и пена', 'Hops and foam'), cost: 600, set: 'tavern' },
 ];
 
 /** Name effect: a CSS look applied to the player's nickname wherever it is printed (data-name-fx). */
-export type NameFx = { id: string; name: AutoBattlerLoc; cost: number };
+export type NameFx = { id: string; name: AutoBattlerLoc; cost: number; set?: CosmeticSetId };
 export const NAME_FX: NameFx[] = [
   { id: 'name-gold', name: L('Золотой блеск', 'Golden shine'), cost: 250 },
   { id: 'name-blood', name: L('Кровавое имя', 'Blood name'), cost: 250 },
-  { id: 'name-ice', name: L('Ледяное имя', 'Ice name'), cost: 250 },
-  { id: 'name-glow', name: L('Неоновое имя', 'Neon glow'), cost: 400 },
-  { id: 'name-fire', name: L('Огненное имя', 'Fire name'), cost: 500 },
+  { id: 'name-ice', name: L('Ледяное имя', 'Ice name'), cost: 250, set: 'frost' },
+  { id: 'name-glow', name: L('Неоновое имя', 'Neon glow'), cost: 400, set: 'neon' },
+  { id: 'name-fire', name: L('Огненное имя', 'Fire name'), cost: 500, set: 'fire' },
   { id: 'name-electric', name: L('Электрическое имя', 'Electric name'), cost: 500 },
   { id: 'name-holo', name: L('Голограмма', 'Hologram'), cost: 600 },
   { id: 'name-glitch', name: L('Глитч-имя', 'Glitch name'), cost: 600 },
   { id: 'name-rainbow', name: L('Радужное имя', 'Rainbow name'), cost: 700 },
   { id: 'name-toxic', name: L('Ядовитое имя', 'Toxic name'), cost: 450 },
   { id: 'name-royal', name: L('Королевское имя', 'Royal name'), cost: 550 },
+  { id: 'name-arcane', name: L('Рунное имя', 'Runic name'), cost: 550, set: 'arcane' },
+  { id: 'name-occult', name: L('Оккультное имя', 'Occult name'), cost: 550, set: 'occult' },
+  { id: 'name-tavern', name: L('Пивное имя', 'Beer name'), cost: 400, set: 'tavern' },
 ];
 
 /** Card back: the reverse of a full card and of the oval minion token on the table (data-back on .card-back). */
-export type CardBack = { id: string; name: AutoBattlerLoc; cost: number };
+export type CardBack = { id: string; name: AutoBattlerLoc; cost: number; set?: CosmeticSetId };
 export const CARD_BACKS: CardBack[] = [
-  { id: 'back-tavern', name: L('Пивная', 'Taproom'), cost: 300 },
-  { id: 'back-frost', name: L('Иней', 'Frost'), cost: 400 },
-  { id: 'back-occult', name: L('Оккультная', 'Occult'), cost: 500 },
-  { id: 'back-fire', name: L('Пламя', 'Flame'), cost: 600 },
-  { id: 'back-arcane', name: L('Руны', 'Runes'), cost: 700 },
-  { id: 'back-neon', name: L('Неон', 'Neon'), cost: 700 },
+  { id: 'back-tavern', name: L('Пивная', 'Taproom'), cost: 300, set: 'tavern' },
+  { id: 'back-frost', name: L('Иней', 'Frost'), cost: 400, set: 'frost' },
+  { id: 'back-occult', name: L('Оккультная', 'Occult'), cost: 500, set: 'occult' },
+  { id: 'back-fire', name: L('Пламя', 'Flame'), cost: 600, set: 'fire' },
+  { id: 'back-arcane', name: L('Руны', 'Runes'), cost: 700, set: 'arcane' },
+  { id: 'back-neon', name: L('Неон', 'Neon'), cost: 700, set: 'neon' },
   { id: 'back-gold', name: L('Жидкое золото', 'Liquid gold'), cost: 900 },
 ];
 
 export type CosmeticKind = 'board' | 'heroSkin' | 'heroSlam' | 'portraitFx' | 'nameFx' | 'cardBack';
-export type Cosmetic = { id: string; kind: CosmeticKind; cost: number; name: AutoBattlerLoc };
+export type Cosmetic = { id: string; kind: CosmeticKind; cost: number; name: AutoBattlerLoc; set?: CosmeticSetId };
 export const COSMETICS: Cosmetic[] = [
-  ...BOARD_PRESETS.filter(p => p.cost > 0).map(p => ({ id: `board-${p.id}`, kind: 'board' as const, cost: p.cost, name: p.name })),
-  ...HERO_SKINS.map(s => ({ id: s.id, kind: 'heroSkin' as const, cost: s.cost, name: s.name })),
-  ...HERO_SLAMS.map(s => ({ id: s.id, kind: 'heroSlam' as const, cost: s.cost, name: s.name })),
-  ...PORTRAIT_FX.map(s => ({ id: s.id, kind: 'portraitFx' as const, cost: s.cost, name: s.name })),
-  ...NAME_FX.map(s => ({ id: s.id, kind: 'nameFx' as const, cost: s.cost, name: s.name })),
-  ...CARD_BACKS.map(s => ({ id: s.id, kind: 'cardBack' as const, cost: s.cost, name: s.name })),
+  ...BOARD_PRESETS.filter(p => p.cost > 0).map(p => ({ id: `board-${p.id}`, kind: 'board' as const, cost: p.cost, name: p.name, set: p.set })),
+  ...HERO_SKINS.map(s => ({ id: s.id, kind: 'heroSkin' as const, cost: s.cost, name: s.name, set: s.set })),
+  ...HERO_SLAMS.map(s => ({ id: s.id, kind: 'heroSlam' as const, cost: s.cost, name: s.name, set: s.set })),
+  ...PORTRAIT_FX.map(s => ({ id: s.id, kind: 'portraitFx' as const, cost: s.cost, name: s.name, set: s.set })),
+  ...NAME_FX.map(s => ({ id: s.id, kind: 'nameFx' as const, cost: s.cost, name: s.name, set: s.set })),
+  ...CARD_BACKS.map(s => ({ id: s.id, kind: 'cardBack' as const, cost: s.cost, name: s.name, set: s.set })),
 ];
+
+/** Every item of a family across kinds (the shop's "part of a set" strip). */
+export function cosmeticsOfSet(set: CosmeticSetId): Cosmetic[] { return COSMETICS.filter(c => c.set === set); }
 
 export function cosmeticById(id: string): Cosmetic | undefined {
   return COSMETICS.find(c => c.id === id);

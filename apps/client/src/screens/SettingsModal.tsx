@@ -6,13 +6,20 @@ import i18n from '@kartishki/i18n';
 import type { PlayerSettings } from '@kartishki/shared';
 import { playerSession } from '../playerSession';
 import { InkButton, spring } from '../ui/InkButton';
+import './settings.css';
 
+/**
+ * Settings as a sheet of paper pinned over the game: a hand-lettered title, three ruled sections (language, sound,
+ * volumes), a stamped ON/OFF switch, two language stamps and ink sliders with a bottle-cap knob. Every control
+ * saves to the account after a short debounce; guests keep the local values.
+ */
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
   const [sound, setSound] = useState(() => localStorage.getItem('sound') !== 'off');
   const [sfx, setSfx] = useState(() => Math.round(audioManager.sfxVolume * 100));
   const [music, setMusic] = useState(() => Math.round(audioManager.musicVolume * 100));
+  const language = i18n.language.startsWith('en') ? 'en' : 'ru';
   const pending = useRef<Partial<PlayerSettings>>({});
   const persist = useRef<ReturnType<typeof setTimeout>>(undefined);
   function flush() {
@@ -28,58 +35,63 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     clearTimeout(persist.current);
     persist.current = setTimeout(flush, 350);
   }
+  const close = () => { flush(); onClose(); };
   useEffect(() => () => flush(), []);
   useEffect(() => {
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') { flush(); onClose(); } };
-    document.addEventListener('keydown', close);
-    return () => document.removeEventListener('keydown', close);
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
+  const setLanguage = (next: 'ru' | 'en') => { if (next === language) return; void i18n.changeLanguage(next); save({ language: next }); };
   return (
-    <motion.div className="absolute inset-0 z-50 grid place-items-center bg-black/70"
-      role="presentation" onPointerDown={event => { if (event.target === event.currentTarget) { flush(); onClose(); } }}
+    <motion.div className="settings-veil" role="presentation" onPointerDown={event => { if (event.target === event.currentTarget) close(); }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="ink-edge max-h-[calc(100%-32px)] w-[min(560px,calc(100%-32px))] overflow-auto border-[4px] border-ink bg-paper p-8 shadow-[10px_12px_0_rgba(0,0,0,.6)]"
-        initial={{ scale: 0.85, rotate: -3 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0.9, opacity: 0 }} transition={spring}>
-        <h2 id="settings-title" className="font-hand text-[40px] text-ink">{t('settings')}</h2>
+      <motion.div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="settings-sheet" data-testid="settings-sheet"
+        initial={{ scale: .92, rotate: -2.5, y: 18 }} animate={{ scale: 1, rotate: -.6, y: 0 }} exit={{ scale: .96, opacity: 0, y: 10 }} transition={spring}>
+        <i className="settings-pin" aria-hidden />
+        <header className="settings-head">
+          <h2 id="settings-title">{t('settings')}</h2>
+          <span className="settings-stamp" aria-hidden>{player.library ? player.library.profile.username : t('guest')}</span>
+        </header>
 
-        <label className="mt-6 block font-mono text-[13px] text-ink/70">
-          {t('language')}
-          <select aria-label={t('language')} value={i18n.language.startsWith('en') ? 'en' : 'ru'} onChange={e => {
-            const language = e.target.value === 'en' ? 'en' : 'ru';
-            void i18n.changeLanguage(language);
-            save({ language });
-          }}
-            className="mt-2 w-full border-[3px] border-ink bg-paper px-3 py-2 font-mono text-[14px] text-ink">
-            <option value="ru">Русский</option>
-            <option value="en">English</option>
-          </select>
-        </label>
+        <section className="settings-row">
+          <div className="settings-label"><b>{t('language')}</b></div>
+          <div className="settings-stamps" role="radiogroup" aria-label={t('language')}>
+            {(['ru', 'en'] as const).map(code => <motion.button key={code} type="button" role="radio" aria-checked={language === code} className={`settings-lang ${language === code ? 'is-on' : ''}`} onClick={() => setLanguage(code)}
+              whileHover={{ y: -2, rotate: code === 'ru' ? -2 : 2 }} whileTap={{ scale: .94, y: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 24 }}>
+              <span>{code === 'ru' ? 'Русский' : 'English'}</span><small>{code.toUpperCase()}</small>
+            </motion.button>)}
+          </div>
+        </section>
 
-        <div className="mt-6 flex items-center justify-between border-[3px] border-ink px-4 py-3">
-          <span className="font-mono text-[13px]">{t('sound')}</span>
-          <InkButton size="sm" tone={sound ? 'ink' : 'paper'}
+        <section className="settings-row">
+          <div className="settings-label"><b>{t('sound')}</b><small>{t(sound ? 'on' : 'off')}</small></div>
+          <button type="button" role="switch" aria-checked={sound} aria-label={t('sound')} className={`settings-switch ${sound ? 'is-on' : ''}`}
             onClick={() => { audioManager.setEnabled(!sound); setSound(!sound); save({ sound: !sound }); }}>
-            {t(sound ? 'on' : 'off')}
-          </InkButton>
-        </div>
+            <span className="settings-switch-track"><i className="settings-switch-knob" /></span>
+            <b>{t(sound ? 'on' : 'off')}</b>
+          </button>
+        </section>
 
-        <label className="mt-5 block font-mono text-[13px] text-ink/70">
-          {t('sfxVolume')} · {sfx}%
-          <input type="range" min={0} max={100} value={sfx} aria-label={t('sfxVolume')}
-            className="mt-2 w-full accent-[#1a1a1a]"
-            onChange={e => { const n = Number(e.target.value); audioManager.setSfxVolume(n / 100); setSfx(n); save({ sfxVolume: n / 100 }); }} />
-        </label>
-        <label className="mt-4 block font-mono text-[13px] text-ink/70">
-          {t('musicVolume')} · {music}%
-          <input type="range" min={0} max={100} value={music} aria-label={t('musicVolume')}
-            className="mt-2 w-full accent-[#1a1a1a]"
-            onChange={e => { const n = Number(e.target.value); audioManager.setMusicVolume(n / 100); setMusic(n); save({ musicVolume: n / 100 }); }} />
-        </label>
+        <Slider label={t('sfxVolume')} value={sfx} disabled={!sound} onChange={n => { audioManager.setSfxVolume(n / 100); setSfx(n); save({ sfxVolume: n / 100 }); }} />
+        <Slider label={t('musicVolume')} value={music} disabled={!sound} onChange={n => { audioManager.setMusicVolume(n / 100); setMusic(n); save({ musicVolume: n / 100 }); }} />
 
-        <div className="mt-8 flex justify-end">
-          <InkButton tone="blood" onClick={() => { flush(); onClose(); }}>{t('close')}</InkButton>
-        </div>
+        <footer className="settings-foot">
+          <small>{player.library ? t('settingsSavedToAccount') : t('settingsGuestNote')}</small>
+          <InkButton tone="ink" size="sm" onClick={close}>{t('close')}</InkButton>
+        </footer>
       </motion.div>
     </motion.div>
   );
+}
+
+/** Ink slider: a hand-drawn rule with a filled portion and a bottle-cap knob; the native range input stays for input and a11y. */
+function Slider({ label, value, disabled, onChange }: { label: string; value: number; disabled?: boolean; onChange: (n: number) => void }) {
+  return <section className={`settings-row is-slider ${disabled ? 'is-muted' : ''}`}>
+    <div className="settings-label"><b>{label}</b><small>{value}%</small></div>
+    <label className="settings-slider" style={{ '--v': `${value}%` } as React.CSSProperties}>
+      <i className="settings-slider-rule" aria-hidden /><i className="settings-slider-fill" aria-hidden /><i className="settings-slider-knob" aria-hidden />
+      <input type="range" min={0} max={100} value={value} aria-label={label} disabled={disabled} onChange={e => onChange(Number(e.target.value))} />
+    </label>
+  </section>;
 }

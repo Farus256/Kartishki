@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSPro
 import { useTranslation } from 'react-i18next';
 import { MATCH_RULES } from '@kartishki/shared';
 import { audioManager } from '../AudioManager';
-import { FuseRope, SandClock, useDeadline } from '../battlegrounds/PhaseClock';
+import { FUSE_SECONDS, FuseRope, SandClock, useDeadline } from '../battlegrounds/PhaseClock';
 import { equippedBoard, onBoardChange } from '../cosmeticsLocal';
 import { DuelBoard } from '../duel/DuelBoard';
 import { DUEL } from '../duel/duelLayout';
@@ -58,12 +58,14 @@ export function MatchScreen({ onLeave }: { onLeave: () => void }) {
   const secs = Math.max(0, Math.ceil((state.phaseEndsAt - Date.now()) / 1000));
   const deadline = useDeadline(state.status, state.turn, state.phaseEndsAt, secs, clockActive);
   // Hearthstone rope: it appears for the last ROPE_MS of a turn and burns down over exactly that span.
-  const rope = useMemo(() => ({ endsAt: deadline.endsAt, totalMs: MATCH_RULES.ROPE_MS }), [deadline]);
+  // The rope shows for the last FUSE_SECONDS (PhaseClock), so the warning sound fires at the same moment it lights.
+  const ROPE_MS = Math.min(MATCH_RULES.ROPE_MS, FUSE_SECONDS * 1000);
+  const rope = useMemo(() => ({ endsAt: deadline.endsAt, totalMs: ROPE_MS }), [deadline]);
   const [roping, setRoping] = useState(false);
   useEffect(() => {
     setRoping(false);
     if (state.status !== 'active') return;
-    const timer = setTimeout(() => { setRoping(true); if (yours) audioManager.play('ab_hint'); }, Math.max(0, deadline.endsAt - MATCH_RULES.ROPE_MS - Date.now()));
+    const timer = setTimeout(() => { setRoping(true); if (yours) audioManager.play('ab_hint'); }, Math.max(0, deadline.endsAt - ROPE_MS - Date.now()));
     return () => clearTimeout(timer);
   }, [deadline, state.status, yours]);
   // Nothing left to do this turn: the end-turn gem glows.

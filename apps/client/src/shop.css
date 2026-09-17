@@ -1,0 +1,204 @@
+/* Shop: tabs, pack and chest objects, and their opening sequences. Base receipt/shelf/reel layout stays in style.css. */
+
+/* =====================================================================
+   Tabs — paper tags on a string. Hover lifts, press sinks (framer), the active one is inked and carries the
+   pin: a torn ink strip under the tag that slides to whichever tab is on (layoutId in ShopScreen).
+   ===================================================================== */
+.shop-tabs button { position: relative; overflow: visible; cursor: pointer; transition: background .15s, color .15s; }
+.shop-tabs button:disabled { cursor: default; }
+.shop-tabs button[aria-pressed=true] { transform: none; }
+.shop-tab-ink { position: absolute; left: 2px; right: 2px; bottom: -17px; height: 6px; background: var(--blood); clip-path: polygon(0 55%, 8% 20%, 22% 45%, 37% 5%, 50% 40%, 64% 0, 78% 38%, 91% 12%, 100% 40%, 99% 100%, 88% 80%, 70% 100%, 52% 78%, 30% 100%, 12% 82%, 0 100%); pointer-events: none; }
+.shop-tab-panel { position: absolute; inset: 0; }
+
+/* =====================================================================
+   Pack objects. One drawing per material at 320×438; the shelf shows it through `zoom` so nothing is
+   redrawn twice. .foil-brand / .foil-emblem keep their names for the sealed pack and the browser tests.
+   ===================================================================== */
+.pack-obj { --pw: 320px; --ph: 438px; position: relative; width: var(--pw); height: var(--ph); color: var(--foil-color, #e9dfc9); font-family: var(--font-hand); filter: drop-shadow(10px 12px 0 #0004); transform-style: preserve-3d; }
+.pack-obj.compact { zoom: .47; }
+.catalog-shelf .pack-obj.compact { zoom: .47; }
+.pack-body, .pack-lid { position: absolute; left: 0; right: 0; }
+.pack-body { top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding-top: 40px; overflow: hidden; }
+.pack-lid { top: 0; height: 74px; z-index: 3; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; transform-origin: 50% 100%; }
+.pack-lid-brand { font: 13px var(--font-mono); letter-spacing: 3px; text-transform: uppercase; opacity: .55; }
+.pack-obj .foil-brand { font: 28px var(--font-stencil); letter-spacing: 4px; text-align: center; padding: 0 14px; }
+.pack-obj .foil-emblem { display: grid; place-items: center; width: 145px; height: 145px; border: 5px double currentColor; border-radius: 50%; font: bold 112px/1 var(--font-hand); text-shadow: 4px 5px #0006; }
+.pack-obj strong { font: 27px var(--font-hand); padding: 0 20px; text-align: center; }
+.pack-obj small { font: 9px var(--font-mono); letter-spacing: 2px; padding: 0 25px; text-align: center; }
+.pack-obj .foil-crimp { position: absolute; left: 0; right: 0; top: 0; height: 18px; border-bottom: 2px solid #000; background: repeating-linear-gradient(90deg, #928975 0 2px, #37342b 2px 5px); }
+.pack-obj .foil-crimp.bottom { top: auto; bottom: 0; }
+/* Hidden serrated top edge of the body, only shown once the lid is gone. */
+.pack-body::before { content: ''; position: absolute; left: 0; right: 0; top: 66px; height: 14px; background: inherit; clip-path: polygon(0 100%, 4% 20%, 9% 90%, 15% 10%, 22% 80%, 30% 25%, 37% 95%, 45% 15%, 52% 70%, 60% 5%, 68% 85%, 76% 30%, 83% 90%, 90% 20%, 96% 75%, 100% 40%, 100% 100%); opacity: 0; z-index: 4; }
+
+/* Kraft: a second-grade paper bag — greasy, creased, stapled shut, stamped by hand. */
+.pack-obj.is-kraft { --foil-color: #3a2a1c; }
+.pack-obj.is-kraft .pack-body, .pack-obj.is-kraft .pack-lid { background: radial-gradient(ellipse 30% 22% at 78% 74%, #8a5a3466 0, #8a5a3400 70%), radial-gradient(ellipse 22% 16% at 22% 28%, #6b4a2c44 0, #6b4a2c00 70%), repeating-linear-gradient(-14deg, #00000000 0 11px, #0000000c 11px 12px), linear-gradient(100deg, #b98352, #d0a06a 40%, #a3703f 100%); }
+.pack-obj.is-kraft .pack-body { clip-path: polygon(0 2%, 8% 0, 22% 1.5%, 41% 0, 58% 2%, 77% .5%, 94% 2.5%, 100% 6%, 99% 30%, 100% 50%, 98.5% 70%, 100% 100%, 0 100%, 1% 74%, 0 52%, 1.5% 30%); }
+.pack-obj.is-kraft .pack-lid { height: 78px; clip-path: polygon(0 4%, 8% 0, 22% 3%, 41% 0, 58% 4%, 77% 1%, 94% 5%, 100% 12%, 100% 100%, 0 100%); border-bottom: 3px dashed #3a2a1c55; }
+.pack-obj.is-kraft .pack-lid::before, .pack-obj.is-kraft .pack-lid::after { content: ''; position: absolute; top: 28px; width: 18px; height: 5px; background: #2a2a2a; border-radius: 2px; transform: rotate(-8deg); box-shadow: 0 1px 0 #0006; }
+.pack-obj.is-kraft .pack-lid::before { left: 24%; } .pack-obj.is-kraft .pack-lid::after { right: 24%; transform: rotate(6deg); }
+.pack-obj.is-kraft .foil-crimp { display: none; }
+.pack-obj.is-kraft .foil-brand { font: 26px var(--font-hand); letter-spacing: 3px; color: #3a2a1c; text-shadow: none; }
+.pack-obj.is-kraft .foil-emblem { border: 4px solid #3a2a1c; text-shadow: none; color: #3a2a1c; background: radial-gradient(circle, #ffffff22, transparent 70%); }
+.pack-obj.is-kraft strong { color: #3a2a1c; }
+.pack-obj.is-kraft small { color: #5a3a1c; }
+.pack-stamp { position: absolute; right: 22px; top: 96px; padding: 4px 10px; border: 3px solid #a52922; border-radius: 4px; color: #a52922; font: 15px var(--font-mono); letter-spacing: 3px; font-style: normal; transform: rotate(14deg); opacity: .8; mix-blend-mode: multiply; mask: repeating-linear-gradient(35deg, #000 0 3px, #0009 3px 4px); }
+
+/* Foil: black booster with a crimped seam and a holographic stripe that moves with the light. */
+.pack-obj.is-foil { --foil-color: #d9d3c4; }
+.pack-obj.is-foil .pack-body, .pack-obj.is-foil .pack-lid { background: repeating-linear-gradient(23deg, transparent 0 28px, #ffffff0c 29px, #0009 30px, transparent 33px), linear-gradient(110deg, #201f1b, #555348 16%, #141411 35%, #35332d 70%, #10110d); }
+.pack-obj.is-foil .pack-body { border: 4px solid #191915; box-shadow: inset 0 0 0 10px #ffffff12; clip-path: polygon(0 0, 100% 1%, 98% 17%, 100% 44%, 98% 75%, 100% 100%, 0 99%, 2% 70%, 0 40%, 2% 15%); }
+.pack-obj.is-foil .pack-lid { border: 4px solid #191915; border-bottom: 0; }
+.pack-obj.is-foil .foil-brand { color: #e7e2d4; text-shadow: 0 1px 0 #000, 0 0 12px #ffffff44; }
+.pack-obj.is-foil .foil-emblem { color: #cfc8b7; border-color: #cfc8b7; }
+.pack-holo { position: absolute; left: 12%; top: 0; bottom: 0; width: 34px; z-index: 2; pointer-events: none; mix-blend-mode: screen; opacity: .8; background: linear-gradient(180deg, #62d8ff, #ff7de9 22%, #fff3b0 44%, #7ee081 62%, #62d8ff 84%, #ff7de9); background-size: 100% 300%; animation: holo-drift 7s ease-in-out infinite alternate; mask: linear-gradient(90deg, transparent, #000 30% 70%, transparent); }
+.pack-holo::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, #ffffff22 0 2px, transparent 2px 6px); }
+@keyframes holo-drift { from { background-position: 0 0; } to { background-position: 0 100%; } }
+
+/* Gold: a foil wrap folded in vertical pleats, closed with a red wax seal; the brand is embossed. */
+.pack-obj.is-gold { --foil-color: #5a3a0c; }
+.pack-obj.is-gold .pack-body, .pack-obj.is-gold .pack-lid { background: repeating-linear-gradient(90deg, #00000000 0 30px, #ffffff33 31px 33px, #00000000 34px, #5a3a0c33 42px 44px, #00000000 45px 64px), linear-gradient(160deg, #fff0b0 0%, #e2b24a 22%, #b07a1c 48%, #f2cf6a 70%, #8a5a12 100%); }
+.pack-obj.is-gold .pack-body { border: 3px solid #5a3a0c; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+.pack-obj.is-gold .pack-lid { border: 3px solid #5a3a0c; border-bottom: 0; }
+.pack-obj.is-gold .foil-crimp { background: repeating-linear-gradient(90deg, #fff3b0 0 2px, #8a5a12 2px 5px); border-color: #5a3a0c; }
+.pack-obj.is-gold .foil-brand { color: #5a3a0c; text-shadow: 0 1px 0 #fff3b0, 0 -1px 0 #3a2508; }
+.pack-obj.is-gold .foil-emblem { color: #5a3a0c; border-color: #5a3a0c; text-shadow: 0 2px 0 #fff3b0; }
+.pack-obj.is-gold strong, .pack-obj.is-gold small { color: #5a3a0c; }
+.pack-seal { position: absolute; left: 50%; top: 60px; width: 64px; height: 64px; margin-left: -32px; z-index: 5; border-radius: 46% 54% 50% 50% / 52% 48% 52% 48%; background: radial-gradient(circle at 38% 34%, #ff6a5a, #b3221a 55%, #6e1410); box-shadow: 0 3px 0 #5a0a08, 0 5px 8px #0008, inset 0 0 0 3px #d63a2c, inset 0 0 0 6px #8a1a14; }
+.pack-seal::before { content: '✳'; position: absolute; inset: 0; display: grid; place-items: center; color: #ffd6c9; font: 30px/1 var(--font-hand); text-shadow: 0 -1px 0 #5a0a08; }
+
+/* Envelope: manila with a flap, string-and-button closure, a dollar rubber stamp. */
+.pack-obj.is-envelope { --foil-color: #3a2a20; }
+.pack-obj.is-envelope .pack-body { background: repeating-linear-gradient(0deg, #00000000 0 26px, #00000009 26px 27px), linear-gradient(105deg, #dcc59b, #e8d5ae 50%, #cbb283); border: 3px solid #6b5230; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+.pack-obj.is-envelope .pack-lid { height: 120px; padding-bottom: 0; align-items: flex-start; padding-top: 10px; background: linear-gradient(180deg, #cbb283, #dcc59b); border: 3px solid #6b5230; clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: 50% 0; }
+.pack-obj.is-envelope .pack-lid-brand { color: #6b5230; }
+.pack-obj.is-envelope .foil-crimp { display: none; }
+.pack-obj.is-envelope .foil-brand { font: 20px var(--font-mono); letter-spacing: 2px; color: #3a2a20; padding-top: 40px; }
+.pack-obj.is-envelope .foil-emblem { border: 4px solid #245037; color: #245037; text-shadow: none; transform: rotate(-9deg); mask: repeating-linear-gradient(35deg, #000 0 3px, #000a 3px 4px); }
+.pack-obj.is-envelope strong { color: #3a2a20; }
+.pack-obj.is-envelope small { color: #6b5230; }
+.pack-string { position: absolute; left: 50%; top: 106px; width: 22px; height: 22px; margin-left: -11px; z-index: 5; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f0dfbb, #b08d55 70%); box-shadow: 0 0 0 2px #6b5230, 0 2px 3px #0006; }
+.pack-string::before { content: ''; position: absolute; left: 50%; top: 40px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f0dfbb, #b08d55 70%); box-shadow: 0 0 0 2px #6b5230, 0 2px 3px #0006; }
+.pack-string::after { content: ''; position: absolute; left: 4px; top: 6px; width: 14px; height: 52px; border: 2px solid #8a2a2a; border-radius: 50%; transform: rotate(18deg); box-shadow: inset 0 0 0 1px #c9a04a44; }
+
+/* Garment box: plum pinstripe with a satin ribbon crossed over it and a bow; the lid is the top slab. */
+.pack-obj.is-garment { --foil-color: #ffe1ee; }
+.pack-obj.is-garment .pack-body { background: repeating-linear-gradient(90deg, #00000000 0 12px, #ffffff10 12px 13px), linear-gradient(160deg, #4a3552, #2a1d30 60%, #3a2a3e); border: 3px solid #1a1120; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+.pack-obj.is-garment .pack-lid { height: 62px; background: linear-gradient(180deg, #5a4262, #3a2a3e); border: 3px solid #1a1120; box-shadow: 0 4px 0 #1a1120; transform-origin: 50% 100%; }
+.pack-obj.is-garment .foil-crimp { display: none; }
+.pack-obj.is-garment .foil-brand { font: 22px var(--font-stencil); letter-spacing: 6px; color: #ffe1ee; text-shadow: 0 0 12px #ff5a9e66; }
+.pack-obj.is-garment .foil-emblem { border-color: #ffb3d9; color: #ffb3d9; text-shadow: 0 0 14px #ff5a9e88; }
+.pack-obj.is-garment strong { color: #fff0f6; }
+.pack-obj.is-garment small { color: #ffb3d9; }
+.pack-ribbon { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.pack-ribbon::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 34px; margin-left: -17px; background: linear-gradient(90deg, #c2205e, #ff5a9e 40%, #ffb3d9 50%, #ff5a9e 60%, #c2205e); box-shadow: 0 0 0 1px #6e0f36; }
+.pack-ribbon::after { content: ''; position: absolute; left: 50%; top: 44px; width: 84px; height: 40px; margin-left: -42px; background: radial-gradient(ellipse 30% 50% at 50% 50%, #ff5a9e 0 30%, transparent 31%), radial-gradient(ellipse 45% 40% at 22% 50%, #ff7fb8, #c2205e 80%), radial-gradient(ellipse 45% 40% at 78% 50%, #ff7fb8, #c2205e 80%); border-radius: 50%; filter: drop-shadow(0 2px 2px #0008); }
+
+/* Torn: the lid goes, the body jolts, the serrated edge shows. Each material lets go differently. */
+.pack-obj.is-torn .pack-body { animation: pack-jolt .55s cubic-bezier(.2,.8,.3,1) both; }
+.pack-obj.is-torn .pack-body::before { opacity: 1; }
+.pack-obj.is-torn .pack-lid { animation: lid-tear .7s cubic-bezier(.3,.6,.4,1) forwards; }
+.pack-obj.is-envelope.is-torn .pack-lid { animation: lid-flap .7s cubic-bezier(.3,.7,.3,1.1) forwards; }
+.pack-obj.is-envelope.is-torn .pack-string::after { animation: string-unwind .6s ease-out forwards; }
+.pack-obj.is-garment.is-torn .pack-lid { animation: lid-lift .7s cubic-bezier(.2,.7,.3,1) forwards; }
+.pack-obj.is-garment.is-torn .pack-ribbon { animation: ribbon-loose .6s ease-in forwards; }
+.pack-obj.is-gold.is-torn .pack-seal { animation: seal-crack .45s steps(3) forwards; }
+.pack-obj.is-envelope.is-torn .pack-body::before, .pack-obj.is-garment.is-torn .pack-body::before { opacity: 0; }
+@keyframes lid-tear { 0% { transform: translate(0, 0) rotate(0); opacity: 1; } 18% { transform: translate(-6px, -4px) rotate(-3deg); } 100% { transform: translate(180px, -260px) rotate(58deg); opacity: 0; } }
+@keyframes lid-flap { 0% { transform: rotateX(0); } 100% { transform: rotateX(-160deg); } }
+@keyframes lid-lift { 0% { transform: translateY(0) rotate(0); } 100% { transform: translateY(-120px) rotate(-14deg); opacity: 0; } }
+@keyframes ribbon-loose { 0% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(.2) translateY(60px); opacity: 0; } }
+@keyframes string-unwind { to { transform: rotate(160deg) scaleY(.5); opacity: 0; } }
+@keyframes seal-crack { 50% { transform: scale(1.15) rotate(8deg); filter: brightness(1.4); } 100% { transform: scale(.4) rotate(40deg); opacity: 0; } }
+@keyframes pack-jolt { 0% { transform: translateY(0) scale(1); } 22% { transform: translateY(6px) scale(1.03, .95); } 48% { transform: translateY(-6px) scale(.98, 1.04); } 70% { transform: translateY(2px) scale(1.01, .99); } 100% { transform: translateY(0) scale(1); } }
+.sealed-pack { perspective: 900px; }
+.sealed-pack .tear-line { top: 60px; z-index: 6; }
+.pack-opening.is-tearing .tear-hint { opacity: 0; }
+.pack-actions { display: flex; gap: 14px; align-items: center; }
+.pack-opening .pack-cards { margin-top: 110px; }
+
+/* =====================================================================
+   Chest objects. 310×240 drawings; the shelf uses zoom. The lid is a separate slab so each material can
+   open its own way; .case-mouth is the dark inside that lights up once the lid is off.
+   ===================================================================== */
+.case-obj { --cw: 310px; --ch: 240px; position: relative; width: var(--cw); height: var(--ch); color: #e0ceb1; font-family: var(--font-hand); perspective: 900px; filter: drop-shadow(9px 10px 0 #0005); }
+.case-obj.compact { zoom: .63; }
+.case-box, .case-lid, .case-mouth { position: absolute; left: 0; right: 0; }
+.case-box { top: 34px; bottom: 0; display: grid; place-items: center; overflow: hidden; }
+.case-lid { top: 0; height: 52px; z-index: 5; transform-origin: 50% 0; }
+.case-mouth { top: 34px; height: 40px; z-index: 1; opacity: 0; background: radial-gradient(ellipse at 50% 100%, #ffd66b, #ff9a1f 40%, transparent 72%); filter: blur(6px); transition: opacity .35s; }
+.case-mark { font: 100px/1 var(--font-hand); opacity: .75; text-shadow: 3px 4px 0 #0006; }
+.case-stencil { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; font: 11px var(--font-mono); letter-spacing: 3px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 12px; mask: repeating-linear-gradient(35deg, #000 0 3px, #000a 3px 4px); }
+.case-nail { position: absolute; top: 20px; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #d9d0bd, #57534a 70%); box-shadow: 0 1px 0 #000a; }
+.case-nail:nth-child(1) { left: 22px; } .case-nail:nth-child(2) { left: 50%; margin-left: -4px; } .case-nail:nth-child(3) { right: 22px; }
+
+/* Crate: rough pine boards, two vertical battens, a stencil, the lid is the top board. */
+.case-obj.is-crate .case-box, .case-obj.is-crate .case-lid { background: repeating-linear-gradient(0deg, #0000 0 46px, #261e17 47px 53px), repeating-linear-gradient(4deg, #685039 0 3px, #796046 4px 10px, #503d2c 11px 12px); border: 10px solid #302b26; }
+.case-obj.is-crate .case-lid { border-bottom-width: 6px; box-shadow: 0 6px 0 #1a1512; }
+.case-plank { position: absolute; top: -10px; bottom: -10px; width: 22px; background: linear-gradient(90deg, #2a2523, #4a3f36 40%, #2a2523); border-inline: 2px solid #191917; }
+.case-plank:nth-of-type(1) { left: 22px; } .case-plank:nth-of-type(2) { right: 22px; }
+.case-obj.is-crate .case-mark { color: #e0ceb1; }
+.case-obj.is-crate.is-open .case-lid { animation: lid-crate .75s cubic-bezier(.3,.8,.3,1) forwards; }
+@keyframes lid-crate { 0% { transform: rotateX(0) translateY(0); } 30% { transform: rotateX(-18deg) translateY(-6px); } 100% { transform: rotateX(-118deg) translateY(-30px); } }
+
+/* Safe: cast iron with rivets and a bevel; the whole front is a door with a dial and a handle. */
+.case-obj.is-safe .case-box { top: 0; background: radial-gradient(circle 3px at 14px 14px, #9a9ea2, #3a3d40 60%), radial-gradient(circle 3px at calc(100% - 14px) 14px, #9a9ea2, #3a3d40 60%), radial-gradient(circle 3px at 14px calc(100% - 14px), #9a9ea2, #3a3d40 60%), radial-gradient(circle 3px at calc(100% - 14px) calc(100% - 14px), #9a9ea2, #3a3d40 60%), linear-gradient(135deg, #5e6368, #3a3d40 45%, #4d5155 70%, #2a2d30); border: 12px solid #2a2d30; box-shadow: inset 0 0 0 4px #7a7f84, inset 0 0 0 6px #1e2022; }
+.case-obj.is-safe .case-lid { top: 26px; bottom: 26px; left: 26px; right: 26px; height: auto; background: linear-gradient(160deg, #6a7075, #45494d 60%, #575c61); border: 4px solid #1e2022; box-shadow: inset 0 0 0 3px #8a9095, 0 0 0 2px #1e2022; transform-origin: 0 50%; }
+.case-obj.is-safe .case-mark { display: none; }
+.case-obj.is-safe .case-stencil { color: #e9dfc9; bottom: 8px; }
+.case-obj.is-safe .case-mouth { top: 30px; bottom: 30px; height: auto; left: 30px; right: 30px; background: radial-gradient(ellipse at 50% 50%, #ffd66b, #ff9a1f 45%, #2a1a10 78%); }
+.case-dial { position: absolute; left: 50%; top: 50%; width: 74px; height: 74px; margin: -37px 0 0 -37px; border-radius: 50%; background: repeating-conic-gradient(#e9dfc9 0 6deg, #2a2d30 6deg 12deg); box-shadow: 0 0 0 5px #2a2d30, 0 0 0 8px #8a9095, 0 3px 6px #0008; mask: radial-gradient(circle, transparent 0 46%, #000 48%); animation: dial-idle 6s linear infinite; }
+.case-dial::after { content: ''; position: absolute; inset: 24px; border-radius: 50%; background: #2a2d30; }
+.case-handle { position: absolute; right: 22px; top: 50%; width: 16px; height: 60px; margin-top: -30px; border-radius: 8px; background: linear-gradient(90deg, #8a9095, #e9dfc9 40%, #6a7075); box-shadow: 0 2px 3px #0008; }
+@keyframes dial-idle { to { transform: rotate(360deg); } }
+.case-obj.is-safe.is-rattle .case-dial { animation: dial-spin .6s cubic-bezier(.4,0,.6,1) infinite alternate; }
+@keyframes dial-spin { from { transform: rotate(-60deg); } to { transform: rotate(240deg); } }
+.case-obj.is-safe.is-open .case-lid { animation: lid-safe .8s cubic-bezier(.3,.7,.2,1) forwards; }
+.case-obj.is-safe.is-open .case-handle { animation: handle-turn .3s ease-out forwards; }
+@keyframes lid-safe { 0% { transform: rotateY(0); } 100% { transform: rotateY(-108deg); } }
+@keyframes handle-turn { to { transform: rotate(90deg); } }
+
+/* Ammo box: olive steel, stencilled, rope handles, a latch that pops before the lid flips. */
+.case-obj.is-ammo .case-box, .case-obj.is-ammo .case-lid { background: repeating-linear-gradient(90deg, #0000 0 48px, #ffffff08 48px 50px), linear-gradient(160deg, #6b7a44, #4b5a2e 55%, #5a6b3a); border: 8px solid #2c3a22; }
+.case-obj.is-ammo .case-lid { height: 44px; box-shadow: 0 4px 0 #1e2a18; }
+.case-obj.is-ammo .case-mark { color: #e9dfc9; font-family: var(--font-stencil); font-size: 70px; }
+.case-obj.is-ammo .case-stencil { color: #e9dfc9; font-size: 13px; }
+.case-latch { position: absolute; left: 50%; bottom: -14px; width: 34px; height: 26px; margin-left: -17px; background: linear-gradient(180deg, #c9c2b3, #7a7f84); border: 3px solid #2c3a22; border-radius: 3px; transform-origin: 50% 0; }
+.case-rope { position: absolute; left: -6px; top: 40%; width: 26px; height: 46px; border: 5px solid #c9a04a; border-right: 0; border-radius: 20px 0 0 20px; box-shadow: inset 2px 0 0 #8a5a12; }
+.case-rope.right { left: auto; right: -6px; border-right: 5px solid #c9a04a; border-left: 0; border-radius: 0 20px 20px 0; }
+.case-obj.is-ammo.is-open .case-latch { animation: latch-pop .3s ease-out forwards; }
+.case-obj.is-ammo.is-open .case-lid { animation: lid-ammo .7s cubic-bezier(.3,.8,.3,1) .12s forwards; }
+@keyframes latch-pop { to { transform: rotateX(120deg); } }
+@keyframes lid-ammo { 0% { transform: rotateX(0); } 100% { transform: rotateX(-130deg); } }
+
+/* Hatbox: cream and plum stripes, a round-shouldered lid with a satin bow; the lid lifts off. */
+.case-obj.is-hatbox .case-box { background: repeating-linear-gradient(90deg, #e9dfc9 0 26px, #6a2b5a 26px 40px); border: 6px solid #3a1a34; border-radius: 0 0 18px 18px; }
+.case-obj.is-hatbox .case-lid { height: 60px; background: repeating-linear-gradient(90deg, #f4ecd6 0 26px, #7a3a6a 26px 40px); border: 6px solid #3a1a34; border-radius: 24px 24px 6px 6px; box-shadow: 0 5px 0 #3a1a34; }
+.case-obj.is-hatbox .case-mark { color: #3a1a34; font-family: var(--font-stencil); font-size: 64px; text-shadow: 2px 3px 0 #ffffff88; }
+.case-obj.is-hatbox .case-stencil { color: #3a1a34; }
+.case-stripe { position: absolute; left: 50%; top: -10px; bottom: -10px; width: 30px; margin-left: -15px; background: linear-gradient(90deg, #c2205e, #ff5a9e 45%, #ffb3d9 50%, #ff5a9e 55%, #c2205e); }
+.case-bow { position: absolute; left: 50%; top: 8px; width: 90px; height: 42px; margin-left: -45px; background: radial-gradient(ellipse 28% 48% at 50% 50%, #ff5a9e 0 30%, transparent 31%), radial-gradient(ellipse 44% 40% at 20% 50%, #ff7fb8, #c2205e 80%), radial-gradient(ellipse 44% 40% at 80% 50%, #ff7fb8, #c2205e 80%); border-radius: 50%; filter: drop-shadow(0 2px 2px #0008); }
+.case-obj.is-hatbox.is-open .case-lid { animation: lid-hat .8s cubic-bezier(.2,.7,.3,1) forwards; }
+@keyframes lid-hat { 0% { transform: translateY(0) rotate(0); } 40% { transform: translateY(-40px) rotate(-6deg); } 100% { transform: translate(40px, -150px) rotate(-22deg); opacity: 0; } }
+
+/* Anticipation and release, shared. */
+.case-obj.is-rattle { animation: case-rattle .42s ease-in-out infinite; }
+@keyframes case-rattle { 0%, 100% { transform: translate(0, 0) rotate(0); } 20% { transform: translate(-2px, 1px) rotate(-.6deg); } 45% { transform: translate(2px, -1px) rotate(.5deg); } 70% { transform: translate(-1px, -2px) rotate(-.3deg); } }
+.case-obj.is-open .case-mouth { opacity: 1; }
+.case-obj.is-open { animation: case-open-jolt .5s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes case-open-jolt { 0% { transform: translateY(0) scale(1); } 25% { transform: translateY(6px) scale(1.03, .96); } 55% { transform: translateY(-4px) scale(.99, 1.02); } 100% { transform: translateY(0) scale(1); } }
+
+/* Opening stage: the chest sits low and the reel window rises out of it. */
+.case-opening { justify-content: flex-start; }
+.case-stage { position: relative; display: grid; place-items: center; width: 1180px; min-height: 360px; margin: 20px 0 24px; }
+.case-holder { position: relative; z-index: 2; transition: transform .5s cubic-bezier(.3,.7,.3,1), opacity .4s; }
+/* Once the reel is out, the open box sits small under it, still solid — the reel rose out of it, it did not replace it. */
+.case-opening.is-reel .case-holder { z-index: 1; transform: translateY(190px) scale(.55); opacity: .85; }
+.case-stage .roulette-window { position: absolute; left: 0; top: 0; z-index: 3; margin: 0; cursor: pointer; }
+.roulette-skip { position: absolute; right: 14px; bottom: 10px; z-index: 6; padding: 6px 14px; border: 2px solid #e9dfc9; border-radius: 4px; background: #1a1a1acc; color: #e9dfc9; font: 13px var(--font-mono); letter-spacing: 1px; cursor: pointer; }
+.roulette-skip:hover { background: #24231f; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pack-holo, .case-dial, .case-obj.is-rattle { animation: none; }
+  .pack-obj.is-torn .pack-lid, .pack-obj.is-torn .pack-body, .case-obj.is-open .case-lid, .case-obj.is-open { animation-duration: .01s; }
+}

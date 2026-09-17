@@ -285,7 +285,7 @@ input[type=range], input[type=checkbox] { accent-color: var(--blood); }
 .reel-tile span { font: 100px var(--font-hand); }
 .reel-tile strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font: 17px var(--font-hand); margin-top: 8px; }
 .reel-tile i { position: absolute; bottom: 0; left: 0; right: 0; height: 8px; }
-.prize-modal { position: absolute; inset: -222px -55px -24px; z-index: 50; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 30px; background: #14130ff2; color: #efece4; overflow: visible; }
+.prize-modal { position: absolute; inset: -222px -55px -24px; z-index: 50; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 22px; padding-top: 120px; box-sizing: border-box; background: #14130ff2; color: #efece4; overflow: visible; }
 .prize-modal h2 { font: 35px var(--font-hand); }
 button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) { .bulb-row span { animation: none; } }
@@ -369,6 +369,8 @@ button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) { .currency-badge { animation: none; } .slot-bill { animation-duration: .3s; } }
 .flip-card.is-flat { transform: none !important; transform-style: flat; }
 .flip-card.is-flat .flip-front { display: none; }
+/* Once flat, the back face is the only face and must not stay mirrored (backface-visibility would blank it). */
+.flip-card.is-flat .flip-back { transform: none; }
 
 /* Photograph card system: quiet materials, consistent proportions. */
 .photo-card-frame { border-radius: 10px; border-width: 2px; background: #efece4; }
@@ -447,6 +449,10 @@ button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 .catalog-shelf .foil-pack.compact { width: 150px; height: 222px; gap: 10px; }
 .catalog-shelf .foil-pack.compact strong { font-size: 20px; }
 .catalog-shelf.crates .wooden-crate { width: 196px; height: 152px; }
+
+/* Top bar gear: a drawn cog on a paper chip; motion lives on the svg (TopBar.tsx). */
+.topbar-gear { display: grid; place-items: center; width: 46px; height: 46px; border: 3px solid var(--ink); background: var(--paper); cursor: pointer; }
+.topbar-gear:focus-visible { outline: 2px solid var(--blood); outline-offset: 3px; }
 
 /* Beer meter: a tilted glass that fills toward the dark league; foam rides the fill line. */
 .top-rank-row { display: flex; align-items: center; gap: 12px; }

@@ -1,0 +1,49 @@
+/* Settings: a sheet of ruled paper pinned over the game (see SettingsModal.tsx). */
+.settings-veil { position: absolute; inset: 0; z-index: 50; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1a1a1a99, #0d0d0dd9); }
+.settings-sheet { position: relative; width: min(600px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; padding: 34px 40px 26px; border: 4px solid var(--ink); color: var(--ink);
+  background: linear-gradient(#f4ecd6, #efe6cf) padding-box, repeating-linear-gradient(180deg, transparent 0 27px, #1a1a1a14 27px 28px) padding-box;
+  background-blend-mode: normal, multiply; box-shadow: 10px 12px 0 #0000009c, 0 0 0 1px #00000022; clip-path: polygon(0 1%, 99.4% 0, 100% 99%, .6% 100%); }
+.settings-sheet::before { content: ''; position: absolute; left: 34px; top: 0; bottom: 0; width: 2px; background: #d9252566; pointer-events: none; }
+.settings-pin { position: absolute; left: 50%; top: 8px; width: 22px; height: 22px; margin-left: -11px; border: 3px solid var(--ink); border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff7a6a, #b3221a 70%); box-shadow: 2px 3px 0 #00000066; }
+.settings-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 0 0 18px; padding-bottom: 10px; border-bottom: 3px solid var(--ink); }
+.settings-head h2 { margin: 0; font: 48px/1 var(--font-hand); letter-spacing: 1px; }
+.settings-stamp { max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 10px; border: 2px solid var(--blood); color: var(--blood); font: 11px var(--font-mono); letter-spacing: 3px; text-transform: uppercase; transform: rotate(-4deg); opacity: .85; }
+
+.settings-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 18px; padding: 14px 0; border-bottom: 2px dashed #1a1a1a33; }
+.settings-row.is-slider { grid-template-columns: 1fr; gap: 8px; }
+.settings-row.is-muted { opacity: .45; }
+.settings-label { display: flex; align-items: baseline; gap: 12px; }
+.settings-label b { font: 26px/1 var(--font-hand); font-weight: 400; }
+.settings-label small { font: 12px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; color: #5a4030; }
+
+/* Language: two paper stamps, the chosen one inked. */
+.settings-stamps { display: flex; gap: 10px; }
+.settings-lang { display: grid; gap: 2px; padding: 6px 14px; border: 3px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; text-align: left; box-shadow: 3px 3px 0 var(--ink); }
+.settings-lang span { font: 20px/1 var(--font-hand); }
+.settings-lang small { font: 10px var(--font-mono); letter-spacing: 3px; opacity: .7; }
+.settings-lang.is-on { background: var(--ink); color: var(--paper); box-shadow: 1px 1px 0 var(--ink); transform: translate(2px, 2px); }
+.settings-lang:focus-visible { outline: 2px solid var(--blood); outline-offset: 3px; }
+
+/* Sound: a hand-cut switch — the knob is a bottle cap that slides along an ink slot. */
+.settings-switch { display: flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; }
+.settings-switch b { min-width: 44px; font: 22px/1 var(--font-hand); font-weight: 400; text-align: left; }
+.settings-switch-track { position: relative; display: block; width: 72px; height: 32px; border: 3px solid var(--ink); border-radius: 18px; background: #d9cbb0; box-shadow: inset 2px 2px 0 #00000022, 3px 3px 0 var(--ink); transition: background .2s; }
+.settings-switch.is-on .settings-switch-track { background: #f5a623; }
+.settings-switch-knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border: 3px solid var(--ink); border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3d0, #c9a04a 70%);
+  background-image: radial-gradient(circle at 35% 35%, #fff3d0, #c9a04a 70%), repeating-conic-gradient(#1a1a1a00 0 20deg, #1a1a1a55 20deg 24deg); transition: transform .22s cubic-bezier(.3,1.4,.5,1); }
+.settings-switch.is-on .settings-switch-knob { transform: translateX(40px) rotate(180deg); }
+.settings-switch:focus-visible .settings-switch-track { outline: 2px solid var(--blood); outline-offset: 3px; }
+
+/* Volume: an ink rule, a filled gold stretch, and a cap knob; the real <input type=range> sits on top, invisible. */
+.settings-slider { position: relative; display: block; height: 34px; cursor: pointer; }
+.settings-slider-rule { position: absolute; left: 0; right: 0; top: 15px; height: 4px; background: var(--ink); clip-path: polygon(0 40%, 8% 0, 22% 60%, 40% 10%, 58% 70%, 74% 20%, 90% 60%, 100% 30%, 100% 100%, 0 100%); }
+.settings-slider-fill { position: absolute; left: 0; top: 12px; width: var(--v); height: 10px; background: #f5a623; border: 2px solid var(--ink); border-right: 0; box-sizing: border-box; }
+.settings-slider-knob { position: absolute; top: 4px; left: calc(var(--v) - 13px); width: 26px; height: 26px; border: 3px solid var(--ink); border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3d0, #c9a04a 70%); box-shadow: 2px 3px 0 #00000066; transition: transform .12s; }
+.settings-slider:hover .settings-slider-knob, .settings-slider:has(input:focus-visible) .settings-slider-knob { transform: scale(1.12) rotate(-8deg); }
+.settings-slider:has(input:focus-visible) .settings-slider-knob { outline: 2px solid var(--blood); outline-offset: 3px; }
+.settings-slider input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.settings-slider input:disabled { cursor: default; }
+
+.settings-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; }
+.settings-foot small { font: 11px/1.5 var(--font-mono); letter-spacing: 1px; color: #5a4030; max-width: 60%; }
+@media (prefers-reduced-motion: reduce) { .settings-switch-knob, .settings-slider-knob { transition: none; } }

@@ -19,7 +19,7 @@ export type HitEffectConfig = {
   /** Radial light streaks from the impact point. */
   streaks: number;
   /** Extras that make each style read differently. */
-  bolt?: boolean; ink?: boolean; text?: string; glitch?: boolean; frost?: boolean; comet?: boolean; runes?: boolean;
+  bolt?: boolean; ink?: boolean; text?: string; glitch?: boolean; frost?: boolean; comet?: boolean; runes?: boolean; foam?: boolean;
   recoil: number; punch: number;
   /** How the striker moves and how the target answers (see strikeMotion.ts). */
   motion: StrikeStyle;
@@ -38,6 +38,8 @@ export const HIT_EFFECTS: Record<string, HitEffectConfig> = {
   'slam-glitch': { core: '#e8fff0', mid: '#00ffa3', edge: '#ff2a6d', flash: .45, shock: 'square', particle: { shape: 'pixel', count: 20, speed: 200, gravity: 0, size: [5, 11], life: 520 }, streaks: 0, glitch: true, recoil: 18, punch: .08, motion: 'blink', duration: 860 },
   'slam-shadow': { core: '#c9a8ff', mid: '#6a2bd9', edge: '#120820', flash: .4, shock: 'rings', particle: { shape: 'drop', count: 18, speed: 120, gravity: -70, size: [8, 20], life: 1000 }, streaks: 0, ink: true, recoil: 18, punch: .12, motion: 'blink', duration: 1100 },
   'slam-petal': { core: '#fff0f6', mid: '#ffb3d9', edge: '#ff5a9e', flash: .5, shock: 'ring', particle: { shape: 'star', count: 26, speed: 140, gravity: 40, size: [8, 14], spin: true, life: 1100 }, streaks: 6, recoil: 16, punch: .1, motion: 'sweep', duration: 1150 },
+  /* Mug smash: a glass mug comes down from above — glass shards fly, beer blots splatter and sag, foam clings and slides off. */
+  'slam-tavern': { core: '#fff8e6', mid: '#e29a2c', edge: '#8a4d12', flash: .5, shock: 'ring', particle: { shape: 'shard', count: 16, speed: 200, gravity: 320, size: [6, 14], spin: true, life: 800 }, streaks: 0, ink: true, foam: true, recoil: 22, punch: .16, motion: 'crush', duration: 1050 },
   'slam-comet': { core: '#fffbe6', mid: '#ffd66b', edge: '#ff7a1a', flash: .9, shock: 'burst', particle: { shape: 'ember', count: 26, speed: 220, gravity: 110, size: [5, 12], life: 900 }, streaks: 16, comet: true, recoil: 34, punch: .2, motion: 'knockback', duration: 1200 },
 };
 
@@ -183,6 +185,14 @@ export function playHitEffect(target: HTMLElement, id: string, options: HitEffec
           size: rand(14, 30) * k * .6, size1: rand(20, 36) * k * .6, rot: rand(0, 6), spin: rand(-.5, .5), shape: 'drop', blend: 'source-over', color: i ? cfg.mid : cfg.core, alpha: .95, fadeIn: .05, fadeOut: .35 });
       }
       for (let i = 0; i < 8; i++) fx.spawn({ x: cx + rand(-30, 30) * k, y: cy + rand(-10, 20) * k, vx: rand(-6, 6), vy: rand(30, 90) * k, ay: 160, life: rand(.5, .9), size: rand(2, 4) * k, size1: 1, shape: 'drop', blend: 'source-over', color: cfg.mid, alpha: .9, fadeIn: .05, fadeOut: .5 });
+    }
+    if (cfg.foam) {
+      // Foam: white blobs that cling around the impact, swell a little and slide down before drying off.
+      for (let i = 0; i < 9; i++) {
+        const a = rand(-Math.PI, 0), d = rand(6, 30) * k;
+        fx.spawn({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, vx: Math.cos(a) * rand(6, 20) * k, vy: rand(-10, 4), ay: 70, drag: 2, life: rand(.8, 1.2), size: rand(6, 12) * k * .7, size1: rand(9, 16) * k * .7, shape: 'glow', blend: 'source-over', color: 'rgba(255,250,236,.95)', alpha: .95, fadeIn: .04, fadeOut: .4 });
+      }
+      for (let i = 0; i < 10; i++) fx.spawn({ x: cx + rand(-24, 24) * k, y: cy + rand(-16, 10) * k, vx: rand(-10, 10), vy: rand(-30, -8), ay: 90, drag: .8, life: rand(.5, .9), size: rand(1.6, 3) * k, size1: rand(2, 3.6) * k, shape: 'bubble', blend: 'source-over', color: 'rgba(255,244,214,.9)', alpha: .9, fadeIn: .05, fadeOut: .4 });
     }
     if (cfg.frost) {
       const frost = el('i', 'hfx-frost', `position:absolute;inset:0;border-radius:inherit;background:conic-gradient(from 20deg at ${cx}px ${cy}px,transparent 0 4%,${cfg.core}cc 5% 7%,transparent 8% 30%,${cfg.mid}bb 31% 33%,transparent 34% 58%,${cfg.core}cc 59% 62%,transparent 63% 82%,${cfg.mid}bb 83% 85%,transparent 86%);mix-blend-mode:screen;filter:drop-shadow(0 0 6px ${cfg.mid})`);

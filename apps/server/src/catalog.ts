@@ -6,7 +6,9 @@ import { catalogFile } from './catalogFile';
 /** A published shop keeps its tuning, but products added to the defaults since (e.g. the wardrobe loot) still roll out. */
 function withDefaultProducts(shop: ShopConfig): ShopConfig {
   const missing = defaultShop.products.filter(p => !shop.products.some(q => q.id === p.id));
-  return missing.length ? { ...shop, products: [...shop.products, ...structuredClone(missing)] } : shop;
+  // Never push a valid shop past the product cap: resolveShop would reject the whole thing and fall back to defaults.
+  const merged = missing.length ? { ...shop, products: [...shop.products, ...structuredClone(missing)] } : shop;
+  return validateShopConfig(merged) ? merged : shop;
 }
 
 export class CatalogStore {

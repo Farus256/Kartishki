@@ -75,9 +75,13 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
             ))}
           </div>
         </div>
-        <motion.button aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))} className="border-[3px] border-ink px-3 py-2 text-[25px]"
-          whileHover={{ rotate: 25, scale: 1.06 }} whileTap={{ rotate: 110, scale: .9, y: 2 }} transition={{ type: 'spring', stiffness: 380, damping: 18 }}>
-          <motion.span className="inline-block" aria-hidden>⚙</motion.span>
+        {/* The gear turns, the button does not: a quarter turn on hover, a full spin when pressed. */}
+        <motion.button aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))} className="topbar-gear"
+          whileHover="hover" whileTap="tap" initial="rest" animate="rest" variants={{ rest: { y: 0, boxShadow: '3px 3px 0 #1a1a1a' }, hover: { y: -2, boxShadow: '5px 6px 0 #1a1a1a' }, tap: { y: 2, boxShadow: '1px 1px 0 #1a1a1a' } }} transition={{ type: 'spring', stiffness: 420, damping: 22 }}>
+          <motion.svg viewBox="0 0 32 32" width="26" height="26" aria-hidden variants={{ rest: { rotate: 0 }, hover: { rotate: 60 }, tap: { rotate: 400 } }} transition={{ type: 'spring', stiffness: 160, damping: 14 }}>
+            <path d="M16 3 L18.6 3.4 L19.4 6.6 L22.2 7.8 L25 6.2 L27 8.2 L25.4 11 L26.6 13.8 L29.8 14.6 L30 17.2 L26.8 18.4 L25.8 21.2 L27.6 24 L25.8 26 L22.8 24.6 L20.2 26 L19.6 29.2 L17 29.6 L15.6 26.6 L12.6 26 L10 27.8 L8 26 L9.2 23 L7.6 20.4 L4.4 19.8 L4 17.2 L7 15.8 L7.4 12.8 L5.2 10.2 L6.8 8 L9.8 9 L12.2 7.2 L12.4 4 Z" fill="#efece4" stroke="#1a1a1a" strokeWidth="2.2" strokeLinejoin="round" />
+            <circle cx="17" cy="16.5" r="4.2" fill="#1a1a1a" />
+          </motion.svg>
         </motion.button>
         {right}
       </div>

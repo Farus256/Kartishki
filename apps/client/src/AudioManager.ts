@@ -67,7 +67,8 @@ export class AudioManager {
       const response = await fetch(assets[`../../../audio/${files[name]}.ogg`]);
       if (!response.ok) throw new Error('Audio unavailable');
       return this.init().decodeAudioData(await response.arrayBuffer());
-    })().catch(() => undefined));
+    // A failed load (dev server restart, flaky network) is forgotten, so the next play retries instead of staying mute all session.
+    })().catch(() => { this.buffers.delete(name); return undefined; }));
     return this.buffers.get(name)!;
   }
   play(name: Sound, loop = false): () => void {
@@ -86,11 +87,13 @@ export class AudioManager {
         source = ctx.createBufferSource(); source.buffer = buffer; source.loop = loop;
         const gain = ctx.createGain();
         const soft = name === 'coins_win' || name === 'coins_spend' || name === 'ab_coin' || name === 'ab_coins' || name === 'ab_coin_drop' ? .14
-          : name === 'card_hover' || name === 'ab_pickup' || name === 'ab_whoosh' ? .16
+          : name === 'card_hover' || name === 'ab_pickup' ? .16
+          : name === 'ab_whoosh' ? .24
           : name === 'reel_land' ? .135
           : name === 'case_tick' ? .225
-          : name === 'ab_hit_light' ? .18
-          : name === 'ab_hit_heavy' ? .26
+          // Combat thuds sit above the music bed: a hit the player cannot hear reads as a bug, not as taste.
+          : name === 'ab_hit_light' ? .34
+          : name === 'ab_hit_heavy' ? .46
           : name === 'ab_hit_hero' || name === 'ab_shield_pop' ? .5
           : name.startsWith('ab_') ? .32
           : .45;

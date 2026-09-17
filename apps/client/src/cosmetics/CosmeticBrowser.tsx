@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { VfxLayer, rand } from './vfx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { cosmeticTier, pickLoc, type CosmeticKind } from '@kartishki/shared';
+import { cosmeticSet, cosmeticTier, cosmeticsOfSet, pickLoc, type CosmeticKind } from '@kartishki/shared';
 import { audioManager } from '../AudioManager';
 import { playerSession } from '../playerSession';
 import { COSMETIC_KINDS, CosmeticCard, CosmeticStage, cosmeticItems, cosmeticOwned, equipCosmetic, useEquipped, type CosmeticItem } from '../ui/CosmeticCard';
@@ -51,8 +51,12 @@ export function CosmeticBrowser({ mode, onShop }: { mode: 'shop' | 'owned'; onSh
   /** Button feedback: 'deny' shakes a buy the purse can't cover, 'pop' is the success punch after a purchase or equip. */
   const [nudge, setNudge] = useState<{ id: string; kind: 'deny' | 'pop'; n: number } | null>(null);
   const buyRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
+  // Picking a tile lower in the gallery brings the featured preview back into view; otherwise the change happens off-screen.
+  const pickItem = (id: string) => { setPicked(id); mainRef.current?.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
   const flashTimer = useRef<number>(undefined);
-  const items = useMemo(() => cosmeticItems(kind).filter(item => mode === 'shop' || (cosmeticOwned(item, unlocks) && (!!library || item.kind === 'board'))), [kind, mode, unlocks.join(','), !!library]);
+  // Gallery order: free first, then by rarity (price tier) ascending, ties by price, so every kind reads common → legendary.
+  const items = useMemo(() => cosmeticItems(kind).filter(item => mode === 'shop' || (cosmeticOwned(item, unlocks) && (!!library || item.kind === 'board'))).sort((a, b) => a.cost - b.cost), [kind, mode, unlocks.join(','), !!library]);
   const item = items.find(i => i.id === picked) ?? items.find(i => i.id === equipped[kind]) ?? items[0];
   useEffect(() => () => window.clearTimeout(flashTimer.current), []);
   const stamp = (id: string, what: 'bought' | 'worn') => { setFlash({ id, kind: what }); window.clearTimeout(flashTimer.current); flashTimer.current = window.setTimeout(() => setFlash(null), 1400); };
@@ -69,13 +73,16 @@ export function CosmeticBrowser({ mode, onShop }: { mode: 'shop' | 'owned'; onSh
   const owned = item ? cosmeticOwned(item, unlocks) : false;
   const isEquipped = !!item && equipped[item.kind] === item.id;
   const canEquip = !!item && owned && !isEquipped && !busy && (!!library || item.kind === 'board');
+  const family = item?.set ? cosmeticSet(item.set) : undefined;
+  // The rest of the family: one chip per piece, in the shop's kind order; clicking jumps the browser to that item.
+  const siblings = item?.set ? cosmeticsOfSet(item.set).map(c => cosmeticItems(c.kind).find(i => i.shopId === c.id)).filter((i): i is CosmeticItem => !!i && (mode === 'shop' || cosmeticOwned(i, unlocks))) : [];
   return <div className={`stall is-${mode}`} data-testid="cosmetics-stall">
     <nav className="stall-rail" aria-label={t('shopTab_cosmetics')}>
       {COSMETIC_KINDS.map(k => <button key={k} type="button" aria-pressed={kind === k} onClick={() => { setKind(k); setPicked(null); }} data-testid={`stall-${k}`}>
         <i aria-hidden>{KIND_COPY[k].mark}</i><span>{t(KIND_COPY[k].title)}</span><small>{ownedCount(k)}/{totalCount(k)}</small>
       </button>)}
     </nav>
-    <div className="stall-main">
+    <div className="stall-main" ref={mainRef}>
       <AnimatePresence mode="wait">
         {item ? <motion.section key={`${kind}:${item.id}`} className={`stall-featured is-${item.cost ? cosmeticTier(item.cost) : 'free'}`} data-testid="stall-featured"
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: .18 }}>
@@ -84,8 +91,10 @@ export function CosmeticBrowser({ mode, onShop }: { mode: 'shop' | 'owned'; onSh
             <AnimatePresence>{flash?.id === item.id && <motion.b key={flash.kind} className={`stall-stamp is-${flash.kind}`} initial={{ scale: 2.2, rotate: -18, opacity: 0 }} animate={{ scale: 1, rotate: -8, opacity: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ ...spring, duration: .35 }}>{t(flash.kind === 'bought' ? 'cosmeticsBought' : 'cosmeticsEquipped')}</motion.b>}</AnimatePresence>
           </div>
           <div className="stall-copy">
-            <span className="eyebrow">{t(KIND_COPY[item.kind].title)}{item.cost ? ` · ${t(`tier_${cosmeticTier(item.cost)}`)}` : ''}</span>
+            <span className="eyebrow">{t(KIND_COPY[item.kind].title)}{item.cost ? ` · ${t(`tier_${cosmeticTier(item.cost)}`)}` : ''}{family && <b className="stall-set" data-set={family.id}>{pickLoc(family.name, i18n.language)}</b>}</span>
             <h2>{pickLoc(item.name, i18n.language)}</h2>
+            <p>{t(KIND_COPY[item.kind].hint)}</p>
+            {siblings.length > 1 && <div className="stall-family" data-testid="stall-family"><span>{t('cosmeticsSet')}</span>{siblings.map(sib => <button key={sib.shopId} type="button" className={`${sib.shopId === item.shopId ? 'is-here' : ''} ${cosmeticOwned(sib, unlocks) ? 'is-owned' : ''}`} title={t(KIND_COPY[sib.kind].title)} onClick={() => { setKind(sib.kind); pickItem(sib.id); }}>{KIND_COPY[sib.kind].mark} {pickLoc(sib.name, i18n.language)}</button>)}</div>}
             <div className="stall-actions" ref={buyRef}>
               {item.cost > 0 && <b className={`stall-price ${owned ? 'is-owned' : dollars < item.cost && library ? 'is-short' : ''}`}>{owned ? t('cosmeticsOwned') : `$ ${item.cost}`}</b>}
               {!item.cost && <b className="stall-price is-owned">{t('cosmeticsFree')}</b>}
@@ -109,7 +118,7 @@ export function CosmeticBrowser({ mode, onShop }: { mode: 'shop' | 'owned'; onSh
         {items.map(entry => {
           const has = cosmeticOwned(entry, unlocks);
           return <CosmeticCard key={entry.id || 'none'} item={entry} equipped={equipped[entry.kind] === entry.id} owned={has} hero={hero} foe={foe} name={name} selected={item?.id === entry.id}
-            testId={`${mode === 'owned' ? 'wear-' : ''}${entry.shopId || `${entry.kind}-none`}`} onClick={() => setPicked(entry.id)}>
+            testId={`${mode === 'owned' ? 'wear-' : ''}${entry.shopId || `${entry.kind}-none`}`} onClick={() => pickItem(entry.id)}>
             <span>{entry.cost ? has ? '✓' : `$ ${entry.cost}` : t('cosmeticsFree')}</span>
           </CosmeticCard>;
         })}
