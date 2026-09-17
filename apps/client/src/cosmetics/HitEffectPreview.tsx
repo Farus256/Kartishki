@@ -6,6 +6,7 @@ import { HIT_EFFECTS, playHitEffect } from './hitEffects';
 import { STRIKES, type Pose } from './strikeMotion';
 import { Aura } from './Aura';
 import { playSlamSound } from './vfxAudio';
+import { playProjectile } from './projectiles';
 
 type Phase = 'wind' | 'hit' | 'recoil' | 'rest';
 const PHASES: Phase[] = ['wind', 'hit', 'recoil', 'rest'];
@@ -21,6 +22,7 @@ export function HitEffectPreview({ id, striker, victim, size = 'md', loop = true
   const strikerRef = useRef<HTMLDivElement>(null);
   const victimRef = useRef<HTMLDivElement>(null);
   const shadowRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const [replay, setReplay] = useState(0);
   const [phase, setPhase] = useState<Phase | null>(null);
   useEffect(() => {
@@ -29,6 +31,7 @@ export function HitEffectPreview({ id, striker, victim, size = 'md', loop = true
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let alive = true;
     let hit: ReturnType<typeof playHitEffect> | undefined;
+    let shot: ReturnType<typeof playProjectile> | undefined;
     const timers: number[] = [];
     const wait = (ms: number) => new Promise<void>(resolve => { timers.push(window.setTimeout(resolve, ms)); });
     /** Step a pose function over `ms` on rAF, writing transform/opacity; resolves when done or when the preview unmounts. */
@@ -69,6 +72,9 @@ export function HitEffectPreview({ id, striker, victim, size = 'md', loop = true
         setPhase('wind');
         await drive(a, strike.approachMs, u => strike.pose(u, 1), dash);
         if (!alive) return;
+        // Ranged styles: the shot crosses the stage first, the impact waits for it.
+        const range = HIT_EFFECTS[id]?.range;
+        if (range && stageRef.current) { setPhase('hit'); shot = playProjectile(stageRef.current, a, b, range); await shot; shot = undefined; if (!alive) return; }
         setPhase('hit');
         hit = playHitEffect(b, id, { dir: { x: 1, y: .2 } });
         playSlamSound(id);
@@ -92,11 +98,11 @@ export function HitEffectPreview({ id, striker, victim, size = 'md', loop = true
       frames.forEach(cancelAnimationFrame);
       a.style.transform = ''; a.style.opacity = '';
       if (shadowRef.current) { shadowRef.current.style.transform = ''; shadowRef.current.style.opacity = ''; }
-      hit?.cancel();
+      hit?.cancel(); shot?.cancel();
       delete a.dataset.slamLive;
     };
   }, [id, loop, replay]);
-  return <div className={`hit-preview is-${size}`} data-testid="hit-preview" data-phase={phase ?? undefined}>
+  return <div ref={stageRef} className={`hit-preview is-${size}`} data-testid="hit-preview" data-phase={phase ?? undefined}>
     <div className="hit-preview-floor" aria-hidden><i ref={shadowRef} className="hit-preview-shadow is-striker" /><i className="hit-preview-shadow is-victim" /></div>
     <div ref={strikerRef} className="ab-hero-face frame-preview hit-preview-striker" data-skin={skin} data-aura={aura || undefined}><AbHeroFace id={striker?.id ?? 'ab-hero-captain'} art={striker?.art} /><Aura id={aura} skin={skin} /></div>
     <div ref={victimRef} className="ab-hero-face frame-preview hit-preview-victim"><AbHeroFace id={victim?.id ?? 'ab-hero-bartender'} art={victim?.art} /></div>

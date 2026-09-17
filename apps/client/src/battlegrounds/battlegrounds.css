@@ -21,7 +21,8 @@
 .ab-screen::before { content:''; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(18deg,#1a1a1a06 0 1px,transparent 1px 7px); }
 
 /* Header */
-.ab-header { position:relative; z-index:3; display:flex; align-items:center; gap:14px; height:var(--ab-header,38px); padding:0 18px; font-size:14px; color:#f5dcb2; background:linear-gradient(#392c35,#221b24); border-bottom:3px solid #a77a49; }
+/* Header and standings take the table's wood and ridge tokens, so a bought table restyles the whole room, not just the felt. */
+.ab-header { position:relative; z-index:3; display:flex; align-items:center; gap:14px; height:var(--ab-header,38px); padding:0 18px; font-size:14px; color:var(--ab-cream); background:linear-gradient(color-mix(in srgb,var(--ab-wood) 55%,#1a1a1a),var(--ab-wood-dark)); border-bottom:3px solid var(--ab-ridge); }
 .ab-brand { font:21px var(--font-hand); letter-spacing:3px; margin-right:10px; }
 .ab-brand i { color:var(--blood); font-style:normal; font-size:26px; }
 .ab-header-count { margin-left:auto; font:13px var(--font-mono); opacity:.7; }
@@ -31,17 +32,17 @@
 .ab-layout { position:absolute; inset:var(--ab-header,38px) 0 0; display:grid; grid-template-columns:var(--ab-lb,160px) minmax(0,1fr); grid-template-rows:minmax(0,1fr); min-height:0; }
 
 /* Standings */
-.ab-leaderboard { position:relative; min-height:0; overflow:hidden; padding:14px 10px 10px 12px; color:#f0d7b1; background:linear-gradient(90deg,#251e29,#594032); border-right:4px ridge #a17a55; }
+.ab-leaderboard { position:relative; min-height:0; overflow:hidden; padding:14px 10px 10px 12px; color:var(--ab-cream); background:linear-gradient(90deg,var(--ab-wood-dark),color-mix(in srgb,var(--ab-wood) 80%,#000)); border-right:4px ridge var(--ab-ridge); }
 .ab-leaderboard h2 { margin:0 0 10px; font:15px var(--font-hand); letter-spacing:3px; opacity:.8; }
 .ab-leaderboard ol { list-style:none; display:flex; flex-direction:column; gap:9px; margin:0; padding:0; }
-.ab-leaderboard li { position:relative; display:flex; gap:7px; align-items:center; height:65px; padding:5px; border:2px solid #b08b5f; border-radius:12px; color:#ffe5b5; background:linear-gradient(120deg,#684c3d,#302832); box-shadow:3px 4px #1a1a1a35; }
+.ab-leaderboard li { position:relative; display:flex; gap:14px; align-items:center; height:65px; padding:5px 5px 5px 8px; border:2px solid color-mix(in srgb,var(--ab-ridge) 80%,#000); border-radius:12px; color:var(--ab-amber); background:linear-gradient(120deg,var(--ab-wood),var(--ab-wood-dark)); box-shadow:3px 4px #1a1a1a35; }
 .ab-leaderboard li.is-me { border-color:#64cddd; box-shadow:0 0 12px #35a7c3; }
 .ab-leaderboard li.has-swords { outline:3px solid var(--blood); outline-offset:2px; }
 .ab-leaderboard li.is-out { filter:grayscale(.8); opacity:.65; }
 .ab-lb-face { position:relative; width:34px; height:42px; flex-shrink:0; overflow:hidden; border:2px solid var(--ink); border-radius:38% 38% 15% 15%; }
 .ab-lb-face img { width:100%; height:100%; object-fit:cover; }
 .ab-lb-copy { display:flex; flex-direction:column; min-width:0; gap:1px; }
-.ab-lb-copy strong { max-width:88px; font:16px var(--font-hand); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ab-lb-copy strong { max-width:80px; font:16px var(--font-hand); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ab-lb-copy span { font:13px var(--font-mono); }
 .ab-lb-copy small { font:10px var(--font-mono); }
 .ab-swords { position:absolute; top:-8px; right:-7px; padding:2px 5px; background:var(--blood); color:var(--paper); font:15px var(--font-stencil); transform:rotate(7deg); }
@@ -171,7 +172,7 @@
 .ab-hero-health { position:absolute; right:-16px; bottom:-8px; width:46px; height:48px; display:grid; place-items:center; isolation:isolate; color:#fff; font:30px var(--font-stencil); text-shadow:2px 2px #441719,-1px -1px #441719; z-index:3; }
 .ab-hero-health .ab-stat-icon { inset:-5px -5px; width:calc(100% + 10px); height:calc(100% + 10px); }
 .ab-hero-health .ab-stat-icon.is-heart { fill:#c82935; }
-.ab-hero-vitals { position:absolute; top:174px; left:calc(50% - 100px); width:200px; text-align:center; color:#ffdfab; text-shadow:0 2px 3px #221720; }
+.ab-hero-vitals { position:absolute; top:182px; left:calc(50% - 100px); width:200px; text-align:center; color:#ffdfab; text-shadow:0 2px 3px #221720; }
 .ab-hero-vitals strong { display:inline-block; max-width:100%; padding:2px 12px; border:2px ridge var(--ab-ridge); border-radius:10px; background:#2a1d18e0; font:19px/23px var(--font-hand); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:top; }
 .ab-hero-power-anchor { position:absolute; left:calc(50% + 96px); top:34px; }
 .ab-power { position:relative; width:104px; height:104px; min-height:104px; display:flex; flex-direction:column; justify-content:center; padding:8px; border:7px ridge var(--ab-ridge); border-radius:50%; color:#fff0c5; text-align:center; font:17px var(--font-hand); background:radial-gradient(circle at 40% 35%,#84afb3,#355561 55%,#202b3a); box-shadow:0 0 0 4px var(--ab-ring),0 7px 13px #24151aaa; touch-action:none; }

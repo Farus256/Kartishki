@@ -410,7 +410,7 @@
 /* Neon: wet asphalt grid, tube-lit rim. */
 .card-back[data-back='back-neon'] { --bk-a: #14161f; --bk-b: #07080c; --bk-rim: #ff7de9; --bk-ink: #9ef0ff; --bk-glow: #ff7de9; }
 .card-back[data-back='back-neon'] .card-back-field { opacity: .7; background: repeating-linear-gradient(0deg, #62d8ff33 0 1px, transparent 1px 12px), repeating-linear-gradient(90deg, #62d8ff33 0 1px, transparent 1px 12px); }
-.card-back[data-back='back-neon'] .card-back-rim { box-shadow: 0 0 8px var(--bk-rim), inset 0 0 8px var(--bk-rim); animation: back-neon-flicker 4s linear infinite; }
+.card-back[data-back='back-neon'] .card-back-rim { box-shadow: 0 0 8px var(--bk-rim), inset 0 0 8px var(--bk-rim); }
 .card-back[data-back='back-neon'] .card-back-emblem { text-shadow: 0 0 6px #9ef0ff, 0 0 16px #62d8ff; }
 .card-back[data-back='back-neon'] .card-back-emblem::before { content: '✦'; }
 @keyframes back-neon-flicker { 0%, 90%, 94%, 100% { opacity: .85; } 92% { opacity: .35; } }

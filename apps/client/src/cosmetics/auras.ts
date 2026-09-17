@@ -20,11 +20,16 @@ const AURAS: Record<string, Aura> = {
         layer.spawn({ x: rand(-10, w + 10), y: rand(h * .55, h + 12), vx: rand(-8, 8), vy: rand(-26, -14), ay: -18, turb: 90, drag: .3,
           life: rand(1.4, 2.6), size: rand(3, 6) * (hot ? 1.5 : 1), size1: 1, color: hot ? '#fff1a8' : pick(['#ff9a1f', '#ff6a1a', '#ffb347']), alpha: rand(.6, 1), fadeIn: .12, fadeOut: .5 });
       }
-      layer.paint((ctx, W, H) => {
-        const g = ctx.createRadialGradient(W / 2, H * .92, 4, W / 2, H * .92, W * .6);
+      layer.paint((ctx) => {
+        // Floor glow: a wide, low ellipse centred on the frame's bottom edge that reaches zero alpha well inside the
+        // canvas (it used to run past the canvas bottom and print a hard line on the table).
+        const cx = layer.inset + w / 2, cy = layer.inset + h - 4, r = layer.inset * .8;
         const pulse = .55 + .25 * Math.sin(t * 2.1) + .1 * noise2(t * 3, 7);
-        g.addColorStop(0, `rgba(255,120,30,${.55 * pulse})`); g.addColorStop(.6, `rgba(255,60,20,${.18 * pulse})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(1.9, 1);
+        const g = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+        g.addColorStop(0, `rgba(255,120,30,${.5 * pulse})`); g.addColorStop(.5, `rgba(255,60,20,${.16 * pulse})`); g.addColorStop(1, 'rgba(255,60,20,0)');
+        ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2); ctx.restore();
       });
     });
   },
@@ -205,7 +210,7 @@ const AURAS: Record<string, Aura> = {
       layer.paint((ctx, W, H) => {
         ctx.globalCompositeOperation = 'lighter';
         const hum = stutter > 0 ? .25 : .75 + .25 * noise2(t * 7, 5);
-        const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .3, W / 2, H / 2, Math.min(W, H) * .62);
+        const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .28, W / 2, H / 2, Math.min(W, H) * .5);
         g.addColorStop(0, 'rgba(255,125,233,0)'); g.addColorStop(.55, `rgba(255,125,233,${.12 * hum})`); g.addColorStop(.8, `rgba(98,216,255,${.1 * hum})`); g.addColorStop(1, 'rgba(98,216,255,0)');
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       });
@@ -590,17 +595,32 @@ const AMBIENCE: Record<string, Ambience> = {
     });
   },
   /* Neon alley: the sign hums and flickers in magenta/cyan along the top edge, wet haze drifts through, reflections shimmer at the bottom. */
+  /* Neon alley: two real neon tubes run round the table — a magenta one inset along the top and left, a cyan one along
+     the bottom and right — each a hot white core inside a wide coloured bloom, humming slowly (no blackouts). A soft
+     pulse of light travels along each tube so it reads as gas glowing, not a static line; haze drifts through and the
+     wet floor mirrors the tubes near the bottom. */
   neon: (layer, w, h) => {
     let haze = 0;
+    const inset = 14, r = 26;
+    // Rounded-rect tube path split in two halves: top+left (magenta), bottom+right (cyan).
+    const halfA = (ctx: CanvasRenderingContext2D) => { ctx.beginPath(); ctx.moveTo(w - inset - r, inset); ctx.lineTo(inset + r, inset); ctx.arcTo(inset, inset, inset, inset + r, r); ctx.lineTo(inset, h - inset - r); ctx.arcTo(inset, h - inset, inset + r, h - inset, r); };
+    const halfB = (ctx: CanvasRenderingContext2D) => { ctx.beginPath(); ctx.moveTo(inset + r, h - inset); ctx.lineTo(w - inset - r, h - inset); ctx.arcTo(w - inset, h - inset, w - inset, h - inset - r, r); ctx.lineTo(w - inset, inset + r); ctx.arcTo(w - inset, inset, w - inset - r, inset, r); };
     layer.emitter((dt, t) => {
-      haze += dt * (REDUCED() ? .5 : 1.6);
-      while (haze >= 1) { haze -= 1; layer.spawn({ ...rim(w, h, .28), vx: rand(-14, 14), vy: rand(-4, 4), turb: 20, life: rand(5, 9), size: rand(40, 70), size1: rand(80, 120), shape: 'wisp', blend: 'source-over', color: Math.random() < .5 ? rgba(255, 125, 233, .07) : rgba(98, 216, 255, .07), alpha: 1, fadeIn: .35, fadeOut: .4 }); }
+      haze += dt * (REDUCED() ? .5 : 1.4);
+      while (haze >= 1) { haze -= 1; layer.spawn({ ...rim(w, h, .28), vx: rand(-14, 14), vy: rand(-4, 4), turb: 20, life: rand(5, 9), size: rand(40, 70), size1: rand(80, 120), shape: 'wisp', blend: 'source-over', color: Math.random() < .5 ? rgba(255, 125, 233, .06) : rgba(98, 216, 255, .06), alpha: 1, fadeIn: .35, fadeOut: .4 }); }
       layer.paint((ctx, W, H) => {
-        ctx.globalCompositeOperation = 'lighter';
-        const flick = Math.random() < .03 ? .25 : .85 + .15 * noise2(t * 6, 2);
-        const top = ctx.createLinearGradient(0, 0, 0, H * .22); top.addColorStop(0, `rgba(255,125,233,${.22 * flick})`); top.addColorStop(1, 'rgba(255,125,233,0)'); ctx.fillStyle = top; ctx.fillRect(0, 0, W, H * .22);
-        const bottom = ctx.createLinearGradient(0, H, 0, H * .8); bottom.addColorStop(0, `rgba(98,216,255,${.16 * flick})`); bottom.addColorStop(1, 'rgba(98,216,255,0)'); ctx.fillStyle = bottom; ctx.fillRect(0, H * .8, W, H * .2);
-        for (let i = 0; i < 3; i++) { const x = W * (.2 + .3 * i) + Math.sin(t * .8 + i) * 20; const g = ctx.createLinearGradient(x, H * .78, x, H); g.addColorStop(0, 'rgba(255,125,233,0)'); g.addColorStop(1, `rgba(255,125,233,${.12 * flick})`); ctx.fillStyle = g; ctx.fillRect(x - 6, H * .78, 12, H * .22); }
+        ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        const hum = .9 + .1 * noise2(t * 1.3, 2);
+        const tube = (path: (c: CanvasRenderingContext2D) => void, rgb: string, phase: number) => {
+          const pulse = .85 + .15 * Math.sin(t * .9 + phase);
+          for (const [wd, al] of [[34, .05], [16, .14], [7, .38], [3, .95]] as const) { path(ctx); ctx.strokeStyle = wd === 3 ? `rgba(255,255,255,${al * hum})` : `rgba(${rgb},${al * hum * pulse})`; ctx.lineWidth = wd; ctx.stroke(); }
+        };
+        tube(halfA, '255,125,233', 0);
+        tube(halfB, '98,216,255', 2.1);
+        // Reflection on the wet floor: the tubes smear downward near the bottom rim.
+        const g = ctx.createLinearGradient(0, H, 0, H * .72); g.addColorStop(0, `rgba(98,216,255,${.14 * hum})`); g.addColorStop(1, 'rgba(98,216,255,0)'); ctx.fillStyle = g; ctx.fillRect(0, H * .72, W, H * .28);
+        const g2 = ctx.createLinearGradient(0, 0, 0, H * .2); g2.addColorStop(0, `rgba(255,125,233,${.12 * hum})`); g2.addColorStop(1, 'rgba(255,125,233,0)'); ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H * .2);
+        for (let i = 0; i < 3; i++) { const x = W * (.2 + .3 * i) + Math.sin(t * .6 + i) * 20; const rg = ctx.createLinearGradient(x, H * .78, x, H); rg.addColorStop(0, 'rgba(255,125,233,0)'); rg.addColorStop(1, `rgba(255,125,233,${.1 * hum})`); ctx.fillStyle = rg; ctx.fillRect(x - 6, H * .78, 12, H * .22); }
       });
     });
   },

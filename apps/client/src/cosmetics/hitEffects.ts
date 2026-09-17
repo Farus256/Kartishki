@@ -7,6 +7,7 @@
  */
 import { VfxLayer, rand, type Shape } from './vfx';
 import { victimFrames, type StrikeStyle } from './strikeMotion';
+import type { RangedKind } from './projectiles';
 
 export type ParticleShape = 'ember' | 'spark' | 'shard' | 'drop' | 'pixel' | 'star' | 'rune' | 'line';
 export type HitEffectConfig = {
@@ -23,24 +24,26 @@ export type HitEffectConfig = {
   recoil: number; punch: number;
   /** How the striker moves and how the target answers (see strikeMotion.ts). */
   motion: StrikeStyle;
+  /** Ranged styles: the striker casts from home and this crosses the gap before the impact (projectiles.ts). */
+  range?: RangedKind;
   /** Total ms at rate 1; the target is settled and the layer removed by then. */
   duration: number;
 };
 
 export const HIT_EFFECTS: Record<string, HitEffectConfig> = {
-  'slam-fire': { core: '#fff3b0', mid: '#ff8a1f', edge: '#ff3b1a', flash: .85, shock: 'burst', particle: { shape: 'ember', count: 24, speed: 170, gravity: -80, size: [6, 14], life: 900 }, streaks: 8, recoil: 26, punch: .16, motion: 'punch', duration: 1000 },
-  'slam-lightning': { core: '#ffffff', mid: '#9ef0ff', edge: '#3fb8ff', flash: 1, shock: 'ring', particle: { shape: 'spark', count: 18, speed: 260, gravity: 140, size: [3, 7], life: 620 }, streaks: 12, bolt: true, recoil: 12, punch: .12, motion: 'snap', duration: 900 },
-  'slam-ice': { core: '#ffffff', mid: '#bff3ff', edge: '#5cc6e8', flash: .7, shock: 'hex', particle: { shape: 'shard', count: 20, speed: 190, gravity: 280, size: [8, 18], spin: true, life: 900 }, streaks: 0, frost: true, recoil: 16, punch: .14, motion: 'crush', duration: 1050 },
-  'slam-ink': { core: '#3a2f2a', mid: '#1a1a1a', edge: '#0b0b0b', flash: .35, shock: 'none', particle: { shape: 'drop', count: 24, speed: 210, gravity: 240, size: [7, 20], life: 820 }, streaks: 0, ink: true, recoil: 24, punch: .12, motion: 'slash', duration: 1000 },
+  'slam-fire': { core: '#fff3b0', mid: '#ff8a1f', edge: '#ff3b1a', flash: .85, shock: 'burst', particle: { shape: 'ember', count: 24, speed: 170, gravity: -80, size: [6, 14], life: 900 }, streaks: 8, recoil: 26, punch: .16, motion: 'knockback', duration: 1000 },
+  'slam-lightning': { core: '#ffffff', mid: '#9ef0ff', edge: '#3fb8ff', flash: 1, shock: 'ring', particle: { shape: 'spark', count: 18, speed: 260, gravity: 140, size: [3, 7], life: 620 }, streaks: 12, bolt: true, recoil: 12, punch: .12, motion: 'cast', range: 'bolt', duration: 900 },
+  'slam-ice': { core: '#ffffff', mid: '#bff3ff', edge: '#5cc6e8', flash: .7, shock: 'hex', particle: { shape: 'shard', count: 20, speed: 190, gravity: 280, size: [8, 18], spin: true, life: 900 }, streaks: 0, frost: true, recoil: 16, punch: .14, motion: 'cast', range: 'breath', duration: 1050 },
+  'slam-ink': { core: '#3a2f2a', mid: '#1a1a1a', edge: '#0b0b0b', flash: .35, shock: 'none', particle: { shape: 'drop', count: 24, speed: 210, gravity: 240, size: [7, 20], life: 820 }, streaks: 0, ink: true, recoil: 24, punch: .12, motion: 'cast', range: 'blob', duration: 1000 },
   'slam-comic': { core: '#fff0a8', mid: '#ffd23f', edge: '#e6432d', flash: .8, shock: 'burst', particle: { shape: 'star', count: 12, speed: 180, gravity: 60, size: [10, 20], spin: true, life: 720 }, streaks: 14, text: 'БАМ!', recoil: 30, punch: .22, motion: 'bounce', duration: 1050 },
-  'slam-arcane': { core: '#f7e6ff', mid: '#c77dff', edge: '#6a2bd9', flash: .7, shock: 'rings', particle: { shape: 'rune', count: 14, speed: 100, gravity: -50, size: [10, 16], spin: true, life: 1000 }, streaks: 10, runes: true, recoil: 14, punch: .1, motion: 'pulse', duration: 1100 },
-  'slam-neon': { core: '#ffffff', mid: '#ff7de9', edge: '#62d8ff', flash: .55, shock: 'rings', particle: { shape: 'line', count: 16, speed: 240, gravity: 0, size: [3, 22], life: 640 }, streaks: 0, recoil: 22, punch: .08, motion: 'sweep', duration: 950 },
+  'slam-arcane': { core: '#f7e6ff', mid: '#c77dff', edge: '#6a2bd9', flash: .7, shock: 'rings', particle: { shape: 'rune', count: 14, speed: 100, gravity: -50, size: [10, 16], spin: true, life: 1000 }, streaks: 10, runes: true, recoil: 14, punch: .1, motion: 'cast', range: 'orb', duration: 1100 },
+  'slam-neon': { core: '#ffffff', mid: '#ff7de9', edge: '#62d8ff', flash: .55, shock: 'rings', particle: { shape: 'line', count: 16, speed: 240, gravity: 0, size: [3, 22], life: 640 }, streaks: 0, recoil: 22, punch: .08, motion: 'cast', range: 'beam', duration: 950 },
   'slam-glitch': { core: '#e8fff0', mid: '#00ffa3', edge: '#ff2a6d', flash: .45, shock: 'square', particle: { shape: 'pixel', count: 20, speed: 200, gravity: 0, size: [5, 11], life: 520 }, streaks: 0, glitch: true, recoil: 18, punch: .08, motion: 'blink', duration: 860 },
   'slam-shadow': { core: '#c9a8ff', mid: '#6a2bd9', edge: '#120820', flash: .4, shock: 'rings', particle: { shape: 'drop', count: 18, speed: 120, gravity: -70, size: [8, 20], life: 1000 }, streaks: 0, ink: true, recoil: 18, punch: .12, motion: 'blink', duration: 1100 },
-  'slam-petal': { core: '#fff0f6', mid: '#ffb3d9', edge: '#ff5a9e', flash: .5, shock: 'ring', particle: { shape: 'star', count: 26, speed: 140, gravity: 40, size: [8, 14], spin: true, life: 1100 }, streaks: 6, recoil: 16, punch: .1, motion: 'sweep', duration: 1150 },
+  'slam-petal': { core: '#fff0f6', mid: '#ffb3d9', edge: '#ff5a9e', flash: .5, shock: 'ring', particle: { shape: 'star', count: 26, speed: 140, gravity: 40, size: [8, 14], spin: true, life: 1100 }, streaks: 6, recoil: 16, punch: .1, motion: 'cast', range: 'gust', duration: 1150 },
   /* Mug smash: a glass mug comes down from above — glass shards fly, beer blots splatter and sag, foam clings and slides off. */
-  'slam-tavern': { core: '#fff8e6', mid: '#e29a2c', edge: '#8a4d12', flash: .5, shock: 'ring', particle: { shape: 'shard', count: 16, speed: 200, gravity: 320, size: [6, 14], spin: true, life: 800 }, streaks: 0, ink: true, foam: true, recoil: 22, punch: .16, motion: 'crush', duration: 1050 },
-  'slam-comet': { core: '#fffbe6', mid: '#ffd66b', edge: '#ff7a1a', flash: .9, shock: 'burst', particle: { shape: 'ember', count: 26, speed: 220, gravity: 110, size: [5, 12], life: 900 }, streaks: 16, comet: true, recoil: 34, punch: .2, motion: 'knockback', duration: 1200 },
+  'slam-tavern': { core: '#fff8e6', mid: '#e29a2c', edge: '#8a4d12', flash: .5, shock: 'ring', particle: { shape: 'shard', count: 16, speed: 200, gravity: 320, size: [6, 14], spin: true, life: 800 }, streaks: 0, ink: true, foam: true, recoil: 22, punch: .16, motion: 'cast', range: 'mug', duration: 1050 },
+  'slam-comet': { core: '#fffbe6', mid: '#ffd66b', edge: '#ff7a1a', flash: .9, shock: 'burst', particle: { shape: 'ember', count: 26, speed: 220, gravity: 110, size: [5, 12], life: 900 }, streaks: 16, comet: true, recoil: 34, punch: .2, motion: 'cast', range: 'comet', duration: 1200 },
 };
 
 export type HitEffectOptions = {

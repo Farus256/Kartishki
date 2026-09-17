@@ -53,11 +53,13 @@
 
 /* Standings hover panel: paper dossier of the player */
 .paper-tooltip.is-lb-log { width:340px; max-height:none; padding:0; border:4px solid #2a1a10; border-radius:12px; background:linear-gradient(180deg,#f6efdc,#e9dfc4); box-shadow:0 0 0 3px #c9a463,10px 14px 0 #1a1a1a66; overflow:hidden; }
-.ab-lb-log-head { display:flex; gap:12px; align-items:center; padding:12px 14px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; }
+.ab-lb-log-head { display:flex; gap:18px; align-items:center; padding:16px 14px 16px 18px; background:linear-gradient(180deg,#3d2c22,#2a1d18); color:#ffe7a8; }
 .ab-lb-log-head strong { display:block; margin:0; font:24px var(--font-hand); }
 .ab-lb-log-head small { display:block; font:13px var(--font-mono); color:#d7b56a; }
-.ab-lb-log-face { display:block; width:56px; height:64px; overflow:hidden; border:2px solid #b18c55; border-radius:38% 38% 12% 12%; background:#493329; }
-.ab-lb-log-face img { width:100%; height:100%; object-fit:cover; }
+/* Same skeleton as the dock portrait (.ab-hero-face) pinned into the header flow, so skins and auras render exactly as on the table. */
+.ab-lb-log-face.ab-hero-face { position:relative; left:auto; top:auto; flex-shrink:0; width:60px; height:66px; padding:2px; border:4px ridge #b18c55; border-radius:38% 38% 10% 10%; background:#493329; box-shadow:0 0 0 3px #382932; transition:none; }
+.ab-lb-log-face.ab-hero-face:hover { transform:none; }
+.ab-lb-log-face img { width:100%; height:100%; object-fit:cover; border-radius:34% 34% 6% 6%; }
 .ab-lb-log-facts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 14px 6px; }
 .ab-lb-log-facts div { padding:6px 4px; border:1px solid #c9b78e; border-radius:8px; background:#fff9ea; text-align:center; }
 .ab-lb-log-facts dt { font:11px var(--font-mono); color:#7a5a3a; text-transform:uppercase; letter-spacing:.5px; }

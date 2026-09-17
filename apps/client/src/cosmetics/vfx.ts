@@ -141,15 +141,16 @@ export class VfxLayer {
   private readonly resume = () => this.kick();
   private kick() { if (!this.raf && !this.dead && !this.frozen && !this.hidden && !document.hidden) { this.last = performance.now(); this.raf = requestAnimationFrame(this.frame); } }
   private frame = (now: number) => {
-    this.raf = 0;
-    if (this.dead) return;
-    const dt = Math.min(.05, (now - this.last) / 1000) * this.rate;
+    if (this.dead) { this.raf = 0; return; }
+    // raf stays set while the frame runs: a spawn inside an emitter must not kick a second loop (that doubled the
+    // work of every layer and fed the next frame a negative dt).
+    const dt = Math.max(0, Math.min(.05, (now - this.last) / 1000)) * this.rate;
     this.last = now;
     this.t += dt;
     for (const e of this.emitters) e(dt, this.t, this);
     this.step(dt);
     this.draw();
-    if (this.busy && !this.hidden && !document.hidden) this.raf = requestAnimationFrame(this.frame);
+    this.raf = this.busy && !this.hidden && !document.hidden ? requestAnimationFrame(this.frame) : 0;
   };
   private step(dt: number) {
     const keep: Particle[] = [];

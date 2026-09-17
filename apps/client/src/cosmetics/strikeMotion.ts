@@ -4,7 +4,7 @@
  * along the striker→target axis (0 home, 1 contact), `side` is a perpendicular offset in px, `r` degrees,
  * `s` scale. Contact is always at the end of `approachMs`, so timing stays readable whatever the style.
  */
-export type StrikeStyle = 'punch' | 'slash' | 'knockback' | 'snap' | 'pulse' | 'bounce' | 'crush' | 'sweep' | 'blink';
+export type StrikeStyle = 'punch' | 'slash' | 'knockback' | 'snap' | 'pulse' | 'bounce' | 'crush' | 'sweep' | 'blink' | 'cast';
 export type Pose = { ax: number; side: number; r: number; s: number; alpha?: number };
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -28,6 +28,8 @@ export const STRIKES: Record<StrikeStyle, { approachMs: number; pose: (u: number
   crush: { approachMs: 820, retreatMs: 520, pose: (u) => { const up = clamp01(u / .42), hang = u > .42 && u < .56, fall = clamp01((u - .56) / .44); return { ax: .55 * easeOut(up) + .45 * easeIn(fall, 2.5), side: -110 * easeOut(up) * (hang ? 1 : 1 - easeIn(fall, 2)), r: 0, s: 1 + .18 * (hang ? 1 : easeOut(up) * (1 - fall) + fall * 1.4) }; } },
   /* Directional sweep: a wide sidestep, then an arcing swing that spins through the target. */
   sweep: { approachMs: 720, retreatMs: 480, pose: (u, sign) => { const wind = clamp01(u / .3), swing = clamp01((u - .3) / .7); return { ax: swing ** 1.6, side: sign * (-50 * wind + Math.sin(swing * Math.PI) * 140), r: sign * (-18 * wind + swing ** 2 * 380), s: 1 + .06 * Math.sin(swing * Math.PI) }; } },
+  /* Cast: the striker stays home — a slow lean back gathering the shot, then a short thrust forward as it lets go (a projectile crosses the gap, see projectiles.ts). */
+  cast: { approachMs: 520, retreatMs: 320, pose: (u, sign) => { const wind = clamp01(u / .68), push = clamp01((u - .68) / .32); return { ax: -.1 * easeOut(wind) + .22 * easeOut(push), side: sign * 4 * Math.sin(wind * Math.PI), r: -7 * sign * wind * (1 - push) + 3 * sign * push, s: 1 + .05 * wind + .08 * Math.sin(push * Math.PI) }; } },
   /* Blink: fades out at home, flickers, and reappears at the target's throat. */
   blink: { approachMs: 560, retreatMs: 340, pose: (u) => { const out = clamp01(u / .35), inn = clamp01((u - .6) / .25); const flick = u > .35 && u < .6 ? (Math.floor(u * 40) % 2 ? .35 : 0) : 0; return { ax: u < .6 ? -.06 * out : 1.02, side: 0, r: 0, s: u < .35 ? 1 - .15 * out : u < .6 ? .8 : .85 + .3 * easeOut(inn), alpha: u < .35 ? 1 - out : u < .6 ? flick : easeOut(inn) }; } },
 };

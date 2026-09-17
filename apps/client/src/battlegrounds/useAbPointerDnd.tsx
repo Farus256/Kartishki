@@ -392,10 +392,17 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const screen = screenRef.current;
     if (!screen) return;
     const root = stageBox(screen);
-    // A hovered hand card is zoomed; the ghost is the resting card, so measure the resting box
-    // (is-grabbed drops the hover zoom) and keep the grab point inside it.
-    event.currentTarget.classList.add('is-grabbed');
-    const grabbed = rectToLocal(event.currentTarget.getBoundingClientRect(), root, STAGE_W, STAGE_H);
+    // A hovered hand card is zoomed and lifted; the ghost is the resting card. Measure the box as the player sees it,
+    // then drop the hover zoom with its transition switched off so the resting box is real (mid-transition it was a
+    // blend of both, and the ghost jumped in the hand). The grab point is kept at the same fraction of the card.
+    const el = event.currentTarget;
+    const shown = rectToLocal(el.getBoundingClientRect(), root, STAGE_W, STAGE_H);
+    const prevTransition = el.style.transition;
+    el.style.transition = 'none';
+    el.classList.add('is-grabbed');
+    void el.offsetWidth;
+    const grabbed = rectToLocal(el.getBoundingClientRect(), root, STAGE_W, STAGE_H);
+    el.style.transition = prevTransition;
     // A pickup while the previous ghost is still landing ends that landing now, so
     // every tile under this gesture is where it looks.
     if (viewRef.current.settling) flushSync(reveal);
@@ -409,7 +416,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const run: Run = {
       pointerId: event.pointerId,
       payload,
-      grab: (() => { const g = grabOffset(pointer, { x: grabbed.x, y: grabbed.y }); return { x: Math.max(8, Math.min(grabbed.w - 8, g.x)), y: Math.max(8, Math.min(grabbed.h - 8, g.y)) }; })(),
+      grab: (() => { const g = grabOffset(pointer, { x: shown.x, y: shown.y }); const fx = shown.w ? g.x / shown.w : .5, fy = shown.h ? g.y / shown.h : .5; return { x: Math.max(8, Math.min(grabbed.w - 8, fx * grabbed.w)), y: Math.max(8, Math.min(grabbed.h - 8, fy * grabbed.h)) }; })(),
       origin: card,
       startClient: { x: event.clientX, y: event.clientY },
       lastClient: { x: event.clientX, y: event.clientY },

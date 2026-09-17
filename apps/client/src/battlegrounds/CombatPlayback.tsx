@@ -3,9 +3,11 @@ import { PlayerName } from '../cosmetics/PlayerName';
 import { Aura } from '../cosmetics/Aura';
 import { CardBackFace } from '../cosmetics/CardBackFace';
 import { HIT_EFFECTS, playHitEffect } from '../cosmetics/hitEffects';
+import { playProjectile } from '../cosmetics/projectiles';
 import { STRIKES } from '../cosmetics/strikeMotion';
 import { playBuffFx } from '../cosmetics/buffFx';
 import { playSlamSound } from '../cosmetics/vfxAudio';
+import { VfxLayer, pick, rand } from '../cosmetics/vfx';
 import { useTranslation } from 'react-i18next';
 import { AUTO_BATTLER, abCopyName, type AutoBattlerCatalog, type CombatEvent, type CombatEventsMessage } from '@kartishki/shared';
 import type { AbCombatBoards, AbMinion, AbPlayer } from '../autoBattlerSession';
@@ -29,6 +31,10 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
  const heroHealth=useRef(onHeroHealth);heroHealth.current=onHeroHealth;
  /** The hit effect in flight, cancelled with the rest of the playback. */
  const slamRef=useRef<ReturnType<typeof playHitEffect>>(undefined);
+ const shotRef=useRef<ReturnType<typeof playProjectile>>(undefined);
+ /** One canvas over the field for the attackers' speed lines; made on the first dash of a fight, dropped with it. */
+ const trailRef=useRef<VfxLayer>(undefined);
+ const trail=()=>{ if(!trailRef.current&&field.current){ trailRef.current=new VfxLayer(field.current,{inset:0,zIndex:8,className:'ab-combat-trail'}); trailRef.current.max=160; } return trailRef.current; };
  const transition=useRef({phaseReady,recruitAfter});transition.current={phaseReady,recruitAfter};
  const [tally,setTally]=useState<{id:string;amount:number}|null>(null);
  const [settled,setSettled]=useState(false);
@@ -362,9 +368,13 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
       audioManager.play('ab_whoosh');if(rate.current<100)playMinionVoice(list.find(p=>p.minion.id===event.sourceId)?.minion.cardId??'','attack');
       await pause(reduced?1:70*budget,u=>{const coil=1-(1-u)**3;if(!reduced)place(event.sourceId!,src.x-dx/distance*32*coil,src.y-dy/distance*32*coil,variant===1?-.18*coil:variant===2?.06*coil:0,1+.1*coil);});
       el?.classList.add('is-dashing');
+      const fx=!reduced&&rate.current<100?trail():undefined;if(fx)fx.rate=rate.current;
       await pause(reduced?1:170*budget,u=>{
        const ease=u**5,arc=Math.sin(Math.PI*u)*(variant===1?52:variant===2?-28:0);
-       if(!reduced)place(event.sourceId!,src.x-dx/distance*32*(1-ease)+(impact.x-src.x)*ease-dy/distance*arc,src.y-dy/distance*32*(1-ease)+(impact.y-src.y)*ease+dx/distance*arc,variant===1?Math.sin(Math.PI*u)*.22:variant===2?-.12*u:.04*u,1+(variant===2?.18:.04)*Math.sin(Math.PI*u));
+       const px=src.x-dx/distance*32*(1-ease)+(impact.x-src.x)*ease-dy/distance*arc,py=src.y-dy/distance*32*(1-ease)+(impact.y-src.y)*ease+dx/distance*arc;
+       if(!reduced)place(event.sourceId!,px,py,variant===1?Math.sin(Math.PI*u)*.22:variant===2?-.12*u:.04*u,1+(variant===2?.18:.04)*Math.sin(Math.PI*u));
+       // Speed lines peel off the attacker's back edge once it is really moving; they streak opposite to the dash and die fast.
+       if(fx&&u>.3)for(let i=0;i<2;i++){const side=rand(-CH*.4,CH*.4);fx.spawn({x:px+CW/2-dx/distance*CW*.3-dy/distance*side,y:py+CH/2-dy/distance*CH*.3+dx/distance*side,vx:-dx/distance*rand(260,520),vy:-dy/distance*rand(260,520),drag:6,life:rand(.14,.24),size:rand(2,3.2),size1:.6,shape:'spark',color:pick(['#fff3d0','#ffe1a8','#ffffff']),alpha:.75,fadeIn:.05,fadeOut:.5});}
       });
       el?.classList.remove('is-dashing');
       // Presentation-only hit-stop; authoritative damage events follow in order.
@@ -494,6 +504,9 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
          const sideK=HIT_EFFECTS[slam]&&['crush','bounce'].includes(HIT_EFFECTS[slam]!.motion)?.45:1;
          // A bought hit brings its own approach; the free hit keeps the three tempers below.
          if(strike)await pause(strike.approachMs*budget,u=>{const q=strike.pose(u,sign);striker.style.translate=`${q.side*sideK}px ${dy*q.ax}px`;striker.style.rotate=`${q.r}deg`;striker.style.scale=String(q.s);striker.style.opacity=q.alpha==null?'':String(q.alpha);});
+         // Ranged styles: the striker stays home; the shot crosses the field and the impact waits for it to land.
+         const range=HIT_EFFECTS[slam]?.range;
+         if(range&&field.current&&rate.current<100&&!cancelled){const shot=playProjectile(field.current,striker,victim,range,{rate:rate.current});shotRef.current=shot;await shot;shotRef.current=undefined;}
          else await pause(760*budget,u=>{
           const wind=Math.min(1,u/.34),dash=Math.max(0,(u-.34)/.66);
           const k=u<.34?-.12*(1-(1-wind)**2):-.12+1.12*dash**4;
@@ -581,7 +594,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
    document.removeEventListener('visibilitychange',onVisible);
    window.removeEventListener('ab-combat-rate',onRate);
    effects.forEach(animation=>animation.cancel());
-   field.current?.querySelectorAll('.ab-combat-pop,.ab-tier-fly,.ab-combat-shard,.ab-combat-dust,.ab-combat-dust-puff,.ab-combat-drop,.ab-combat-chip,.ab-combat-spark,.ab-combat-splat,.ab-combat-mist,.ab-combat-shine,.ab-combat-veil,.ab-combat-slash,.ab-combat-hero-shard,.ab-combat-skull,.ab-combat-bone,.hfx').forEach(el=>el.remove());slamRef.current?.cancel();
+   field.current?.querySelectorAll('.ab-combat-pop,.ab-tier-fly,.ab-combat-shard,.ab-combat-dust,.ab-combat-dust-puff,.ab-combat-drop,.ab-combat-chip,.ab-combat-spark,.ab-combat-splat,.ab-combat-mist,.ab-combat-shine,.ab-combat-veil,.ab-combat-slash,.ab-combat-hero-shard,.ab-combat-skull,.ab-combat-bone,.hfx').forEach(el=>el.remove());slamRef.current?.cancel();shotRef.current?.cancel();trailRef.current?.destroy();trailRef.current=undefined;
    field.current?.querySelectorAll<HTMLElement>('.ab-combat-hero-image,.ab-combat-face').forEach(el=>{el.style.visibility='';});
    field.current?.classList.remove('is-duel');
    tiles.current.forEach(el=>{el.classList.remove('is-rip','is-hit','is-hp-drop','is-attacking','is-dashing','is-defending','is-poisoned','is-thinking','is-targeted','is-buff-card','is-buff-ability','is-buff-power','is-shouting','is-baiting','is-startled','is-debuff','is-shield-breaking');el.style.transform='';el.style.opacity='';});

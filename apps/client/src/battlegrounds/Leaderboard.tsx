@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { AutoBattlerCatalog } from '@kartishki/shared';
 import { AbHeroFace } from './AbHeroFace';
+import { Aura } from '../cosmetics/Aura';
 import type { AbPlayer } from '../autoBattlerSession';
 import { PaperTooltip } from '../ui/PaperTooltip';
 import { useCombatHistory, type FightRecord } from './useCombatHistory';
@@ -24,7 +25,8 @@ function FightLog({ player, players, log, meId, ru, catalog }: { player: AbPlaye
   const power = powerCopy(player.power, catalog, i18n.language, t);
   return <div className="ab-lb-log">
     <header className="ab-lb-log-head">
-      <span className="ab-lb-log-face"><AbHeroFace id={player.heroId || player.sessionId} art={hero?.art} /></span>
+      {/* The real portrait frame: the player's skin and aura run live here, as on the table. */}
+      <div className="ab-hero-face ab-lb-log-face" data-skin={player.skin || undefined} data-aura={player.aura || undefined}><AbHeroFace id={player.heroId || player.sessionId} art={hero?.art} /><Aura id={player.aura} skin={player.skin} /></div>
       <div>
         <strong><PlayerName fx={player.nameFx} name={player.sessionId === meId ? t('you') : player.displayName} /></strong>
         <small>{hero ? (i18n.language.startsWith('en') ? hero.name.en || hero.name.ru : hero.name.ru) : '—'} · ♥ {player.health}</small>
