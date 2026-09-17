@@ -3,6 +3,12 @@ import { dirname } from 'node:path';
 import { abTribes, starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, coercePlayerLeveling, validateMenuMusic, emptyMenuMusic, defaultShop, resolveShop, validateShopConfig, validateCardSet, setFairness, cardSetSummary, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic, type ShopConfig, type CardSet, type CardSetSummary } from '@kartishki/shared';
 import { catalogFile } from './catalogFile';
 
+/** A published shop keeps its tuning, but products added to the defaults since (e.g. the wardrobe loot) still roll out. */
+function withDefaultProducts(shop: ShopConfig): ShopConfig {
+  const missing = defaultShop.products.filter(p => !shop.products.some(q => q.id === p.id));
+  return missing.length ? { ...shop, products: [...shop.products, ...structuredClone(missing)] } : shop;
+}
+
 export class CatalogStore {
   private catalog: Catalog = { version: 1, cards: structuredClone(starterCards), heroes: structuredClone(starterHeroes), autoBattlerMinions: structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: structuredClone(starterAutoBattlerHeroes), playerLeveling: structuredClone(starterLeveling) };
   constructor(private file = catalogFile()) {
@@ -21,7 +27,7 @@ export class CatalogStore {
       if (data.menuMusic && !validateMenuMusic(data.menuMusic)) throw new Error('Invalid menu music');
       if (data.shop && !validateShopConfig(data.shop)) throw new Error('Invalid shop');
       if (data.cardSets && (!Array.isArray(data.cardSets) || data.cardSets.length > 50 || !data.cardSets.every(validateCardSet) || new Set(data.cardSets.map(s => s.id)).size !== data.cardSets.length)) throw new Error('Invalid card sets');
-      this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: mergeById(starterAutoBattlerMinions, data.autoBattlerMinions), autoBattlerHeroes: mergeById(starterAutoBattlerHeroes, data.autoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling), menuMusic: data.menuMusic ?? structuredClone(emptyMenuMusic), shop: data.shop ?? structuredClone(defaultShop) };
+      this.catalog = { ...data, heroes: data.heroes ?? structuredClone(starterHeroes), autoBattlerMinions: mergeById(starterAutoBattlerMinions, data.autoBattlerMinions), autoBattlerHeroes: mergeById(starterAutoBattlerHeroes, data.autoBattlerHeroes), playerLeveling: data.playerLeveling ?? structuredClone(starterLeveling), menuMusic: data.menuMusic ?? structuredClone(emptyMenuMusic), shop: data.shop ? withDefaultProducts(data.shop) : structuredClone(defaultShop) };
     }
   }
   snapshot(): Catalog { return structuredClone({ ...this.catalog, autoBattlerMinions: this.catalog.autoBattlerMinions ?? structuredClone(starterAutoBattlerMinions), autoBattlerHeroes: this.catalog.autoBattlerHeroes ?? structuredClone(starterAutoBattlerHeroes), playerLeveling: this.catalog.playerLeveling ?? structuredClone(starterLeveling), menuMusic: this.catalog.menuMusic ?? structuredClone(emptyMenuMusic), shop: resolveShop(this.catalog.shop) }); }

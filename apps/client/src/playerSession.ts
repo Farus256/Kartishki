@@ -25,7 +25,7 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
   return response.status === 204 ? undefined as T : response.json();
 }
 function rankFor(profile: PlayerLibrary['profile']) {
-  return rankFromMl(profile.beerMl ?? 0, profile.elo);
+  return rankFromMl(profile.elo ?? 0, profile.elo);
 }
 function setLibrary(library: PlayerLibrary, syncSettings = false) {
   const xp = Number(library.profile.xp ?? 0);
@@ -59,9 +59,9 @@ export const playerSession = {
   },
   patchProfile(rewards: MatchRewards) {
     if (!snapshot.library) return;
-    const previousElo = snapshot.library.profile.beerMl ?? 0;
-    setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp ?? snapshot.library.profile.xp, beerMl: rewards.beerMl ?? snapshot.library.profile.beerMl } });
-    publish({ lastReward: { elo: rewards.beerMl, previousElo, gained: rewards.gained } });
+    const previousElo = snapshot.library.profile.elo ?? 0;
+    setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp ?? snapshot.library.profile.xp } });
+    publish({ lastReward: { elo: rewards.elo, previousElo, gained: rewards.gained } });
   },
   addXp(amount: number) {
     if (!(XP_AWARDS as readonly number[]).includes(amount)) return;
@@ -87,10 +87,10 @@ export const playerSession = {
   },
   finishBattlegrounds(rewards: BattlegroundsRewards) {
     if (snapshot.lastReward) return;
-    if (snapshot.library && (rewards.xp > 0 || rewards.elo > 0 || rewards.beerMl > 0 || rewards.currency > 0 || rewards.gained > 0)) {
-      const previousElo = snapshot.library.profile.beerMl ?? 0;
-      setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp, beerMl: rewards.beerMl ?? snapshot.library.profile.beerMl } });
-      publish({ lastReward: { elo: rewards.beerMl, previousElo, gained: rewards.gained, xpGain: rewards.xpGain } });
+    if (snapshot.library && (rewards.xp > 0 || rewards.elo > 0 || rewards.currency > 0 || rewards.gained > 0)) {
+      const previousElo = snapshot.library.profile.elo ?? 0;
+      setLibrary({ ...snapshot.library, profile: { ...snapshot.library.profile, elo: rewards.elo, currency: rewards.currency, xp: rewards.xp } });
+      publish({ lastReward: { elo: rewards.elo, previousElo, gained: rewards.gained, xpGain: rewards.xpGain } });
       return;
     }
     if (snapshot.library) return;

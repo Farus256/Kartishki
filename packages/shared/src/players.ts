@@ -49,9 +49,17 @@ export type PlayerSettings = {
   board: string;
   /** Equipped hero frame (see HERO_SKINS); '' = plain. */
   heroSkin: string;
+  /** Equipped hero slam effect (see HERO_SLAMS); '' = plain. */
+  heroSlam: string;
+  /** Equipped nickname effect (see NAME_FX); '' = plain. */
+  nameFx: string;
+  /** Equipped portrait aura (see PORTRAIT_FX); '' = plain. */
+  portraitFx: string;
+  /** Equipped card back (see CARD_BACKS); '' = the paper default. */
+  cardBack: string;
 };
 export function defaultSettings(): PlayerSettings {
-  return { language: 'ru', sound: true, sfxVolume: 1, musicVolume: 0.5, selectedDeck: '', board: '', heroSkin: '' };
+  return { language: 'ru', sound: true, sfxVolume: 1, musicVolume: 0.5, selectedDeck: '', board: '', heroSkin: '', heroSlam: '', nameFx: '', portraitFx: '', cardBack: '' };
 }
 const cosmeticId = (value: unknown) => typeof value === 'string' && /^[a-z0-9-]{0,40}$/.test(value);
 function unit(value: unknown, fallback: number) {
@@ -69,6 +77,10 @@ export function resolveSettings(value: unknown): PlayerSettings {
     selectedDeck: typeof row.selectedDeck === 'string' && row.selectedDeck.length <= 64 ? row.selectedDeck : '',
     board: cosmeticId(row.board) ? row.board as string : '',
     heroSkin: cosmeticId(row.heroSkin) ? row.heroSkin as string : '',
+    heroSlam: cosmeticId(row.heroSlam) ? row.heroSlam as string : '',
+    nameFx: cosmeticId(row.nameFx) ? row.nameFx as string : '',
+    portraitFx: cosmeticId(row.portraitFx) ? row.portraitFx as string : '',
+    cardBack: cosmeticId(row.cardBack) ? row.cardBack as string : '',
   };
 }
 export function validateSettingsPatch(value: unknown): Partial<PlayerSettings> | undefined {
@@ -99,14 +111,16 @@ export function validateSettingsPatch(value: unknown): Partial<PlayerSettings> |
     if (!cosmeticId(row.board)) return undefined;
     patch.board = row.board as string;
   }
-  if (row.heroSkin !== undefined) {
-    if (!cosmeticId(row.heroSkin)) return undefined;
-    patch.heroSkin = row.heroSkin as string;
+  for (const key of ['heroSkin', 'heroSlam', 'nameFx', 'portraitFx', 'cardBack'] as const) {
+    if (row[key] === undefined) continue;
+    if (!cosmeticId(row[key])) return undefined;
+    patch[key] = row[key] as string;
   }
   return patch;
 }
 export type PlayerProfile = {
-  id: string; username: string; elo: number; currency: number; xp: number; beerMl: number;
+  /** `elo` is the beer rating in millilitres — the only rating field. */
+  id: string; username: string; elo: number; currency: number; xp: number;
   lastDaily: string | null; dailyAvailable: boolean; settings: PlayerSettings;
   /** Admin accounts open the in-game editor; everyone else sees "in development". */ isAdmin: boolean;
 };
@@ -116,6 +130,6 @@ export type PlayerLogin = { token: string; library: PlayerLibrary };
 export type LootCard = { id: string; rarity: string; name: Record<string, string> };
 export type PackResult = { cards: LootCard[]; currency: number; xp: number; duplicates: { id: string; amount: number }[] };
 export type CaseResult = { prize: LootCard; reel: LootCard[]; landing: number; currency: number; xp: number; duplicates: { id: string; amount: number }[] };
-export type LadderRow = { username: string; elo: number; xp: number; remainingMl: number };
-export type MatchRewards = { elo: number; currency: number; gained: number; xp: number; beerMl: number };
+export type LadderRow = { username: string; elo: number; xp: number };
+export type MatchRewards = { elo: number; currency: number; gained: number; xp: number };
 export type BattlegroundsRewards = MatchRewards & { place: number; eloDelta: number; xpGain: number; beerMlGain: number };

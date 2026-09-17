@@ -1,4 +1,7 @@
 import { audioManager } from '../AudioManager';
+import { useSyncExternalStore } from 'react';
+import { CardBackFace } from '../cosmetics/CardBackFace';
+import { playerSession } from '../playerSession';
 import { PortraitPlaceholder } from './PortraitPlaceholder';
 import { CARD_WIDTH, CARD_HEIGHT, PORTRAIT_HEIGHT } from './cardLayout';
 import { motion } from 'framer-motion';
@@ -115,16 +118,14 @@ export function LockedSlot({ scale = 1 }: { scale?: number }) {
   );
 }
 
-/** Sealed reverse used while a pack card is still face down. */
-export function CardBack({ scale = 1, glow }: { scale?: number; glow?: string }) {
+/** Sealed reverse used while a pack card is still face down: the player's own equipped card back. */
+export function CardBack({ scale = 1, glow, back }: { scale?: number; glow?: string; back?: string }) {
+  const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
+  const id = back ?? player.library?.profile.settings?.cardBack ?? '';
   return (
     <div className="ink-edge relative overflow-hidden border-[4px] border-ink bg-ink shadow-[7px_8px_0_rgba(26,26,26,.45)]"
       style={{ width: CARD_W * scale, height: CARD_H * scale, boxShadow: glow ? `0 0 26px 4px ${glow}` : undefined }}>
-      <div className="absolute inset-0 opacity-30"
-        style={{ backgroundImage: 'repeating-linear-gradient(45deg,#efece4 0 2px,transparent 2px 9px)' }} />
-      <div className="absolute inset-[14px] grid place-items-center border-[3px] border-paper/70">
-        <span className="font-hand text-[86px] text-paper">✳</span>
-      </div>
+      <CardBackFace id={id} shape="card" />
     </div>
   );
 }

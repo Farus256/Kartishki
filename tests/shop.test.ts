@@ -64,3 +64,17 @@ test('owned album cards convert to rarity cash, new cards stay unique', () => {
   assert.equal(parseShopAction({ type: 'sell', cardId: owned.id }), undefined);
   assert.equal(parseShopAction({ type: 'upgrade', cardId: owned.id }), undefined);
 });
+
+test('wardrobe loot: accounts unlock a skin once, repeats and guests take the refund', () => {
+  const account = { ...wallet, unlocks: [] as string[] };
+  const first = resolveShopAction(defaultShop, demoCards, account, { type: 'buy', productId: 'atelier' }, () => 0);
+  assert.equal(first.rewards[0]!.kind, 'cosmetic');
+  const owned = applyShopResult(account, first);
+  assert.deepEqual(owned.unlocks, [(first.rewards[0] as { itemId: string }).itemId]);
+  const again = resolveShopAction(defaultShop, demoCards, owned, { type: 'buy', productId: 'atelier' }, () => 0);
+  assert.equal(again.rewards[0]!.kind, 'cosmeticDuplicate');
+  assert.ok(shopCash(again.rewards) > 0);
+  const guest = resolveShopAction(defaultShop, demoCards, wallet, { type: 'buy', productId: 'atelier' }, () => 0);
+  assert.equal(guest.rewards[0]!.kind, 'currency');
+  assert.equal(validateShopConfig(defaultShop), true);
+});

@@ -159,6 +159,7 @@ test('case lands on awarded card and stays within 16:9', async ({ page }) => {
 test('slot payout settles once and does not charge twice while spinning', async ({ page }) => {
   await page.addInitScript(() => { Math.random = () => .01; });
   await enter(page, 'shop');
+  await page.getByRole('button', { name: 'Казино', exact: true }).click();
   await page.screenshot({ path: 'artifacts/metagame-slots.png' });
   const spin = page.getByRole('button', { name: /SPIN/ });
   await spin.click();
@@ -191,6 +192,7 @@ test('insufficient balance disables purchases without modifying ownership', asyn
   await enter(page, 'shop');
   await page.evaluate(() => { const key = 'kartishki-demo-economy-v1'; const s = JSON.parse(localStorage.getItem(key)!); s.dollars = 49; localStorage.setItem(key, JSON.stringify(s)); });
   await enter(page, 'shop');
+  await page.getByRole('button', { name: 'Казино', exact: true }).click();
   const before = await state(page);
   await expect(page.getByRole('button', { name: /SPIN/ })).toBeDisabled();
   await page.getByRole('button', { name: 'Паки', exact: true }).click();
@@ -203,6 +205,7 @@ test('insufficient balance disables purchases without modifying ownership', asyn
 test('slot spin charges once and a resumed cash reward settles once', async ({ page }) => {
   await page.addInitScript(() => { Math.random = () => .01; });
   await enter(page, 'shop');
+  await page.getByRole('button', { name: 'Казино', exact: true }).click();
   const spin = page.getByRole('button', { name: /SPIN/ });
   await spin.click();
   await expect(page.getByTestId('balance')).toHaveText('$ 1,450');

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  BOARD_PRESETS, COSMETICS, FAIRNESS_BROKEN, HERO_SKINS, PREMIUM_HEROES, boardOwned, cardFairness, cardSetFromCatalog, catalogFromCardSet,
-  heroAllowed, heroSkinOwned, setFairness, starterAutoBattlerCatalog, starterAutoBattlerMinions, validateAutoBattlerEffect, validateCardSet,
+  BOARD_PRESETS, COSMETICS, FAIRNESS_BROKEN, HERO_SKINS, HERO_SLAMS, NAME_FX, boardOwned, cardFairness, cardSetFromCatalog, catalogFromCardSet,
+  heroSkinOwned, heroSlamOwned, nameFxOwned, setFairness, starterAutoBattlerCatalog, starterAutoBattlerMinions, validateAutoBattlerEffect, validateCardSet,
   type AutoBattlerMinionDef, type CardSet,
 } from '@kartishki/shared';
 
@@ -48,7 +48,7 @@ test('scenario steps validate with the effect and add value', () => {
   assert.ok(cardFairness({ ...base, effects: [effect] }).points > cardFairness(base).points);
 });
 
-test('cosmetics: free presets equip without a purchase, premium heroes need theirs', () => {
+test('cosmetics: free presets equip without a purchase, bought looks need their unlock', () => {
   assert.ok(BOARD_PRESETS.some(p => p.cost === 0));
   assert.equal(boardOwned('oak', []), true);
   assert.equal(boardOwned('night', []), false);
@@ -56,10 +56,11 @@ test('cosmetics: free presets equip without a purchase, premium heroes need thei
   assert.equal(heroSkinOwned('', []), true);
   assert.equal(heroSkinOwned(HERO_SKINS[0]!.id, []), false);
   assert.equal(heroSkinOwned(HERO_SKINS[0]!.id, [HERO_SKINS[0]!.id]), true);
-  const premium = PREMIUM_HEROES[0]!.heroId;
-  assert.equal(heroAllowed(premium, []), false);
-  assert.equal(heroAllowed(premium, [`hero-${premium}`]), true);
-  assert.equal(heroAllowed('ab-hero-captain', []), true);
+  assert.equal(heroSlamOwned('', []), true);
+  assert.equal(heroSlamOwned(HERO_SLAMS[0]!.id, []), false);
+  assert.equal(heroSlamOwned(HERO_SLAMS[0]!.id, [HERO_SLAMS[0]!.id]), true);
+  assert.equal(nameFxOwned(NAME_FX[0]!.id, [NAME_FX[0]!.id]), true);
+  assert.equal(nameFxOwned(HERO_SLAMS[0]!.id, [HERO_SLAMS[0]!.id]), false, 'a slam is not a name effect');
   assert.equal(new Set(COSMETICS.map(c => c.id)).size, COSMETICS.length);
   assert.ok(COSMETICS.every(c => c.cost > 0));
 });

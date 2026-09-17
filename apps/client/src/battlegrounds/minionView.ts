@@ -1,4 +1,4 @@
-import { abCopyDescription, abCopyName, pickLoc, type AutoBattlerCatalog, type AutoBattlerMinionDef } from '@kartishki/shared';
+import { abCopyDescription, abCopyName, autoBattlerKeywords, pickLoc, type AutoBattlerCatalog, type AutoBattlerMinionDef } from '@kartishki/shared';
 import type { AbMinion } from '../autoBattlerSession';
 
 export function localizedName(name: { ru: string; en: string }, lang: string): string {
@@ -38,6 +38,32 @@ type CopyT = (key: string, opts?: { defaultValue?: string }) => string;
 
 export function minionTribeLabel(def: AutoBattlerMinionDef | undefined, catalog: AutoBattlerCatalog, lang: string, t: CopyT): string {
   return (def?.tribes ?? []).map(k => abCopyName(catalog.copy, 'tribes', k, lang, t(`abTribe_${k}`, { defaultValue: k }))).join(' / ');
+}
+
+/** Keyword titles ("Боевой клич", "Щит"…) as printed in this catalog's copy, longest first so "Предсмертный хрип" wins over "хрип". */
+export function keywordTitles(catalog: AutoBattlerCatalog, lang: string, t: CopyT): string[] {
+  const titles = autoBattlerKeywords.map(key => {
+    const name = abCopyName(catalog.copy, 'keywords', key, lang, '') || t(`abKeyword_${key}`, { defaultValue: '' });
+    return name.split(':')[0]!.trim();
+  });
+  return [...new Set(titles.filter(Boolean))].sort((a, b) => b.length - a.length);
+}
+
+export type CardTextRun = { text: string; bold: boolean };
+/** Splits a card line into plain runs and keyword runs, so only the keywords print bold. */
+export function emphasizeKeywords(line: string, titles: string[]): CardTextRun[] {
+  if (!titles.length) return [{ text: line, bold: false }];
+  const escaped = titles.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const re = new RegExp(`(${escaped.join('|')})(?!\\p{L})`, 'giu');
+  const runs: CardTextRun[] = [];
+  let last = 0;
+  for (const m of line.matchAll(re)) {
+    if (m.index! > last) runs.push({ text: line.slice(last, m.index), bold: false });
+    runs.push({ text: m[0], bold: true });
+    last = m.index! + m[0].length;
+  }
+  if (last < line.length) runs.push({ text: line.slice(last), bold: false });
+  return runs;
 }
 
 export function minionDossierLines(minion: AbMinion, catalog: AutoBattlerCatalog, lang: string, t: CopyT): string[] {

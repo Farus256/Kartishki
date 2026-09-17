@@ -14,7 +14,7 @@ import { pickLoc } from '@kartishki/shared';
 import { useServerReady } from '../ui/useServerReady';
 import { GAME_VERSION } from '../version';
 
-type Props = { onPlay: () => void; onBattlegrounds: () => void; onDeck: () => void; onShop: () => void; onEditor: () => void; onSettings: () => void; onExit: () => void };
+type Props = { onPlay: () => void; onBattlegrounds: () => void; onDeck: () => void; onShop: () => void; onEditor: () => void; onCustomize: () => void; onExit: () => void };
 const TROPHY = { 1: '#c9a227', 2: '#9aa0a6', 3: '#b87333' } as const;
 function Trophy({ place }: { place: 1 | 2 | 3 }) {
   return <svg className="menu-ladder-trophy" viewBox="0 0 20 22" aria-hidden>
@@ -41,7 +41,7 @@ function untilMidnight() {
   const ms = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime();
   return [Math.floor(ms / 3600000), Math.floor(ms / 60000) % 60, Math.floor(ms / 1000) % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
-export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEditor, onSettings, onExit }: Props) {
+export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEditor, onCustomize, onExit }: Props) {
   const { t, i18n } = useTranslation();
   const reduced = useReducedMotion();
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
@@ -60,8 +60,6 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEdit
   const wallpaper = activeSet?.theme?.wallpaper?.map(menuTrackUrl);
   const dailyReady = !!profile?.dailyAvailable;
   const [timer, setTimer] = useState(untilMidnight);
-  const [notice, setNotice] = useState('');
-  useEffect(() => { if (!notice) return; const id = setTimeout(() => setNotice(''), 2500); return () => clearTimeout(id); }, [notice]);
   useEffect(() => {
     if (dailyReady || !profile) return;
     const id = setInterval(() => setTimer(untilMidnight()), 1000);
@@ -72,9 +70,10 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEdit
     { key: 'menuBattlegrounds', tone: 'blood' as const, run: onBattlegrounds, mark: '🍺' },
     { key: 'menuDeck', tone: 'paper' as const, run: onDeck, mark: '▤' },
     { key: 'menuShop', tone: 'gold' as const, run: onShop, mark: '$' },
-    // Admin-only: everyone else gets a "in development" note instead of the editor.
-    { key: 'menuEditor', tone: 'paper' as const, run: profile?.isAdmin ? onEditor : () => setNotice('menuSoon'), mark: '✎' },
-    { key: 'menuSettings', tone: 'paper' as const, run: onSettings, mark: '⚙' },
+    // Admin-only: the badge stays on for everyone; non-admins cannot open the editor.
+    { key: 'menuEditor', tone: 'paper' as const, run: profile?.isAdmin ? onEditor : () => {}, mark: '✎' },
+    // Sound and language live behind the ⚙ in the top bar; the big button is the wardrobe.
+    { key: 'menuCustomize', tone: 'paper' as const, run: onCustomize, mark: '✦' },
     { key: 'menuExit', tone: 'ink' as const, run: onExit, mark: '↩' },
   ];
   return <div className="absolute inset-0 overflow-clip">
@@ -89,7 +88,7 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEdit
         <InkButton tone={item.tone} size={item.play ? 'xl' : 'lg'} pulse={item.play && !reduced} glow={item.play} onClick={item.run} className={`menu-action ${item.play ? 'menu-play' : ''}`} data-testid={`menu-${item.key}`}>
           <span className="menu-action-icon" aria-hidden>{item.mark}</span><span>{t(item.key)}</span><span className="menu-action-arrow" aria-hidden>↗</span>
           {item.play && <em className="menu-beta" aria-hidden>{t('menuBeta')}</em>}
-          {item.key === 'menuEditor' && notice && <em role="status" className="menu-beta menu-soon" data-testid="menu-notice">{t(notice)}</em>}
+          {item.key === 'menuEditor' && <em className="menu-beta menu-soon" data-testid="menu-notice">{t('menuSoon')}</em>}
         </InkButton>
       </motion.div>)}</div>
       {cardSets.length > 0 && <label className="menu-set" data-testid="menu-set">
@@ -136,7 +135,7 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEdit
               <td className="place">{medal ? <Trophy place={medal} /> : place}</td>
               <td className="nick">{row?.username ?? ''}</td>
               <td className="lvl">{row ? levelFromXp(row.xp, leveling).level : ''}</td>
-              <td className="ml">{row ? row.remainingMl.toLocaleString('ru-RU') : ''}</td>
+              <td className="ml">{row ? row.elo.toLocaleString('ru-RU') : ''}</td>
             </tr>;
           })}
         </tbody>

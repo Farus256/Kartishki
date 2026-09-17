@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { PlayerName } from '../cosmetics/PlayerName';
+import { Aura } from '../cosmetics/Aura';
 import { useTranslation } from 'react-i18next';
 import { audioManager } from '../AudioManager';
 import { spawnCoins, stageBox } from './tableFx';
@@ -29,11 +31,11 @@ export function HeroDock({ me, catalog, recruit, aiming, onPower }: Props) {
   const canPower = recruit && affordable;
   return (
     <div className="ab-hero-dock" data-testid="ab-hero">
-      <div className="ab-hero-face" data-skin={me.skin}><AbHeroFace id={me.heroId} art={hero?.art} />
+      <div className="ab-hero-face" data-skin={me.skin} data-aura={me.aura || undefined}><AbHeroFace id={me.heroId} art={hero?.art} /><Aura id={me.aura} skin={me.skin} paused={!recruit} />
         <span className="ab-hero-health" aria-label={`${t('health')}: ${me.health}`}><HeartIcon /><AnimatedNumber value={me.health} /></span>
       </div>
       <div className="ab-hero-vitals">
-        <strong>{name}</strong>
+        <strong><PlayerName fx={me.nameFx} name={name} /></strong>
       </div>
       <HeroPowerTooltip power={me.power} catalog={catalog} className="ab-hero-power-anchor">
         {me.power.isPassive ? <div className="ab-power is-passive" data-testid="ab-hero-power"><b>{abCopyName(catalog.copy, 'powers', me.power.id, i18n.language, t(`abPower_${me.power.id}`))}</b><span>{t('abPassive')}</span></div> : <button type="button" className={`ab-power ${me.power.isExhausted ? 'is-exhausted' : ''} ${canPower ? 'is-ready' : ''} ${aiming || dnd?.kind === 'power' ? 'is-aiming' : ''}`}

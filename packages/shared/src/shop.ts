@@ -1,8 +1,10 @@
 import { CASE_XP, CASINO_XP, PACK_XP } from './leveling';
+import { COSMETICS, cosmeticById, cosmeticRefund } from './cosmetics';
 
 export const SHOP_RARITIES = ['common', 'rare', 'epic', 'legendary', 'ultimate'] as const;
 export type ShopCatalogCard = { id: string; name: Record<string, string>; rarity: (typeof SHOP_RARITIES)[number] };
-export type ShopPrize = { kind: 'cards' | 'currency' | 'xp'; amount: number; weight: number };
+/** 'cosmetic' draws one random skin from the shared COSMETICS table (amount is always 1). */
+export type ShopPrize = { kind: 'cards' | 'currency' | 'xp' | 'cosmetic'; amount: number; weight: number };
 export type ShopProduct = { id: string; name: string; kind: 'wheel' | 'slots' | 'pack' | 'chest'; cost: number; draws: number; weights: number[]; prizes: ShopPrize[] };
 export type ShopConfig = {
   products: ShopProduct[];
@@ -10,7 +12,9 @@ export type ShopConfig = {
   sellPrices: number[];
 };
 const cardPrizes: ShopPrize[] = [{ kind: 'cards', amount: 1, weight: 100 }];
-const mixed: ShopPrize[] = [{ kind: 'currency', amount: 50, weight: 30 }, { kind: 'xp', amount: 15, weight: 25 }, { kind: 'cards', amount: 1, weight: 35 }, { kind: 'currency', amount: 250, weight: 8 }, { kind: 'cards', amount: 3, weight: 2 }];
+const mixed: ShopPrize[] = [{ kind: 'currency', amount: 50, weight: 28 }, { kind: 'xp', amount: 15, weight: 20 }, { kind: 'cards', amount: 1, weight: 32 }, { kind: 'cosmetic', amount: 1, weight: 10 }, { kind: 'currency', amount: 250, weight: 8 }, { kind: 'cards', amount: 3, weight: 2 }];
+// Wardrobe loot: mostly skins, cash to soften a dry roll.
+const wardrobe: ShopPrize[] = [{ kind: 'cosmetic', amount: 1, weight: 50 }, { kind: 'currency', amount: 100, weight: 28 }, { kind: 'xp', amount: 30, weight: 10 }, { kind: 'currency', amount: 300, weight: 8 }, { kind: 'cards', amount: 1, weight: 4 }];
 // EV $68 per $75 auto spin (RTP 90.7%); manual $400 spin lands by visual slice, RTP ~39%.
 const wheelCash: ShopPrize[] = [
   { kind: 'currency', amount: 25, weight: 62 },
@@ -29,9 +33,11 @@ export const defaultShop: ShopConfig = {
     { id: 'elite', name: 'Элитный куш', kind: 'pack', cost: 300, draws: 5, weights: [20, 45, 25, 9, 1], prizes: cardPrizes },
     { id: 'ultimate', name: 'Золотой свёрток', kind: 'pack', cost: 750, draws: 5, weights: [0, 20, 45, 30, 5], prizes: cardPrizes },
     { id: 'mixed-pack', name: 'Всё включено', kind: 'pack', cost: 150, draws: 3, weights: [55, 30, 12, 2.5, .5], prizes: mixed },
+    { id: 'wardrobe-pack', name: 'Гардероб', kind: 'pack', cost: 400, draws: 3, weights: [55, 30, 12, 2.5, .5], prizes: wardrobe },
     { id: 'yard', name: 'Дворовый тайник', kind: 'chest', cost: 150, draws: 1, weights: [55, 30, 12, 2.5, .5], prizes: cardPrizes },
     { id: 'vault', name: 'Сейф коллекционера', kind: 'chest', cost: 500, draws: 1, weights: [0, 40, 40, 17, 3], prizes: cardPrizes },
     { id: 'mixed-chest', name: 'Контрабанда', kind: 'chest', cost: 200, draws: 1, weights: [30, 40, 22, 7, 1], prizes: mixed },
+    { id: 'atelier', name: 'Ателье', kind: 'chest', cost: 350, draws: 1, weights: [30, 40, 22, 7, 1], prizes: wardrobe },
   ],
   // 3 reels x weightedIndex: EV $44.49 per $50 bet (RTP 89.0%), any payout 50.9%, jackpot 1 in 296k.
   slots: { weights: [32, 23, 16, 11, 8, 5.5, 3, 1.5], pair: [25, 50, 100, 150, 250, 300, 500, 1000], triple: [150, 300, 500, 900, 1250, 2000, 3000, 10000] },
@@ -49,7 +55,7 @@ export function validateShopConfig(value: unknown): value is ShopConfig {
       && ['wheel', 'slots', 'pack', 'chest'].includes(p.kind) && integer(p.cost, 1, 100000) && integer(p.draws, 1, 5)
       && (!['wheel','slots'].includes(p.kind) || p.draws === 1) && weights(p.weights, 5)
       && Array.isArray(p.prizes) && p.prizes.length > 0 && p.prizes.length <= 12
-      && p.prizes.every(r => r && ['cards', 'currency', 'xp'].includes(r.kind) && integer(r.amount, 1, r.kind === 'cards' ? 5 : 100000) && typeof r.weight === 'number' && Number.isFinite(r.weight) && r.weight > 0 && r.weight <= 10000))
+      && p.prizes.every(r => r && ['cards', 'currency', 'xp', 'cosmetic'].includes(r.kind) && integer(r.amount, 1, r.kind === 'cards' ? 5 : r.kind === 'cosmetic' ? 1 : 100000) && typeof r.weight === 'number' && Number.isFinite(r.weight) && r.weight > 0 && r.weight <= 10000))
     && !!c.slots && weights(c.slots.weights, 8) && [c.slots.pair, c.slots.triple].every(a => Array.isArray(a) && a.length === 8 && a.every(x => integer(x, 0, 100000)))
     && Array.isArray(c.sellPrices) && c.sellPrices.length === 5 && c.sellPrices.every(x => integer(x, 0, 100000));
 }
@@ -70,9 +76,12 @@ export type ShopAction = { type: 'buy'; productId: string; bet?: number; land?: 
 export type ShopReward =
   | { kind: 'card'; cardId: string }
   | { kind: 'duplicate'; cardId: string; amount: number }
+  | { kind: 'cosmetic'; itemId: string }
+  | { kind: 'cosmeticDuplicate'; itemId: string; amount: number }
   | { kind: 'currency' | 'xp'; amount: number };
 export type ShopResult = { kind: ShopProduct['kind']; name: string; cost: number; rewards: ShopReward[]; prizeIndex: number; reels?: number[]; product?: ShopProduct };
-export type ShopWallet = { currency: number; xp: number; owned: Record<string, number> };
+/** `unlocks` is the account's bought cosmetics; a guest (undefined) gets the refund cash instead of a skin. */
+export type ShopWallet = { currency: number; xp: number; owned: Record<string, number>; unlocks?: string[] };
 export function parseShopAction(value: unknown): ShopAction | undefined {
   if (!value || typeof value !== 'object') return;
   const a = value as Record<string, unknown>;
@@ -86,6 +95,7 @@ export function shopMixed(product: ShopProduct) { return product.prizes.some(p =
 export function shopPrizeLabel(prize: ShopPrize) {
   if (prize.kind === 'currency') return `$${prize.amount}`;
   if (prize.kind === 'xp') return `+${prize.amount} опыта`;
+  if (prize.kind === 'cosmetic') return 'Скин';
   return prize.amount === 1 ? '1 карта' : `${prize.amount} карты`;
 }
 export function shopBonusXp(kind: ShopResult['kind']) {
@@ -95,7 +105,7 @@ export function shopBonusXp(kind: ShopResult['kind']) {
   return 0;
 }
 export function shopCash(rewards: ShopReward[]) {
-  return rewards.reduce((sum, reward) => sum + (reward.kind === 'currency' || reward.kind === 'duplicate' ? reward.amount : 0), 0);
+  return rewards.reduce((sum, reward) => sum + (reward.kind === 'currency' || reward.kind === 'duplicate' || reward.kind === 'cosmeticDuplicate' ? reward.amount : 0), 0);
 }
 export function weightedIndex(list: number[], random = Math.random) {
   const total = list.reduce((a, b) => a + b, 0);
@@ -119,6 +129,14 @@ export function takeAlbumCard(owned: Record<string, number>, card: ShopCatalogCa
   owned[card.id] = 1;
   return { kind: 'card', cardId: card.id };
 }
+/** Mutates `unlocks` so a second roll in the same grant becomes cash; guests (no unlocks) always take the cash. */
+export function takeCosmetic(unlocks: string[] | undefined, random = Math.random): ShopReward {
+  const item = COSMETICS[Math.min(COSMETICS.length - 1, Math.floor(random() * COSMETICS.length))]!;
+  if (!unlocks) return { kind: 'currency', amount: cosmeticRefund(item) };
+  if (unlocks.includes(item.id)) return { kind: 'cosmeticDuplicate', itemId: item.id, amount: cosmeticRefund(item) };
+  unlocks.push(item.id);
+  return { kind: 'cosmetic', itemId: item.id };
+}
 export function cardTitle(card: ShopCatalogCard) { return card.name.ru?.trim() || card.name.en?.trim() || card.id; }
 /** Same rules for guests and accounts; account randomness and writes stay on the server. */
 export function resolveShopAction(config: ShopConfig, catalog: ShopCatalogCard[], wallet: ShopWallet, action: ShopAction, random = Math.random): ShopResult {
@@ -137,12 +155,14 @@ export function resolveShopAction(config: ShopConfig, catalog: ShopCatalogCard[]
     return { kind: p.kind, name: p.name, cost, product: structuredClone(p), rewards: [{ kind: 'currency', amount }], prizeIndex: symbol, reels };
   }
   const owned = { ...wallet.owned };
+  const unlocks = wallet.unlocks ? [...wallet.unlocks] : undefined;
   const rewards: ShopReward[] = [];
   let prizeIndex = 0;
   for (let i = 0; i < p.draws; i++) {
     prizeIndex = manual ? action.land! : weightedIndex(p.prizes.map(r => r.weight), random);
     const prize = p.prizes[prizeIndex]!;
     if (prize.kind === 'cards') for (let j = 0; j < prize.amount; j++) rewards.push(takeAlbumCard(owned, shopCard(catalog, p.weights, random), config.sellPrices));
+    else if (prize.kind === 'cosmetic') rewards.push(takeCosmetic(unlocks, random));
     else rewards.push({ kind: prize.kind, amount: prize.amount });
   }
   return { kind: p.kind, name: p.name, cost, rewards, prizeIndex, product: structuredClone(p) };
@@ -151,10 +171,11 @@ export function applyShopDebit(wallet: ShopWallet, result: ShopResult): ShopWall
   return { ...wallet, owned: { ...wallet.owned }, currency: wallet.currency - result.cost };
 }
 export function applyShopCredit(wallet: ShopWallet, result: ShopResult): ShopWallet {
-  const next = { ...wallet, owned: { ...wallet.owned }, currency: wallet.currency, xp: wallet.xp };
+  const next = { ...wallet, owned: { ...wallet.owned }, currency: wallet.currency, xp: wallet.xp, ...(wallet.unlocks ? { unlocks: [...wallet.unlocks] } : {}) };
   for (const reward of result.rewards) {
     if (reward.kind === 'card') next.owned[reward.cardId] = (next.owned[reward.cardId] ?? 0) + 1;
-    else if (reward.kind === 'duplicate' || reward.kind === 'currency') next.currency += reward.amount;
+    else if (reward.kind === 'cosmetic') { if (next.unlocks && cosmeticById(reward.itemId) && !next.unlocks.includes(reward.itemId)) next.unlocks.push(reward.itemId); }
+    else if (reward.kind === 'duplicate' || reward.kind === 'currency' || reward.kind === 'cosmeticDuplicate') next.currency += reward.amount;
     else next.xp += reward.amount;
   }
   return next;

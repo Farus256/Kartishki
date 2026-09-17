@@ -87,6 +87,14 @@ export async function migratePlayers(db: Database) {
         bought_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (player_id, item_id))`);
       await tx.query('INSERT INTO player_schema_version (version) VALUES (6)');
     }
+    if (current < 8) {
+      // One rating: elo IS the beer (ml). beer_ml was the live value since v5; copy it over, then drop it.
+      await tx.query('UPDATE players SET elo = beer_ml WHERE beer_ml IS NOT NULL');
+      await tx.query('ALTER TABLE players DROP COLUMN IF EXISTS beer_ml');
+      await tx.query('ALTER TABLE players ALTER COLUMN elo SET DEFAULT 0');
+      await tx.query('ALTER TABLE players ADD CONSTRAINT players_elo_nonnegative CHECK (elo >= 0)');
+      await tx.query('INSERT INTO player_schema_version (version) VALUES (8)');
+    }
     if (current < 7) {
       // Admin role: opens the in-game editor. Grant by hand: UPDATE players SET is_admin = TRUE WHERE username = '...'.
       await tx.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE');

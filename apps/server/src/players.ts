@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 import {
   CASE_COST, CASE_XP, DAILY_REWARD, DECK_SIZE, DEFAULT_BATTLEGROUNDS_ELO,
   MATCH_DRAW_XP, MATCH_LOSS_XP, MATCH_WIN_XP, PACK_COST, PACK_SIZE, PACK_XP, WIN_REWARD, XP_AWARDS,
-  applyBeerMl, applyShopResult, battlegroundsCurrencyReward, battlegroundsXp, beerMlForPlace, beerMlForResult, boardOwned, cosmeticById, defaultShop, heroSkinOwned, parseShopAction, resolveShopAction, shopBonusXp, starterCards, takeAlbumCard,
+  applyBeerMl, applyShopResult, battlegroundsCurrencyReward, battlegroundsXp, beerMlForPlace, beerMlForResult, boardOwned, cosmeticById, defaultShop, cardBackOwned, heroSkinOwned, heroSlamOwned, nameFxOwned, portraitFxOwned, parseShopAction, resolveShopAction, shopBonusXp, starterCards, takeAlbumCard,
   type CardDefinition, type CaseResult, type LadderRow, type LootCard, type MatchRewards,
   type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerProfile, type SavedDeck,
   type ShopConfig, type ShopResult, type ShopWallet,
@@ -72,13 +72,13 @@ export class PlayerStore {
   }
   async logout(token: string) { await this.db.query('DELETE FROM player_sessions WHERE token_hash = $1', [digest(token)]); }
   async library(playerId: string, tx: Sql = this.db): Promise<PlayerLibrary> {
-    const row = (await tx.query<{ id: string; username: string; elo: string | number; currency: string | number; xp: string | number; beerMl: string | number; lastDaily: string | null; today: string; settings: unknown; isAdmin: boolean }>(
-      'SELECT id, username, elo, currency, xp, beer_ml AS "beerMl", last_daily::text AS "lastDaily", CURRENT_DATE::text AS today, settings, is_admin AS "isAdmin" FROM players WHERE id = $1', [playerId])).rows[0];
+    const row = (await tx.query<{ id: string; username: string; elo: string | number; currency: string | number; xp: string | number; lastDaily: string | null; today: string; settings: unknown; isAdmin: boolean }>(
+      'SELECT id, username, elo, currency, xp, last_daily::text AS "lastDaily", CURRENT_DATE::text AS today, settings, is_admin AS "isAdmin" FROM players WHERE id = $1', [playerId])).rows[0];
     if (!row) throw new PlayerError('loginRequired', 401);
     const lastDaily = row.lastDaily ? String(row.lastDaily).slice(0, 10) : null;
     const profile: PlayerProfile = {
-      id: row.id, username: row.username, elo: Number(row.beerMl), currency: Number(row.currency), xp: Number(row.xp),
-      beerMl: Number(row.beerMl), lastDaily, dailyAvailable: !lastDaily || lastDaily < String(row.today).slice(0, 10),
+      id: row.id, username: row.username, elo: Number(row.elo), currency: Number(row.currency), xp: Number(row.xp),
+      lastDaily, dailyAvailable: !lastDaily || lastDaily < String(row.today).slice(0, 10),
       settings: resolveSettings(row.settings), isAdmin: row.isAdmin === true,
     };
     const collection = (await tx.query<{ cardId: string; copies: number }>('SELECT card_id AS "cardId", copies FROM player_collection WHERE player_id = $1 ORDER BY card_id', [playerId])).rows
@@ -91,14 +91,22 @@ export class PlayerStore {
   async unlocks(playerId: string, tx: Sql = this.db): Promise<string[]> {
     return (await tx.query<{ itemId: string }>('SELECT item_id AS "itemId" FROM player_unlocks WHERE player_id = $1 ORDER BY item_id', [playerId])).rows.map(row => row.itemId);
   }
-  /** What a Battlegrounds room needs to seat an account: bought heroes and the equipped skin. */
-  async cosmetics(playerId: string): Promise<{ unlocks: string[]; heroSkin: string; board: string }> {
+  /** What a Battlegrounds room needs to seat an account: the equipped skin, slam and name effect (ownership re-checked). */
+  async cosmetics(playerId: string): Promise<{ unlocks: string[]; heroSkin: string; heroSlam: string; nameFx: string; portraitFx: string; cardBack: string; board: string }> {
     const row = (await this.db.query<{ settings: unknown }>('SELECT settings FROM players WHERE id = $1', [playerId])).rows[0];
     const settings = resolveSettings(row?.settings);
     const unlocks = await this.unlocks(playerId);
-    return { unlocks, heroSkin: heroSkinOwned(settings.heroSkin, unlocks) ? settings.heroSkin : '', board: boardOwned(settings.board, unlocks) ? settings.board : '' };
+    return {
+      unlocks,
+      heroSkin: heroSkinOwned(settings.heroSkin, unlocks) ? settings.heroSkin : '',
+      heroSlam: heroSlamOwned(settings.heroSlam, unlocks) ? settings.heroSlam : '',
+      nameFx: nameFxOwned(settings.nameFx, unlocks) ? settings.nameFx : '',
+      portraitFx: portraitFxOwned(settings.portraitFx, unlocks) ? settings.portraitFx : '',
+      cardBack: cardBackOwned(settings.cardBack, unlocks) ? settings.cardBack : '',
+      board: boardOwned(settings.board, unlocks) ? settings.board : '',
+    };
   }
-  /** Buys a cosmetic or a premium hero once; the price comes from the shared COSMETICS table, never from the client. */
+  /** Buys a cosmetic once; the price comes from the shared COSMETICS table, never from the client. */
   async buyCosmetic(playerId: string, itemId: unknown): Promise<PlayerLibrary> {
     const item = typeof itemId === 'string' ? cosmeticById(itemId) : undefined;
     if (!item) throw new PlayerError('invalidProduct');
@@ -112,9 +120,9 @@ export class PlayerStore {
     });
   }
   async ladder(): Promise<LadderRow[]> {
-    return (await this.db.query<{ username: string; elo: string | number; xp: string | number; beerMl: string | number }>(
-      'SELECT username, elo, xp, beer_ml AS "beerMl" FROM players ORDER BY beer_ml DESC, username LIMIT 10')).rows
-      .map(row => ({ username: row.username, elo: Number(row.beerMl), xp: Number(row.xp), remainingMl: Number(row.beerMl) }));
+    return (await this.db.query<{ username: string; elo: string | number; xp: string | number }>(
+      'SELECT username, elo, xp FROM players ORDER BY elo DESC, username LIMIT 10')).rows
+      .map(row => ({ username: row.username, elo: Number(row.elo), xp: Number(row.xp) }));
   }
   private async validateDeck(tx: Sql, playerId: string, cards: unknown, catalog: CardDefinition[]): Promise<string[]> {
     if (!Array.isArray(cards) || cards.length !== DECK_SIZE || !cards.every(id => typeof id === 'string' && catalog.some(c => c.id === id))) throw new PlayerError('invalidDeck');
@@ -169,9 +177,11 @@ export class PlayerStore {
       const row = (await tx.query<{ settings: unknown }>('SELECT settings FROM players WHERE id = $1 FOR UPDATE', [playerId])).rows[0];
       if (!row) throw new PlayerError('loginRequired', 401);
       const settings = { ...resolveSettings(row.settings), ...update };
-      if (update.board !== undefined || update.heroSkin !== undefined) {
+      if (update.board !== undefined || update.heroSkin !== undefined || update.heroSlam !== undefined || update.nameFx !== undefined || update.portraitFx !== undefined || update.cardBack !== undefined) {
         const unlocks = await this.unlocks(playerId, tx);
-        if ((update.board && !boardOwned(update.board, unlocks)) || (update.heroSkin && !heroSkinOwned(update.heroSkin, unlocks))) throw new PlayerError('notOwned', 403);
+        if ((update.board && !boardOwned(update.board, unlocks)) || (update.heroSkin && !heroSkinOwned(update.heroSkin, unlocks))
+          || (update.heroSlam && !heroSlamOwned(update.heroSlam, unlocks)) || (update.nameFx && !nameFxOwned(update.nameFx, unlocks))
+          || (update.portraitFx && !portraitFxOwned(update.portraitFx, unlocks)) || (update.cardBack && !cardBackOwned(update.cardBack, unlocks))) throw new PlayerError('notOwned', 403);
       }
       await tx.query('UPDATE players SET settings = $2::jsonb WHERE id = $1', [playerId, JSON.stringify(settings)]);
       return this.library(playerId, tx);
@@ -238,9 +248,9 @@ export class PlayerStore {
     return this.db.transaction(async tx => {
       const [first, second] = [playerA, playerB].sort();
       await tx.query('SELECT id FROM players WHERE id IN ($1,$2) FOR UPDATE', [first, second]);
-      const rows = (await tx.query<{ id: string; elo: string | number; currency: string | number; xp: string | number; beerMl: string | number }>('SELECT id, elo, currency, xp, beer_ml AS "beerMl" FROM players WHERE id IN ($1,$2)', [playerA, playerB])).rows;
+      const rows = (await tx.query<{ id: string; elo: string | number; currency: string | number; xp: string | number }>('SELECT id, elo, currency, xp FROM players WHERE id IN ($1,$2)', [playerA, playerB])).rows;
       if (rows.length !== 2) throw new PlayerError('loginRequired', 401);
-      const byId = new Map(rows.map(row => [row.id, { elo: Number(row.elo), currency: Number(row.currency), xp: Number(row.xp), beerMl: Number(row.beerMl) }]));
+      const byId = new Map(rows.map(row => [row.id, { elo: Number(row.elo), currency: Number(row.currency), xp: Number(row.xp) }]));
       const result: Record<string, MatchRewards> = {};
       for (const id of [playerA, playerB]) {
         const own = byId.get(id)!;
@@ -248,26 +258,24 @@ export class PlayerStore {
         const gained = winnerId === id ? WIN_REWARD : 0;
         const xpGain = winnerId === '' ? MATCH_DRAW_XP : winnerId === id ? MATCH_WIN_XP : MATCH_LOSS_XP;
         const xp = own.xp + xpGain;
-        const beerMl = applyBeerMl(own.beerMl, beerMlForResult(score));
-        const elo = beerMl; // Legacy API field mirrors the single beer rating.
-        await tx.query('UPDATE players SET elo = $2, currency = currency + $3, xp = $4, beer_ml = $5 WHERE id = $1', [id, elo, gained, xp, beerMl]);
-        result[id] = { elo, currency: own.currency + gained, gained, xp, beerMl };
+        const elo = applyBeerMl(own.elo, beerMlForResult(score));
+        await tx.query('UPDATE players SET elo = $2, currency = currency + $3, xp = $4 WHERE id = $1', [id, elo, gained, xp]);
+        result[id] = { elo, currency: own.currency + gained, gained, xp };
       }
       return result;
     });
   }
   async settleVs(playerId: string, score: number, _opponentElo = 1000): Promise<MatchRewards> {
     return this.db.transaction(async tx => {
-      const row = (await tx.query<{ id: string; elo: string | number; currency: string | number; xp: string | number; beerMl: string | number }>('SELECT id, elo, currency, xp, beer_ml AS "beerMl" FROM players WHERE id = $1 FOR UPDATE', [playerId])).rows[0];
+      const row = (await tx.query<{ id: string; elo: string | number; currency: string | number; xp: string | number }>('SELECT id, elo, currency, xp FROM players WHERE id = $1 FOR UPDATE', [playerId])).rows[0];
       if (!row) throw new PlayerError('loginRequired', 401);
       const currency = Number(row.currency);
       const gained = score === 1 ? WIN_REWARD : 0;
       const xpGain = score === 1 ? MATCH_WIN_XP : score === 0.5 ? MATCH_DRAW_XP : MATCH_LOSS_XP;
       const xp = Number(row.xp) + xpGain;
-      const beerMl = applyBeerMl(Number(row.beerMl), beerMlForResult(score));
-      const elo = beerMl;
-      await tx.query('UPDATE players SET elo = $2, currency = currency + $3, xp = $4, beer_ml = $5 WHERE id = $1', [playerId, elo, gained, xp, beerMl]);
-      return { elo, currency: currency + gained, gained, xp, beerMl };
+      const elo = applyBeerMl(Number(row.elo), beerMlForResult(score));
+      await tx.query('UPDATE players SET elo = $2, currency = currency + $3, xp = $4 WHERE id = $1', [playerId, elo, gained, xp]);
+      return { elo, currency: currency + gained, gained, xp };
     });
   }
   /** `amount` is the editor's 1st-place beer (last place loses as much); see battlegroundsEloDelta. */
@@ -279,17 +287,16 @@ export class PlayerStore {
     return this.db.transaction(async tx => {
       const result: Record<string, MatchRewards> = {};
       for (const id of [...unique.keys()].sort()) {
-        const row = (await tx.query<{ elo: string | number; currency: string | number; xp: string | number; beerMl: string | number }>('SELECT elo, currency, xp, beer_ml AS "beerMl" FROM players WHERE id = $1 FOR UPDATE', [id])).rows[0];
+        const row = (await tx.query<{ elo: string | number; currency: string | number; xp: string | number }>('SELECT elo, currency, xp FROM players WHERE id = $1 FOR UPDATE', [id])).rows[0];
         if (!row) continue;
         const place = unique.get(id)!;
         const xpGain = battlegroundsXp(place, field);
         const gained = battlegroundsCurrencyReward(place, field);
         const xp = Number(row.xp) + xpGain;
-        const beerMl = applyBeerMl(Number(row.beerMl), beerMlForPlace(place, field, amount));
-        const elo = beerMl;
+        const elo = applyBeerMl(Number(row.elo), beerMlForPlace(place, field, amount));
         const currency = Number(row.currency) + gained;
-        await tx.query('UPDATE players SET elo = $2, currency = $3, xp = $4, beer_ml = $5 WHERE id = $1', [id, elo, currency, xp, beerMl]);
-        result[id] = { elo, currency, gained, xp, beerMl };
+        await tx.query('UPDATE players SET elo = $2, currency = $3, xp = $4 WHERE id = $1', [id, elo, currency, xp]);
+        result[id] = { elo, currency, gained, xp };
       }
       return result;
     });
@@ -304,6 +311,7 @@ export class PlayerStore {
       const wallet: ShopWallet = {
         currency: library.profile.currency, xp: library.profile.xp,
         owned: Object.fromEntries(library.collection.map(row => [row.cardId, row.copies])),
+        unlocks: library.unlocks ?? [],
       };
       let result: ShopResult;
       try { result = resolveShopAction(config, catalog, wallet, action, () => randomInt(1_000_000_000) / 1_000_000_000); }
@@ -318,6 +326,7 @@ export class PlayerStore {
         else await tx.query(`INSERT INTO player_collection (player_id, card_id, copies) VALUES ($1,$2,$3)
           ON CONFLICT (player_id, card_id) DO UPDATE SET copies = $3`, [playerId, cardId, copies]);
       }
+      for (const reward of result.rewards) if (reward.kind === 'cosmetic') await tx.query('INSERT INTO player_unlocks (player_id, item_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [playerId, reward.itemId]);
       return { result, library: await this.library(playerId, tx) };
     });
   }

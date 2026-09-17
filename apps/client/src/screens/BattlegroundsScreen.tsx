@@ -1,4 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { PlayerName } from '../cosmetics/PlayerName';
+import { BoardAmbience } from '../cosmetics/Aura';
+import { EnemyHand } from '../cosmetics/EnemyHand';
 import { useTranslation } from 'react-i18next';
 import { AUTO_BATTLER, goldForTurn } from '@kartishki/shared';
 import { autoBattlerSession, type AbMinion, type AbPlayer } from '../autoBattlerSession';
@@ -255,6 +258,8 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
           {/* Standings history is pinned to the combat turn: the recruit patch (new turn, new results) can land while the fight still plays. */}
           <Leaderboard players={leaderboardPlayers} meId={state.sessionId} catalog={state.catalog} turn={combatTable ? lastCombat.current?.combat.turn ?? state.turn : state.turn} />
           <div className="ab-stage">
+            <BoardAmbience id={equippedBoard().id} />
+            {inRecruit && opponent && <EnemyHand count={opponent.handCount ?? 0} back={opponent.cardBack} name={opponent.displayName} />}
             <FuseRope deadline={deadline} active={clockActive && state.phase === 'RECRUIT_PHASE'} />
             <section className="ab-zone-tavern" data-testid="ab-zone-tavern">
               {me && (
@@ -268,7 +273,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
             <section className="ab-zone-player" data-testid="ab-zone-player">
               {me && (
                 <>
-                  <div className="ab-round-band"><span>{t('abNextOpponent')} <b>VS {opponent?.displayName ?? '—'}</b></span><span>{aim ? t('abPowerTarget') : t('abOrderHint')}</span><small>{me.board.length}/7</small></div>
+                  <div className="ab-round-band"><span>{t('abNextOpponent')} <b>VS <PlayerName fx={opponent?.nameFx} name={opponent?.displayName ?? '—'} /></b></span><span>{aim ? t('abPowerTarget') : t('abOrderHint')}</span><small>{me.board.length}/7</small></div>
                   <BoardRow me={me} catalog={state.catalog} recruit={recruit} aimingBoard={aim === 'board'} selectedId={selected}
                     onActivate={onBoardMinion} />
                   {selected && recruit && <div className="ab-selection-tools"><button onClick={() => { send({ type: 'sell', id: selected }); setSelected(null); }}>{t('abSell', { n: me.sellReward })}</button><button onClick={() => setSelected(null)}>{t('cancel')}</button></div>}

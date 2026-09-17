@@ -8,7 +8,6 @@ import {
   catalogFromCardSet,
   pickMatchTribes,
   restrictCatalogToTribes,
-  heroAllowed,
   AUTO_BATTLER_CLIENT_EVENTS as EV,
   AUTO_BATTLER_MESSAGES as MSG,
   AutoBattlerPlayerState,
@@ -30,6 +29,7 @@ import {
   type CombatEvent,
   type CombatEventsMessage,
   type DiscoverOptionsMessage,
+  boardMainTribe,
 } from '@kartishki/shared';
 import { PlayerError, type PlayerStore } from '../players';
 import { resolveCombat, snapshotBoard } from './combat';
@@ -88,7 +88,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
   private pool = new SharedMinionPool(this.catalog);
   private registry = createDefaultRegistry(this.catalog.minions);
   /** Per seat: bought heroes and the equipped skin of the account behind it (guests get the free roster, no skin). */
-  private readonly seatCosmetics = new Map<string, { unlocks: string[]; heroSkin: string }>();
+  private readonly seatCosmetics = new Map<string, { heroSkin: string; heroSlam: string; nameFx: string; portraitFx: string; cardBack: string }>();
   private readonly heroOffers = new Map<string, AutoBattlerHeroDef[]>();
   private readonly readyClients = new Set<string>();
   private readonly lastBoards = new Map<string, ReturnType<typeof snapshotBoard>>();
@@ -295,8 +295,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       if ([...this.playerIds.values()].includes(auth.playerId)) throw new ServerError(409, 'alreadyInMatch');
       this.playerIds.set(client.sessionId, auth.playerId);
     }
-    // Bought heroes and the equipped skin are read once per seat; a store hiccup seats the player as a guest.
-    let cosmetics = { unlocks: [] as string[], heroSkin: '' };
+    // Equipped cosmetics are read once per seat; a store hiccup seats the player as a guest.
+    let cosmetics = { heroSkin: '', heroSlam: '', nameFx: '', portraitFx: '', cardBack: '' };
     if (auth.playerId && this.playerStore) {
       try { cosmetics = await this.playerStore.cosmetics(auth.playerId); } catch (error) { console.error('Failed to read cosmetics', error); }
     }
@@ -308,6 +308,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       ? options.displayName.trim().slice(0, 24)
       : client.sessionId.slice(0, 8);
     player.connected = true;
+    player.nameFx = cosmetics.nameFx;
+    player.cardBack = cosmetics.cardBack;
     player.upgradeCost = initialUpgradeCost(1);
     player.tavern.size = tavernSizeForTier(1);
     this.state.players.set(client.sessionId, player);
@@ -395,6 +397,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
   }
 
   onBeforePatch(): void {
+    // The hand itself is owner-only; its size is public so opponents can draw the right number of card backs.
+    for (const player of this.state.players.values()) if (player.handCount !== player.hand.length) player.handCount = player.hand.length;
     for (const client of this.clients) {
       const player = this.state.players.get(client.sessionId);
       if (player && client.view) syncPrivateView(client.view, player);
@@ -431,10 +435,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
   private dealHeroes(sessionId: string): AutoBattlerHeroDef[] {
     const rng = createRng(hashSeed(['heroes', this.state.combatSeed, this.serial, this.state.players.size]));
-    const unlocks = this.seatCosmetics.get(sessionId)?.unlocks ?? [];
-    // Premium heroes are offered only to the accounts that bought them; a set roster is free for everyone.
-    const roster = this.state.setId ? this.catalog.heroes : this.catalog.heroes.filter(hero => heroAllowed(hero.id, unlocks));
-    const pool = roster.length >= AUTO_BATTLER.HERO_CHOICES ? [...roster] : [...this.catalog.heroes];
+    const pool = [...this.catalog.heroes];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = rng.int(i + 1);
       [pool[i], pool[j]] = [pool[j]!, pool[i]!];
@@ -453,7 +454,10 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     player.hero.power.targeted = hero.power.targeted;
     player.hero.power.targetDomain = hero.power.targetDomain;
     player.hero.power.isExhausted = false;
-    player.hero.skin = this.seatCosmetics.get(player.sessionId)?.heroSkin ?? '';
+    const seat = this.seatCosmetics.get(player.sessionId);
+    player.hero.skin = seat?.heroSkin ?? '';
+    player.hero.slam = seat?.heroSlam ?? '';
+    player.hero.aura = seat?.portraitFx ?? '';
     abLog('hero.choice', { id: player.sessionId, hero: hero.id, skin: player.hero.skin });
   }
 
@@ -722,6 +726,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     summary: CombatEventsMessage['summary'],
   ): void {
     player.lastCombatOpponentId = opponentId;
+    player.mainTribe = boardMainTribe([...player.board]);
     player.lastCombatSeed = seed;
     player.lastCombatEventCount = eventCount;
     player.lastCombatDamage = summary.damage;
@@ -821,7 +826,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       const playerId = this.playerIds.get(player.sessionId);
       return playerId && player.placement > 0 ? [{ playerId, place: player.placement }] : [];
     });
-    let persisted: Record<string, { elo: number; currency: number; gained: number; xp: number; beerMl: number }> = {};
+    let persisted: Record<string, { elo: number; currency: number; gained: number; xp: number }> = {};
     try {
       if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, this.ratingAmount, count);
     } catch (error) { console.error('Failed to persist battlegrounds result', error); }
@@ -836,7 +841,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       const xpGain = battlegroundsXp(player.placement, count);
       const payload: BattlegroundsRewards = {
         place: player.placement, eloDelta, xpGain, beerMlGain,
-        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? battlegroundsCurrencyReward(player.placement, count), xp: row?.xp ?? 0, beerMl: row?.beerMl ?? 0,
+        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? battlegroundsCurrencyReward(player.placement, count), xp: row?.xp ?? 0,
       };
       client.send(EV.rewards, payload);
     }

@@ -480,7 +480,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       <div ref={ghostRef} className={`ab-drag-ghost ${ghost?.full ? 'is-hand' : 'is-token'}`} data-testid="ab-drag-ghost" style={{ visibility: ghost ? 'visible' : 'hidden' }}>
         {ghost && <MinionTile minion={ghost.minion} catalog={catalog} ghost fullCard={ghost.full} />}
       </div>
-      <svg className="ab-aim-arrow" data-testid="ab-aim-arrow" style={{ display: view.kind === 'power' && view.armed ? 'block' : 'none' }}>
+      <svg className={`ab-aim-arrow ${view.kind === 'power' && view.armed ? 'is-live' : ''}`} data-testid="ab-aim-arrow" viewBox={`0 0 ${STAGE_W} ${STAGE_H}`}>
         <path ref={pathRef} className="ab-aim-line" fill="none" />
         <polygon ref={headRef} className="ab-aim-head" />
       </svg>

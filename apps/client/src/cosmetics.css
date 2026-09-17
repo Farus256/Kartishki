@@ -1,0 +1,335 @@
+/* Bought looks shared by the menu, the shop, the wardrobe and the Battlegrounds table.
+   Every effect here is transform/opacity/filter on its own layer; nothing re-lays-out the table. */
+
+/* =====================================================================
+   Name effects — one span, data-name-fx picks the look, data-text feeds the layers.
+   Rule of thumb: the base text stays a solid readable colour; motion lives on ::before/::after.
+   ===================================================================== */
+.name-fx { position: relative; display: inline-block; white-space: nowrap; isolation: isolate; }
+.name-fx[data-name-fx]::before, .name-fx[data-name-fx]::after { content: attr(data-text); position: absolute; inset: 0; pointer-events: none; white-space: nowrap; display: none; }
+
+/* Golden shine: warm gold with a highlight that sweeps across every few seconds. */
+.name-fx[data-name-fx='name-gold'] { color: #ffd75e; text-shadow: 0 1px 0 #6b4a0f, 0 0 10px #f4c74a66; }
+.name-fx[data-name-fx='name-gold']::after { display: block; color: transparent; background: linear-gradient(112deg, transparent 44%, #fff3b066 47.5%, #ffffff 49.5%, #fff3b066 51.5%, transparent 55%); background-size: 340% 100%; -webkit-background-clip: text; background-clip: text; animation: name-shine 5s cubic-bezier(.5,0,.25,1) infinite; }
+@keyframes name-shine { 0% { background-position: 130% 0; } 30%, 100% { background-position: -130% 0; } }
+
+/* Blood: deep red with a slow pulse of heat. */
+.name-fx[data-name-fx='name-blood'] { color: #ff5a4a; text-shadow: 0 1px 0 #4a0a08, 0 2px 0 #3a0a08, 0 0 8px #ff4b3a88; animation: name-blood 2.8s ease-in-out infinite; }
+@keyframes name-blood { 0%, 100% { text-shadow: 0 1px 0 #4a0a08, 0 2px 0 #3a0a08, 0 0 8px #ff4b3a66; } 50% { text-shadow: 0 1px 0 #4a0a08, 0 3px 0 #3a0a08, 0 0 16px #ff4b3acc; } }
+
+/* Ice: pale blue with a crisp rim and a glint that sparks along the letters. */
+.name-fx[data-name-fx='name-ice'] { color: #d9f5ff; text-shadow: 0 1px 0 #1d3f4c, 0 0 8px #8fe9ffaa, 0 0 1px #ffffff; }
+.name-fx[data-name-fx='name-ice']::after { display: block; color: transparent; background: radial-gradient(ellipse 30% 90% at 50% 50%, #ffffffcc, transparent 70%); background-size: 60% 100%; background-repeat: no-repeat; -webkit-background-clip: text; background-clip: text; animation: name-glint 6s ease-in-out infinite; filter: drop-shadow(0 0 3px #bff3ff); }
+@keyframes name-glint { 0%, 55%, 100% { background-position: -60% 0; opacity: 0; } 62% { opacity: 1; } 78% { background-position: 160% 0; opacity: 0; } }
+
+/* Neon glow: white tube with a pink/blue halo that breathes and flickers once in a while. */
+.name-fx[data-name-fx='name-glow'] { color: #fff6fb; text-shadow: 0 0 2px #fff, 0 0 8px #ff7de9, 0 0 18px #ff7de9aa, 0 0 34px #62d8ff88; animation: name-neon 5s linear infinite; }
+@keyframes name-neon { 0%, 18%, 22%, 100% { text-shadow: 0 0 2px #fff, 0 0 8px #ff7de9, 0 0 18px #ff7de9aa, 0 0 34px #62d8ff88; opacity: 1; } 20% { text-shadow: 0 0 1px #fff, 0 0 3px #ff7de966; opacity: .85; } 60% { text-shadow: 0 0 2px #fff, 0 0 10px #62d8ff, 0 0 22px #62d8ffaa, 0 0 40px #ff7de988; opacity: 1; } }
+
+/* Fire: bright yellow-white tips over an amber body; the gradient licks up and down, an orange bloom breathes behind. */
+.name-fx[data-name-fx='name-fire'] { color: #ffd23f; text-shadow: 0 1px 0 #5a1a08, 0 0 10px #ff7a1a; }
+.name-fx[data-name-fx='name-fire']::before { display: block; color: transparent; background: linear-gradient(0deg, #ff3b1a 0%, #ff8a1f 30%, #ffd23f 55%, #fff6c8 85%, #ffd23f 100%); background-size: 100% 180%; -webkit-background-clip: text; background-clip: text; animation: name-fire 1.2s ease-in-out infinite alternate; }
+.name-fx[data-name-fx='name-fire']::after { display: block; color: #ff6a1a; filter: blur(7px); opacity: .6; animation: name-fire-glow 1.4s ease-in-out infinite alternate; z-index: -1; }
+@keyframes name-fire { from { background-position: 0 100%; } to { background-position: 0 30%; } }
+@keyframes name-fire-glow { from { opacity: .4; transform: translateY(1px) scaleY(1.02); } to { opacity: .85; transform: translateY(-3px) scaleY(1.1); } }
+
+/* Electric: cool white core, bright arcs racing along the word, tiny jitters between them. */
+.name-fx[data-name-fx='name-electric'] { color: #e6fbff; text-shadow: 0 1px 0 #0e3346, 0 0 6px #62d8ff, 0 0 14px #62d8ff88; animation: name-jitter 2.6s steps(1) infinite; }
+.name-fx[data-name-fx='name-electric']::after { display: block; color: transparent; background: linear-gradient(90deg, transparent 0 30%, #ffffff 34%, #9ef0ff 36%, transparent 40%, transparent 60%, #ffffff 63%, transparent 66%); background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; animation: name-arc 1.3s linear infinite; filter: drop-shadow(0 0 4px #9ef0ff); }
+@keyframes name-arc { from { background-position: 140% 0; } to { background-position: -140% 0; } }
+@keyframes name-jitter { 0%, 88%, 100% { transform: translate(0,0); } 90% { transform: translate(1px,-1px); } 92% { transform: translate(-1px,0); } 94% { transform: translate(0,1px); } }
+
+/* Hologram: pastel spectrum with a diagonal shimmer and a slow hue drift; base stays light and readable. */
+.name-fx[data-name-fx='name-holo'] { color: #e8f4ff; text-shadow: 0 1px 0 #2a2a3a; }
+.name-fx[data-name-fx='name-holo']::before { display: block; color: transparent; background: linear-gradient(115deg, #9be7ff, #ffb3f2, #c9ffd6, #fff0a8, #9be7ff); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; animation: name-holo 4s linear infinite; }
+.name-fx[data-name-fx='name-holo']::after { display: block; color: transparent; background: linear-gradient(120deg, transparent 40%, #ffffffcc 50%, transparent 60%); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; animation: name-shine 3s cubic-bezier(.6,0,.3,1) infinite; }
+@keyframes name-holo { from { background-position: 0 0; filter: hue-rotate(0deg); } to { background-position: 300% 0; filter: hue-rotate(40deg); } }
+
+/* Glitch: reads normally most of the time; every few seconds the red and cyan ghosts tear off in steps. */
+.name-fx[data-name-fx='name-glitch'] { color: #e8fff0; text-shadow: 0 1px 0 #1a1a1a; }
+.name-fx[data-name-fx='name-glitch']::before { display: block; color: #ff2a6d; opacity: 0; animation: name-glitch-a 3.2s steps(1) infinite; mix-blend-mode: screen; }
+.name-fx[data-name-fx='name-glitch']::after { display: block; color: #00ffa3; opacity: 0; animation: name-glitch-b 3.2s steps(1) infinite; mix-blend-mode: screen; }
+@keyframes name-glitch-a { 0%, 79%, 100% { opacity: 0; transform: none; clip-path: none; } 80% { opacity: .9; transform: translate(-3px,-1px); clip-path: inset(0 0 55% 0); } 84% { opacity: .9; transform: translate(3px,1px); clip-path: inset(40% 0 20% 0); } 88% { opacity: .9; transform: translate(-2px,0); clip-path: inset(70% 0 0 0); } 92% { opacity: 0; } }
+@keyframes name-glitch-b { 0%, 80%, 100% { opacity: 0; transform: none; clip-path: none; } 81% { opacity: .9; transform: translate(3px,1px); clip-path: inset(50% 0 0 0); } 85% { opacity: .9; transform: translate(-3px,-1px); clip-path: inset(10% 0 60% 0); } 89% { opacity: .9; transform: translate(2px,0); clip-path: inset(0 0 75% 0); } 93% { opacity: 0; } }
+
+/* Rainbow: the spectrum rolls along the word; a dark shadow copy underneath keeps it legible on any table. */
+.name-fx[data-name-fx='name-rainbow'] { color: transparent; background: linear-gradient(90deg, #ff5a5a, #ffc14d, #7ee081, #63c8ff, #b98cff, #ff5a5a); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; animation: name-rainbow 3s linear infinite; }
+.name-fx[data-name-fx='name-rainbow']::before { display: block; color: #1a1a1a; z-index: -1; transform: translate(1px, 2px); opacity: .8; }
+@keyframes name-rainbow { to { background-position: 300% 0; } }
+
+/* Toxic: acid green with a slow drip of glow sliding down the letters. */
+.name-fx[data-name-fx='name-toxic'] { color: #c8ff5a; text-shadow: 0 1px 0 #1f3a08, 0 0 8px #7dff3a99; }
+.name-fx[data-name-fx='name-toxic']::after { display: block; color: transparent; background: linear-gradient(180deg, transparent 20%, #eaffb0 45%, #7dff3a 55%, transparent 80%); background-size: 100% 300%; -webkit-background-clip: text; background-clip: text; animation: name-drip 2.6s ease-in-out infinite; filter: drop-shadow(0 0 4px #7dff3a); }
+@keyframes name-drip { 0% { background-position: 0 -100%; } 60%, 100% { background-position: 0 200%; } }
+/* Royal: purple silk with gold thread catching the light. */
+.name-fx[data-name-fx='name-royal'] { color: #e6c3ff; text-shadow: 0 1px 0 #2a0f3a, 0 0 8px #a45bd666; }
+.name-fx[data-name-fx='name-royal']::after { display: block; color: transparent; background: linear-gradient(110deg, transparent 38%, #ffe9a8 47%, #fff8d6 50%, #ffe9a8 53%, transparent 62%); background-size: 260% 100%; -webkit-background-clip: text; background-clip: text; animation: name-shine 4.2s cubic-bezier(.6,0,.3,1) infinite; }
+
+@media (prefers-reduced-motion: reduce) { .name-fx, .name-fx::before, .name-fx::after { animation: none !important; } }
+
+/* =====================================================================
+   Portrait auras — the moving part is a procedural canvas (cosmetics/auras.ts) mounted inside the portrait;
+   CSS keeps only the static "frame" half: the frost rim and the halo ring.
+   ===================================================================== */
+.ab-hero-face[data-aura] { overflow: visible; }
+.ab-hero-face[data-aura='aura-frost']::before, .ab-hero-face[data-aura='aura-halo']::before { content: ''; position: absolute; pointer-events: none; z-index: 3; }
+.ab-hero-face[data-aura='aura-frost']::before { inset: -8px; border-radius: inherit; border: 2px solid #dff4ffaa; box-shadow: 0 0 14px #9ef0ff88, inset 0 0 18px #bff3ff66; animation: aura-breathe 3.4s ease-in-out infinite; }
+.ab-hero-face[data-aura='aura-halo']::before { inset: -26px 22% auto 22%; height: 16px; border-radius: 50%; border: 4px solid #ffd76a; box-shadow: 0 0 12px #ffd76a, 0 0 26px #ffb34788, inset 0 0 8px #fff3b0; animation: aura-halo 3.4s ease-in-out infinite; }
+@keyframes aura-spin { to { transform: rotate(360deg); } }
+@keyframes aura-breathe { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+@keyframes aura-halo { 0%, 100% { transform: translateY(0) rotateX(60deg); } 50% { transform: translateY(-5px) rotateX(64deg); } }
+.ab-aura-layer { border-radius: 0 !important; }
+.ab-ambience-layer { border-radius: inherit; }
+.board-swatch { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .ab-hero-face[data-aura]::before { animation: none; } }
+
+/* =====================================================================
+   Hero frames — the new skins; the four originals live in style.css.
+   ===================================================================== */
+[data-skin='skin-ink'] { border: 5px solid #1a1a1a !important; border-radius: 36% 38% 10% 8% / 40% 36% 8% 10% !important; box-shadow: 3px 3px 0 #1a1a1a, -2px 2px 0 #1a1a1a, 0 0 0 5px #efe6c9, 0 0 0 8px #1a1a1a, 0 8px 20px #21141ca0 !important; background: #efe6c9 !important; }
+[data-skin='skin-ink'] img { filter: contrast(1.15) saturate(.7); }
+[data-skin='skin-comic'] { border: 5px solid #1a1a1a !important; border-radius: 8px !important; background: radial-gradient(circle, #1a1a1a 22%, transparent 26%) 0 0 / 7px 7px #ffd23f !important; box-shadow: 6px 6px 0 #1a1a1a, 0 0 0 4px #e6432d, 0 8px 20px #21141ca0 !important; }
+[data-skin='skin-comic'] img { border-radius: 4px !important; filter: contrast(1.2) saturate(1.3); }
+[data-skin='skin-arcane'] { border-color: #c77dff !important; box-shadow: 0 0 0 4px #2a1040, 0 0 0 7px #c77dff, 0 0 28px #c77dffaa, 0 0 60px #6a2bd966, 0 8px 20px #21141ca0 !important; animation: skin-arcane 4s ease-in-out infinite; overflow: visible; }
+[data-skin='skin-arcane']:not([data-aura])::before { content: ''; position: absolute; inset: -14px; border-radius: 50%; border: 2px dashed #c77dffaa; box-shadow: 0 0 10px #c77dff66; pointer-events: none; animation: aura-spin 14s linear infinite; z-index: 3; }
+@keyframes skin-arcane { 50% { box-shadow: 0 0 0 4px #2a1040, 0 0 0 7px #e6c3ff, 0 0 40px #c77dffcc, 0 0 80px #6a2bd988, 0 8px 20px #21141ca0; } }
+
+[data-skin='skin-bone'] { border: 6px solid #e9dfc9 !important; border-radius: 40% 40% 10% 10% !important; background: #d9cdb2 !important; box-shadow: 0 0 0 3px #5a4a3a, 0 0 0 6px #efe6c9, inset 0 0 0 2px #8a7a62, 0 8px 20px #21141ca0 !important; }
+[data-skin='skin-bone']::after { content: ''; position: absolute; inset: -6px; border-radius: inherit; pointer-events: none; background: repeating-conic-gradient(from 0deg, transparent 0 9deg, #7a6a5266 9.5deg 10.5deg, transparent 11deg 15deg); mask: radial-gradient(closest-side, transparent 78%, #000 86%); z-index: 3; }
+[data-skin='skin-royal'] { border-color: #c9a04a !important; background: #3a1550 !important; box-shadow: 0 0 0 4px #2a0f3a, 0 0 0 7px #c9a04a, 0 0 0 10px #5a2a7a, 0 0 24px #a45bd688, 0 8px 20px #21141ca0 !important; }
+[data-skin='skin-royal']:not([data-aura])::before { content: ''; position: absolute; inset: -12px; border-radius: inherit; pointer-events: none; z-index: 3; mix-blend-mode: screen;
+  background: conic-gradient(from 0deg, transparent 0 64%, #ffe9a866 69%, #fff8d6ee 71%, #ffe9a866 73%, transparent 78%);
+  mask: radial-gradient(farthest-side, transparent 70%, #000 78%); -webkit-mask: radial-gradient(farthest-side, transparent 70%, #000 78%);
+  animation: shine-metal 8s cubic-bezier(.45,0,.2,1) infinite; }
+
+/* Sketch: a rough pencil outline that keeps being redrawn — the dash crawls, the box wobbles a hair. */
+[data-skin='skin-sketch'] { border: 4px solid #2a1f18 !important; border-radius: 34% 40% 10% 8% / 38% 36% 9% 10% !important; background: #f4ecd6 !important; box-shadow: 2px 2px 0 #2a1f1888, -1px 1px 0 #2a1f1866, 0 8px 20px #21141ca0 !important; }
+[data-skin='skin-sketch']:not([data-aura])::before { content: ''; position: absolute; inset: -9px; border-radius: inherit; border: 2px dashed #2a1f18aa; pointer-events: none; z-index: 3; animation: sketch-crawl 3s linear infinite, sketch-wobble 2.2s steps(3) infinite; }
+@keyframes sketch-crawl { to { border-color: #2a1f1855; transform: rotate(1deg); } }
+@keyframes sketch-wobble { 0%, 100% { translate: 0 0; } 33% { translate: 1px -1px; } 66% { translate: -1px 1px; } }
+[data-skin='skin-sketch'] img { filter: contrast(1.1) saturate(.6) sepia(.15); }
+/* Living vines: green tendrils wrap the frame, leaves sway; buds glow softly. */
+[data-skin='skin-vines'] { border: 5px solid #3f6b2e !important; box-shadow: 0 0 0 3px #1d3a12, 0 0 0 6px #6c9a3a, 0 0 18px #7ee08155, 0 8px 20px #21141ca0 !important; overflow: visible; }
+[data-skin='skin-vines']:not([data-aura])::before, [data-skin='skin-vines']:not([data-aura])::after { content: ''; position: absolute; inset: -14px; border-radius: inherit; pointer-events: none; z-index: 3; background: radial-gradient(ellipse 8px 14px at 8% 30%, #7ee081, transparent 70%), radial-gradient(ellipse 8px 14px at 92% 60%, #a8e07a, transparent 70%), radial-gradient(ellipse 7px 12px at 24% 6%, #6c9a3a, transparent 70%), radial-gradient(ellipse 7px 12px at 70% 96%, #7ee081, transparent 70%), radial-gradient(ellipse 6px 11px at 52% 2%, #a8e07a, transparent 70%), radial-gradient(circle 3px at 15% 70%, #ffd66b, transparent 70%), radial-gradient(circle 3px at 85% 22%, #ffd66b, transparent 70%); transform-origin: 50% 50%; animation: vines-sway 3.6s ease-in-out infinite alternate; }
+[data-skin='skin-vines']:not([data-aura])::after { animation-delay: -1.8s; animation-duration: 4.4s; filter: hue-rotate(-12deg) brightness(.85); transform: rotate(180deg); }
+@keyframes vines-sway { from { transform: rotate(-2.5deg) scale(1); } to { transform: rotate(2.5deg) scale(1.02); } }
+/* Flame / electric / liquid gold: the motion is a canvas layer (auras.ts FRAME_FX); CSS gives the rim its material. */
+[data-skin='skin-fire'] { border-color: #ff9a1f !important; background: #2a1208 !important; box-shadow: 0 0 0 4px #4a1a08, 0 0 0 7px #ff7a1a, 0 0 30px #ff5a1aaa, 0 8px 20px #21141ca0 !important; }
+[data-skin='skin-electric'] { border-color: #9ef0ff !important; background: #0e2432 !important; box-shadow: 0 0 0 4px #0e2432, 0 0 0 7px #62d8ff, 0 0 26px #62d8ffaa, 0 8px 20px #21141ca0 !important; animation: skin-electric 1.7s steps(2) infinite; }
+@keyframes skin-electric { 50% { box-shadow: 0 0 0 4px #0e2432, 0 0 0 7px #dff4ff, 0 0 34px #9ef0ffdd, 0 8px 20px #21141ca0; } }
+[data-skin='skin-liquid-gold'] { border-color: #ffe9a8 !important; background: linear-gradient(160deg, #fff0b0, #b07a1c 50%, #f2cf6a) !important; box-shadow: 0 0 0 4px #5a3a0c, 0 0 0 7px #f2cf6a, 0 0 0 9px #8a5a12, 0 0 26px #ffd66b88, 0 8px 20px #21141ca0 !important; }
+[data-skin='skin-liquid-gold']:not([data-aura])::before { content: ''; position: absolute; inset: -9px; border-radius: inherit; pointer-events: none; z-index: 3; background: conic-gradient(from 0deg, #fff8e6aa, #b07a1c00 20%, #ffe9a877 40%, #b07a1c00 60%, #fff8e6aa 80%, #b07a1c00); mask: radial-gradient(farthest-side, transparent 70%, #000 78%); -webkit-mask: radial-gradient(farthest-side, transparent 70%, #000 78%); animation: aura-spin 6s linear infinite; mix-blend-mode: screen; }
+
+/* The striker wears its slam colour while it winds up and lunges (data-slam-live set by combat and the preview). */
+.ab-hero-face[data-slam-live] { --slam-a: #ffd66b; --slam-b: #ff7a1a; box-shadow: 0 0 0 4px #2a1a10, 0 0 26px var(--slam-a), 0 0 56px var(--slam-b) !important; transition: box-shadow .18s ease-out; }
+.ab-hero-face[data-slam-live='slam-fire'] { --slam-a: #ff8a1f; --slam-b: #ff3b1a; }
+.ab-hero-face[data-slam-live='slam-lightning'] { --slam-a: #9ef0ff; --slam-b: #3fb8ff; }
+.ab-hero-face[data-slam-live='slam-ice'] { --slam-a: #dff4ff; --slam-b: #5cc6e8; }
+.ab-hero-face[data-slam-live='slam-ink'] { --slam-a: #3a2f2a; --slam-b: #0b0b0b; }
+.ab-hero-face[data-slam-live='slam-comic'] { --slam-a: #ffd23f; --slam-b: #e6432d; }
+.ab-hero-face[data-slam-live='slam-arcane'] { --slam-a: #c77dff; --slam-b: #6a2bd9; }
+.ab-hero-face[data-slam-live='slam-neon'] { --slam-a: #ff7de9; --slam-b: #62d8ff; }
+.ab-hero-face[data-slam-live='slam-glitch'] { --slam-a: #00ffa3; --slam-b: #ff2a6d; }
+.ab-hero-face[data-slam-live='slam-comet'] { --slam-a: #ffd66b; --slam-b: #ff7a1a; }
+.ab-hero-face[data-slam-live='slam-shadow'] { --slam-a: #6a2bd9; --slam-b: #120820; }
+.ab-hero-face[data-slam-live='slam-petal'] { --slam-a: #ffb3d9; --slam-b: #ff5a9e; }
+/* Hit layer lives inside the portrait; the portrait's rounded clip must not cut the burst. */
+.ab-hero-face .hfx { border-radius: inherit; }
+.hfx-word { font-family: var(--font-hand); }
+
+/* =====================================================================
+   Shop stall + wardrobe
+   ===================================================================== */
+.stall { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 18px; height: 100%; min-height: 0; }
+.stall-rail { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.stall-rail button { display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 10px 12px; border: 3px solid var(--ink); background: var(--paper); text-align: left; cursor: pointer; box-shadow: 4px 4px 0 var(--ink); transition: transform .15s cubic-bezier(.2,.8,.3,1), background .15s; }
+.stall-rail button:hover { transform: translate(-2px, -2px); background: #f7f0dc; }
+.stall-rail button[aria-pressed='true'] { background: var(--ink); color: var(--paper); transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+.stall-rail i { grid-row: span 2; font: 22px var(--font-hand); font-style: normal; text-align: center; }
+.stall-rail span { font: 15px/1 var(--font-hand); }
+.stall-rail small { font: 10px var(--font-mono); letter-spacing: 1px; opacity: .65; }
+.stall-main { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; padding: 4px 8px 24px 4px; }
+.stall-guest { margin: 0; }
+.stall-featured { position: relative; display: grid; grid-template-columns: minmax(280px, 400px) 1fr; gap: 22px; padding: 18px 18px 18px 26px; border: 4px solid var(--ink); background: linear-gradient(135deg, #f4ecd6, #e9dfc9); box-shadow: 8px 9px 0 #24231f55; }
+.stall-featured::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-left: 10px solid var(--tier, #c3a45e); }
+.stall-featured.is-common { --tier: #9aa0a6; } .stall-featured.is-rare { --tier: #5b8dd6; } .stall-featured.is-epic { --tier: #a45bd6; } .stall-featured.is-legendary { --tier: #e0a32a; } .stall-featured.is-free { --tier: #8c918b; }
+.stall-preview { position: relative; display: grid; place-items: center; min-height: 270px; }
+.stall-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stall-copy .eyebrow { font: 11px var(--font-mono); letter-spacing: 3px; text-transform: uppercase; color: var(--tier, #5a4030); }
+.stall-copy h2 { margin: 0; font: 40px/1 var(--font-hand); color: var(--ink); }
+.stall-copy p { margin: 0; font: 13px/1.6 var(--font-mono); color: #5a4030; max-width: 46ch; }
+.stall-actions { position: relative; display: flex; align-items: center; gap: 16px; margin-top: auto; padding-top: 10px; }
+.stall-price { font: 34px/1 var(--font-hand); color: #245037; }
+/* Button states beyond hover/press: waiting on the server breathes; a price the purse can't cover reads muted-red until it shakes. */
+.stall-actions .is-busy { animation: stall-busy 1s ease-in-out infinite; }
+@keyframes stall-busy { 50% { opacity: .55; } }
+.stall-actions .is-short { background: #e9dfc9 !important; color: #7a2a20 !important; box-shadow: 3px 3px 0 #1a1a1a !important; }
+.stall-check { display: inline-block; margin-right: 8px; font-style: normal; font-weight: 700; color: #8dff9a; }
+.stall-price.is-short { color: var(--blood); }
+.stall-price.is-owned { font-size: 22px; color: #245037; }
+.stall-stamp { position: absolute; left: 50%; top: 50%; translate: -50% -50%; padding: 6px 18px; border: 4px solid var(--blood); color: var(--blood); background: #f4ecd6ee; font: 34px/1 var(--font-hand); letter-spacing: 2px; text-transform: uppercase; box-shadow: 4px 4px 0 #1a1a1a66; pointer-events: none; z-index: 20; }
+.stall-stamp.is-worn { border-color: #245037; color: #245037; }
+.stall-empty { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border: 3px dashed #5a403066; font: 14px/1.6 var(--font-mono); color: #5a4030; }
+.stall-empty p { margin: 0; flex: 1; }
+.stall-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(164px, 1fr)); gap: 16px 14px; padding: 6px 4px; }
+
+/* Cosmetic tile: a ticket with clipped corners and a tier trim, leaning in on hover, pinned when selected. */
+.cosmetic-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 10px 12px; border: 3px solid var(--ink); background: #e9dfc9; box-shadow: 5px 6px #24231f55; text-align: center; cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); transition: box-shadow .18s, background .18s; }
+.cosmetic-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 6px; background: var(--tier, transparent); }
+.cosmetic-card.is-common { --tier: #9aa0a6; } .cosmetic-card.is-rare { --tier: #5b8dd6; } .cosmetic-card.is-epic { --tier: #a45bd6; } .cosmetic-card.is-legendary { --tier: #e0a32a; background: #efe2c0; } .cosmetic-card.is-free { --tier: transparent; }
+.cosmetic-card.is-selected { background: #f7efda; box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--ink), 5px 6px #24231f55; }
+.cosmetic-card.is-owned::after { content: '✓'; position: absolute; top: 10px; right: 8px; width: 24px; height: 24px; border: 3px solid var(--ink); border-radius: 50%; background: #c5d3ac; color: #245037; font: bold 14px/18px var(--font-mono); z-index: 2; }
+.cosmetic-card strong { font: 19px/1.1 var(--font-hand); }
+.cosmetic-card > span { font: 12px var(--font-mono); color: #5a4030; }
+.cosmetic-ribbon { position: absolute; left: 6px; top: 14px; padding: 2px 10px; background: #245037; color: #f4ecd6; font: 10px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; font-style: normal; transform: rotate(-6deg); box-shadow: 2px 2px 0 #1a1a1a66; z-index: 2; }
+.cosmetic-owned { font: 14px var(--font-mono); color: #1f6e3f; font-style: normal; }
+
+/* The stage: the dark felt every preview sits on so it reads as it will on the table. */
+.cosmetic-stage { position: relative; display: grid; place-items: center; width: 100%; height: 132px; border: 2px solid var(--ink); border-radius: 10px; background: radial-gradient(ellipse at 50% 40%, #6b4b3a, #3b2a24 75%); box-shadow: inset 0 0 30px #00000066; overflow: hidden; }
+.cosmetic-stage.is-lg { width: 100%; min-height: 270px; height: 100%; border-width: 3px; border-radius: 14px; background: radial-gradient(ellipse at 50% 35%, #7a5744, #3b2a24 72%); }
+.board-swatch { position: relative; width: 132px; height: 82px; border-radius: 12px; border: 4px ridge #735244; background: var(--ab-felt-texture, none) center / var(--ab-felt-texture-size, auto) var(--ab-felt-texture-repeat, no-repeat), radial-gradient(ellipse at 50% 35%, var(--ab-felt-light, #d6aa7c), var(--ab-felt, #ae7657) 70%, var(--ab-felt-dark, #795040)); box-shadow: 0 0 0 4px var(--ab-ring, #382932), 0 0 0 9px var(--ab-wood, #6a4235), 0 6px 14px #0006; }
+.cosmetic-stage.is-lg .board-swatch { width: 280px; height: 170px; border-radius: 22px; box-shadow: 0 0 0 6px var(--ab-ring, #382932), 0 0 0 14px var(--ab-wood, #6a4235), 0 10px 24px #0008; }
+.board-swatch i { position: absolute; left: 12%; right: 12%; top: 28%; height: 3px; background: var(--ab-ridge, #b48b4e); opacity: .8; }
+.board-swatch b { position: absolute; left: 50%; bottom: 10px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; border: 3px ridge var(--ab-ridge, #b48b4e); background: var(--ab-amber, #ffe7a8); }
+.cosmetic-stage.is-lg .board-swatch b { width: 44px; height: 44px; margin-left: -22px; bottom: 16px; }
+.board-swatch em { position: absolute; left: 18%; right: 18%; top: 44%; height: 26%; border: 2px dashed #ffffff33; border-radius: 6px; }
+/* .ab-hero-face is absolutely placed on the dock; the preview pins it back into flow. */
+.cosmetic-stage .frame-preview { position: relative; left: auto; top: auto; width: 84px; height: 92px; padding: 3px; border: 5px ridge #b18c55; border-radius: 38% 38% 8% 8%; background: #493329; box-shadow: 0 0 0 4px #382932; transition: none; }
+.cosmetic-stage.is-lg .frame-preview { width: 150px; height: 164px; padding: 4px; }
+.cosmetic-stage .frame-preview:hover { transform: none; }
+.cosmetic-stage .frame-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 34% 34% 5% 5%; }
+.cosmetic-stage .name-preview { padding: 4px 14px; border: 2px ridge #b48b4e; border-radius: 10px; background: #2a1d18e0; color: #ffdfab; font: 24px/28px var(--font-hand); white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
+.cosmetic-stage.is-lg .name-preview { font-size: 44px; line-height: 50px; padding: 8px 28px; }
+
+/* Hit preview: striker on the left, victim on the right, the combat renderer in between. */
+.hit-preview { position: relative; display: flex; align-items: center; justify-content: center; gap: 46px; width: 100%; height: 100%; padding: 8px 0; }
+.hit-preview.is-sm { gap: 22px; transform: scale(.8); }
+.hit-preview.is-lg { gap: 96px; min-height: 250px; }
+.hit-preview .frame-preview { will-change: transform; }
+.hit-preview-victim { z-index: 1; }
+.hit-preview-replay { position: absolute; right: 10px; bottom: 8px; padding: 4px 10px; border: 2px solid #ffdfab88; border-radius: 6px; background: #1a1a1acc; color: #ffdfab; font: 12px var(--font-mono); cursor: pointer; }
+.hit-preview-replay:hover { background: #2a1d18; }
+
+/* Wardrobe dialog: wide enough for the featured panel and the gallery; the browser scrolls inside. */
+.customize-dialog { display: flex; flex-direction: column; width: min(1180px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 26px 30px 24px; }
+.customize-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 6px 20px; margin-bottom: 12px; }
+.customize-head h2 { margin: 0; }
+.customize-head .cosmetics-note { margin: 0 0 8px; }
+.customize-buttons { display: flex; gap: 10px; }
+.customize-body { min-height: 0; flex: 1; overflow: hidden; }
+.customize-body .stall { height: min(64vh, 720px); }
+.cosmetics-note { margin: 0 0 12px; font: 13px/1.5 var(--font-mono); color: #5a4030; }
+
+/* Skins as loot: the pack flip-back and the chest reel reuse the stage */
+.reward-cosmetic { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 220px; padding: 12px; border: 3px solid #1a1a1a; background: #e9dfc9; box-shadow: 5px 6px #1a1a1a66; text-align: center; }
+.reward-cosmetic strong { font: 24px/1.1 var(--font-hand); }
+.reward-cosmetic small { font: 11px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; color: #5a4030; }
+.reel-tile.is-cosmetic { background: #cbb98a; }
+.reel-tile.is-cosmetic > div .cosmetic-stage { width: 100%; height: 100%; border: 0; border-radius: 0; }
+.reel-tile.is-cosmetic i { background: #c3a45e; }
+.prize-cosmetic .cosmetic-stage { width: 340px; height: 260px; }
+
+@media (max-width: 1100px) {
+  .stall { grid-template-columns: 1fr; }
+  .stall-rail { flex-direction: row; flex-wrap: wrap; }
+  .stall-rail button { grid-template-columns: 24px 1fr; }
+  .stall-featured { grid-template-columns: 1fr; }
+}
+
+/* Original frames, polished: a glint circles the gold, frost breathes, blood throbs, neon hums (all on their own layer). */
+/* Shine, per material. Metal: a narrow specular core with a soft halo that rides the rim (masked to the ridge), one pass then rest.
+   Glass/magic: a wide low lobe that drifts and breathes instead of sweeping. Nothing crosses the portrait itself. */
+[data-skin='skin-gold']:not([data-aura])::before { content: ''; position: absolute; inset: -10px; border-radius: inherit; pointer-events: none; z-index: 3; mix-blend-mode: screen;
+  background: conic-gradient(from 0deg, transparent 0 60%, #fff3b055 66%, #ffffffee 70%, #fff3b055 74%, transparent 80%);
+  mask: radial-gradient(farthest-side, transparent 68%, #000 76%, #000 100%); -webkit-mask: radial-gradient(farthest-side, transparent 68%, #000 76%, #000 100%);
+  animation: shine-metal 6s cubic-bezier(.45,0,.2,1) infinite; }
+@keyframes shine-metal { 0% { transform: rotate(0deg); opacity: 0; } 8% { opacity: 1; } 40% { transform: rotate(360deg); opacity: 1; } 46%, 100% { transform: rotate(360deg); opacity: 0; } }
+[data-skin='skin-ice']:not([data-aura])::before { content: ''; position: absolute; inset: -6px; border-radius: inherit; pointer-events: none; z-index: 3; mix-blend-mode: screen;
+  background: radial-gradient(ellipse 60% 40% at 30% 18%, #ffffff77, transparent 70%); mask: radial-gradient(farthest-side, transparent 62%, #000 74%); -webkit-mask: radial-gradient(farthest-side, transparent 62%, #000 74%);
+  animation: shine-glass 7s ease-in-out infinite alternate; }
+@keyframes shine-glass { from { transform: translate(-8%, -4%) scale(1); opacity: .5; } to { transform: translate(10%, 8%) scale(1.15); opacity: 1; } }
+[data-skin='skin-ice'] { animation: skin-ice 3.2s ease-in-out infinite; }
+@keyframes skin-ice { 50% { box-shadow: 0 0 0 4px #1d2f3c, 0 0 0 7px #dff4ff, 0 0 36px #9ef0ffcc, 0 8px 20px #21141ca0; } }
+[data-skin='skin-blood'] { animation: skin-blood 1.6s ease-in-out infinite; }
+@keyframes skin-blood { 50% { box-shadow: 0 0 0 4px #3a0a08, 0 0 0 7px #d63a2c, 0 0 34px #ff5b47dd, 0 8px 20px #21141ca0; } }
+@media (prefers-reduced-motion: reduce) { [data-skin]::before, [data-skin] { animation: none !important; } }
+
+/* =====================================================================
+   Card backs — one set, two shapes. .card-back fills its parent; the token ('oval') composes the same
+   material with a ring and a centred emblem instead of the framed rectangle.
+   ===================================================================== */
+.card-back { position: absolute; inset: 0; overflow: hidden; --bk-a: #1a1a1a; --bk-b: #2a2622; --bk-rim: #efe6c9; --bk-ink: #efe6c9; --bk-glow: transparent; background: linear-gradient(160deg, var(--bk-a), var(--bk-b)); font-family: var(--font-hand); }
+.card-back.is-card { border-radius: 6px; }
+.card-back.is-oval { border-radius: 50%; }
+.card-back > i, .card-back > b { position: absolute; pointer-events: none; }
+.card-back-rim { inset: 9px; border: 3px solid var(--bk-rim); border-radius: inherit; opacity: .85; }
+.card-back.is-oval .card-back-rim { inset: 7px; border-width: 2.5px; }
+.card-back-field { inset: 0; opacity: .32; }
+.card-back-emblem { left: 50%; top: 50%; translate: -50% -50%; font: 400 84px/1 var(--font-hand); color: var(--bk-ink); text-shadow: 0 2px 0 #00000055; }
+.card-back.is-oval .card-back-emblem { font-size: 46px; }
+.card-back-emblem::before { content: '✳'; }
+.card-back-sheen { inset: 0; opacity: 0; }
+.card-back-fx { border-radius: inherit; }
+/* Paper (default): ink with hatching. */
+.card-back[data-back='back-paper'] .card-back-field { background: repeating-linear-gradient(45deg, #efece4 0 2px, transparent 2px 9px); }
+/* Taproom: amber beer, a foam head along the top, hop-leaf emblem. */
+.card-back[data-back='back-tavern'] { --bk-a: #e29a2c; --bk-b: #8a4d12; --bk-rim: #fff3d0; --bk-ink: #fff3d0; }
+.card-back[data-back='back-tavern'] .card-back-field { opacity: 1; background: radial-gradient(circle at 30% 20%, #fff8e6 0 8%, transparent 9%), radial-gradient(circle at 62% 12%, #fff8e6 0 11%, transparent 12%), radial-gradient(circle at 85% 22%, #fff8e6 0 7%, transparent 8%), linear-gradient(180deg, #fff8e6 0 14%, transparent 14.5%), repeating-linear-gradient(90deg, #ffd66b22 0 3px, transparent 3px 14px); }
+.card-back.is-oval[data-back='back-tavern'] .card-back-field { background: radial-gradient(circle at 50% 50%, transparent 58%, #fff8e6 60% 68%, transparent 70%), radial-gradient(circle at 35% 18%, #fff8e6 0 9%, transparent 10%), radial-gradient(circle at 68% 14%, #fff8e6 0 7%, transparent 8%), repeating-linear-gradient(90deg, #ffd66b22 0 3px, transparent 3px 14px); }
+.card-back[data-back='back-tavern'] .card-back-emblem::before { content: '❂'; }
+/* Frost: pale ice with a crystal lattice, snowflake emblem, cold sheen. */
+.card-back[data-back='back-frost'] { --bk-a: #dff4ff; --bk-b: #7fb0c4; --bk-rim: #1d3f4c; --bk-ink: #1d3f4c; --bk-glow: #bff3ff; }
+.card-back[data-back='back-frost'] .card-back-field { opacity: .45; background: conic-gradient(from 0deg at 50% 50%, transparent 0 55deg, #ffffffcc 60deg, transparent 65deg 115deg, #ffffffcc 120deg, transparent 125deg 175deg, #ffffffcc 180deg, transparent 185deg 235deg, #ffffffcc 240deg, transparent 245deg 295deg, #ffffffcc 300deg, transparent 305deg); }
+.card-back[data-back='back-frost'] .card-back-emblem::before { content: '❄'; }
+/* Occult: violet-black, chalk pentacle, crescent emblem. */
+.card-back[data-back='back-occult'] { --bk-a: #2b1a3a; --bk-b: #0e0716; --bk-rim: #b98cff; --bk-ink: #e6c3ff; --bk-glow: #c77dff; }
+.card-back[data-back='back-occult'] .card-back-field { opacity: .55; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='%23d9b3ff' stroke-width='1.2'%3E%3Ccircle cx='50' cy='50' r='40'/%3E%3Ccircle cx='50' cy='50' r='35'/%3E%3Cpath d='M50 12 L72 82 L14 38 L86 38 L28 82 Z'/%3E%3C/svg%3E") center / 88% no-repeat; }
+.card-back[data-back='back-occult'] .card-back-emblem::before { content: '☽'; }
+/* Flame: charcoal with a hot floor and a soot-dark top, star-burst emblem. */
+.card-back[data-back='back-fire'] { --bk-a: #2a1a14; --bk-b: #0f0806; --bk-rim: #ff9a1f; --bk-ink: #ffd66b; --bk-glow: #ff7a1a; }
+.card-back[data-back='back-fire'] .card-back-field { opacity: 1; background: radial-gradient(ellipse at 50% 105%, #ff5a1acc 0, #ff9a1f66 25%, transparent 60%); }
+.card-back[data-back='back-fire'] .card-back-emblem::before { content: '✵'; }
+/* Runes: indigo, a hex lattice, caduceus-like glyph. */
+.card-back[data-back='back-arcane'] { --bk-a: #1e2a5a; --bk-b: #0a0c22; --bk-rim: #9bd7ff; --bk-ink: #dff4ff; --bk-glow: #9bd7ff; }
+.card-back[data-back='back-arcane'] .card-back-field { opacity: .35; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 56 97' fill='none' stroke='%239bd7ff' stroke-width='2'%3E%3Cpath d='M28 0 L56 16 L56 48 L28 64 L0 48 L0 16 Z M28 64 L56 80 L56 112 M28 64 L0 80 L0 112'/%3E%3C/svg%3E") 0 0 / 28px 48px repeat; }
+.card-back[data-back='back-arcane'] .card-back-emblem::before { content: '⚚'; }
+/* Neon: wet asphalt grid, tube-lit rim. */
+.card-back[data-back='back-neon'] { --bk-a: #14161f; --bk-b: #07080c; --bk-rim: #ff7de9; --bk-ink: #9ef0ff; --bk-glow: #ff7de9; }
+.card-back[data-back='back-neon'] .card-back-field { opacity: .7; background: repeating-linear-gradient(0deg, #62d8ff33 0 1px, transparent 1px 12px), repeating-linear-gradient(90deg, #62d8ff33 0 1px, transparent 1px 12px); }
+.card-back[data-back='back-neon'] .card-back-rim { box-shadow: 0 0 8px var(--bk-rim), inset 0 0 8px var(--bk-rim); animation: back-neon-flicker 4s linear infinite; }
+.card-back[data-back='back-neon'] .card-back-emblem { text-shadow: 0 0 6px #9ef0ff, 0 0 16px #62d8ff; }
+.card-back[data-back='back-neon'] .card-back-emblem::before { content: '✦'; }
+@keyframes back-neon-flicker { 0%, 90%, 94%, 100% { opacity: .85; } 92% { opacity: .35; } }
+/* Liquid gold: brushed metal with a specular sweep, the emblem embossed. */
+.card-back[data-back='back-gold'] { --bk-a: #f2cf6a; --bk-b: #8a5a12; --bk-rim: #5a3a0c; --bk-ink: #5a3a0c; --bk-glow: #ffd66b; background: linear-gradient(160deg, #fff0b0 0%, #e2b24a 22%, #b07a1c 48%, #f2cf6a 70%, #8a5a12 100%); }
+.card-back[data-back='back-gold'] .card-back-field { opacity: .3; background: repeating-linear-gradient(170deg, #fff8e6 0 1px, transparent 1px 4px); }
+.card-back[data-back='back-gold'] .card-back-emblem { text-shadow: 0 1px 0 #fff3b0, 0 -1px 0 #3a2508; }
+.card-back[data-back='back-gold'] .card-back-emblem::before { content: '❖'; }
+/* Metallic specular: a narrow two-tone band crossing at an angle, masked to the field, with a long idle between passes. */
+.card-back[data-back='back-gold'] .card-back-sheen { opacity: 1; background: linear-gradient(115deg, transparent 42%, #ffffff33 46%, #ffffffee 49.5%, #fff3b0aa 51%, #ffffff33 54%, transparent 58%); background-size: 320% 100%; mix-blend-mode: screen; animation: sheen-metal 5.5s cubic-bezier(.55,0,.35,1) infinite; }
+@keyframes sheen-metal { 0% { background-position: 130% 0; } 22%, 100% { background-position: -130% 0; } }
+/* Glassy / magical sets get a soft luminous reflection instead: a wide low-alpha lobe that drifts, not a stripe. */
+.card-back[data-back='back-frost'] .card-back-sheen, .card-back[data-back='back-arcane'] .card-back-sheen, .card-back[data-back='back-occult'] .card-back-sheen { opacity: 1; background: radial-gradient(ellipse 45% 30% at 30% 20%, #ffffff55, transparent 70%); animation: sheen-glass 7s ease-in-out infinite alternate; mix-blend-mode: screen; }
+@keyframes sheen-glass { from { transform: translate(-6%, -4%) rotate(-4deg); opacity: .6; } to { transform: translate(10%, 8%) rotate(5deg); opacity: 1; } }
+.back-pair { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.back-pair .card-back { position: relative; }
+.back-pair .card-back.is-card { width: 88px; height: 124px; box-shadow: 4px 5px 0 #1a1a1a66; }
+.back-pair .card-back.is-oval { width: 84px; height: 84px; box-shadow: 0 4px 0 #1a1a1a66; }
+.cosmetic-stage.is-lg .back-pair { gap: 34px; }
+.cosmetic-stage.is-lg .back-pair .card-back.is-card { width: 160px; height: 224px; }
+.cosmetic-stage.is-lg .back-pair .card-back.is-oval { width: 150px; height: 150px; }
+.cosmetic-stage.is-lg .back-pair .card-back-emblem { font-size: 120px; }
+.cosmetic-stage.is-lg .back-pair .card-back.is-oval .card-back-emblem { font-size: 72px; }
+
+/* Enemy hand: the opponent's card backs fan out from behind the left edge; only the count is public. */
+.enemy-hand { position: absolute; left: -62px; top: 46%; width: 140px; height: 200px; pointer-events: none; z-index: 6; perspective: 900px; }
+.enemy-hand-card { position: absolute; left: 0; top: 0; width: 96px; height: 134px; transform-origin: 20% 120%; filter: drop-shadow(4px 5px 0 #1a1a1a66); }
+.enemy-hand-card .card-back { position: absolute; inset: 0; border: 3px solid #1a1a1a; border-radius: 8px; }
+.enemy-hand-count { position: absolute; left: 70px; bottom: -8px; padding: 2px 10px; border: 2px solid var(--ink); border-radius: 10px; background: #efe6c9; font: 16px/20px var(--font-hand); color: var(--ink); box-shadow: 2px 2px 0 #1a1a1a66; }
+
+/* Combat reveal: face-down tokens hold, lift with anticipation, turn, catch a sheen, and settle — staggered across the row. */
+.ab-combat-card .ab-combat-back .card-back { border: 4px solid #6e5740; box-shadow: 0 3px 0 #261b18, 0 7px 12px #24120f88; }
+.ab-combat-card.is-reveal .ab-combat-flip { animation: ab-reveal .9s cubic-bezier(.3,.8,.3,1) var(--reveal-delay, 0s) both; }
+@keyframes ab-reveal { 0% { transform: rotateY(180deg) translateY(0) scale(1); } 28% { transform: rotateY(180deg) translateY(-16px) scale(1.05); } 62% { transform: rotateY(0deg) translateY(-12px) scale(1.08); } 82% { transform: rotateY(0deg) translateY(2px) scale(.98); } 100% { transform: rotateY(0deg) translateY(0) scale(1); } }
+.ab-combat-card.is-reveal .ab-combat-face::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: linear-gradient(115deg, transparent 40%, #ffffffaa 50%, transparent 60%); background-size: 300% 100%; mix-blend-mode: screen; animation: ab-reveal-sheen .9s ease-out var(--reveal-delay, 0s) both; }
+@keyframes ab-reveal-sheen { 0%, 55% { background-position: 140% 0; opacity: 0; } 65% { opacity: 1; } 100% { background-position: -140% 0; opacity: 0; } }

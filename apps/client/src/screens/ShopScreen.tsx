@@ -4,7 +4,8 @@ import { audioManager } from '../AudioManager';
 import { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { shopMixed, shopPrizeLabel, shopProducts, type CardDefinition, type ShopProduct, type ShopResult, type ShopReward } from '@kartishki/shared';
+import { cosmeticById, pickLoc, shopMixed, shopPrizeLabel, shopProducts, type CardDefinition, type ShopProduct, type ShopResult, type ShopReward } from '@kartishki/shared';
+import { CosmeticStage, cosmeticItems } from '../ui/CosmeticCard';
 import { useEconomy, type ChestTile } from '../EconomyContext';
 import { PortraitPlaceholder } from '../ui/PortraitPlaceholder';
 import { Backdrop } from '../ui/Backdrop';
@@ -15,13 +16,15 @@ import { rarityOrder, rarityStyle } from '../ui/rarity';
 import { useCardArt } from '../ui/cardArt';
 import { chime, tick } from '../ui/sfx';
 
-const tabs = ['casino', 'packs', 'chests', 'cosmetics'] as const;
+// Skins open first: they are what the shop is about now; the casino and loot sit behind.
+const tabs = ['cosmetics', 'casino', 'packs', 'chests'] as const;
 type Tab = typeof tabs[number];
 const FOIL = ['#7f9868', '#b395cc', '#d3b655', '#c07a5a', '#6e8ea8'];
 function shopTab(kind?: string): Tab {
   if (kind === 'packs') return 'packs';
   if (kind === 'chests') return 'chests';
-  return 'casino';
+  if (kind === 'slots' || kind === 'casino') return 'casino';
+  return 'cosmetics';
 }
 export function ShopScreen({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation();
@@ -36,12 +39,11 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
   return <div className="absolute inset-0 overflow-clip">
     <Backdrop />
     <TopBar right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
-    <div className="shop-title"><span>{t('shopTitle')}</span></div>
     <nav className="shop-tabs" aria-label={t('shopMode')}>
       {tabs.map(key => <button key={key} aria-pressed={tab === key} disabled={!!e.opening && shopTab(e.opening.kind) !== key} onClick={() => { setTab(key); e.clearMessage(); }}>{t(`shopTab_${key}`)}</button>)}
     </nav>
-    <p role="status" className="absolute right-12 top-[161px] max-w-[620px] text-right font-mono text-[13px] text-blood">{e.message}</p>
-    <main className="absolute inset-x-[55px] top-[222px] bottom-[24px]">
+    <p role="status" className="absolute right-12 top-[124px] max-w-[620px] text-right font-mono text-[13px] text-blood">{e.message}</p>
+    <main className="absolute inset-x-[55px] top-[186px] bottom-[24px]">
       {tab === 'casino' && <CasinoGames />}
       {tab === 'cosmetics' && <CosmeticsStall />}
       {tab === 'packs' && pack && (e.opening?.kind === 'packs' ? <PackOpening key={e.opening.name} result={e.opening.result} name={e.opening.name} onDone={e.finish} /> : <div className="catalog-layout">
@@ -98,12 +100,22 @@ function RewardChip({ reward }: { reward: ShopReward }) {
     const card = catalog.find(item => item.id === reward.cardId);
     return <div className="reward-chip is-duplicate">{card?.name.ru ?? 'Карта'} уже в альбоме → ${reward.amount}</div>;
   }
+  if (reward.kind === 'cosmetic' || reward.kind === 'cosmeticDuplicate') return <CosmeticChip reward={reward} />;
   return <div className={`reward-chip is-${reward.kind}`}>{reward.kind === 'currency' ? `$${reward.amount}` : `+${reward.amount} XP`}</div>;
+}
+/** A skin from a pack: its live preview on the stage, or the refund note when it was already owned. */
+function CosmeticChip({ reward }: { reward: Extract<ShopReward, { kind: 'cosmetic' | 'cosmeticDuplicate' }> }) {
+  const { t, i18n } = useTranslation();
+  const cosmetic = cosmeticById(reward.itemId);
+  const item = cosmetic && cosmeticItems(cosmetic.kind).find(c => c.shopId === cosmetic.id);
+  const name = cosmetic ? pickLoc(cosmetic.name, i18n.language) : reward.itemId;
+  if (reward.kind === 'cosmeticDuplicate') return <div className="reward-chip is-duplicate">{t('cosmeticAlready', { name, amount: reward.amount })}</div>;
+  return <div className="reward-cosmetic">{item && <CosmeticStage item={item} name={t('guest')} still />}<strong>{name}</strong><small>{t('rewardCosmetic')}</small></div>;
 }
 export function PackOpening({ result, name, onDone }: { result: ShopResult; name: string; onDone: () => void }) {
   const { t, i18n } = useTranslation();
   const { catalog } = useEconomy();
-  const mixed = result.product?.id === 'mixed-pack';
+  const mixed = !!result.product && shopMixed(result.product);
   const items: { reward: ShopReward; card?: CardDefinition; duplicate?: number }[] = [];
   for (const reward of result.rewards) {
     if (reward.kind === 'card' || reward.kind === 'duplicate') {
@@ -142,11 +154,15 @@ function Burst({ color }: { color: string }) {
   return <div className="pointer-events-none absolute inset-0" aria-hidden><motion.div className="absolute inset-0" style={{ boxShadow: `0 0 50px 15px ${color}` }} initial={{ opacity: .8 }} animate={{ opacity: .18 }} transition={{ duration: 1.2 }} />{Array.from({ length: 16 }, (_, i) => <motion.i key={i} className="absolute left-1/2 top-1/2 h-2 w-2" style={{ background: color }} initial={{ x: 0, y: 0, opacity: 1 }} animate={{ x: Math.cos(i * Math.PI / 8) * 160, y: Math.sin(i * Math.PI / 8) * 200, opacity: 0, rotate: 180 }} transition={{ duration: .85 }} />)}</div>;
 }
 function CaseOpening({ reel, landing, result, onDone }: { reel: ChestTile[]; landing: number; result: { rewards: ShopReward[]; name: string }; onDone: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { catalog } = useEconomy();
   const [done, setDone] = useState(false);
   const lastTile = useRef(0);
   const prize = result.rewards.find(reward => reward.kind === 'card' || reward.kind === 'duplicate');
+  const skin = result.rewards.find(reward => reward.kind === 'cosmetic' || reward.kind === 'cosmeticDuplicate');
+  const skinDef = skin ? cosmeticById(skin.itemId) : undefined;
+  const skinName = skinDef ? pickLoc(skinDef.name, i18n.language) : '';
+  const skinItem = skinDef && cosmeticItems(skinDef.kind).find(c => c.shopId === skinDef.id);
   const prizeCard = prize && catalog.find(card => card.id === prize.cardId);
   const duplicate = prize?.kind === 'duplicate' ? prize.amount : undefined;
   return <div className="case-opening"><h2>{t(done ? 'caught' : 'ninthLife')}</h2><p>{t('reelPicks')}</p>
@@ -154,15 +170,21 @@ function CaseOpening({ reel, landing, result, onDone }: { reel: ChestTile[]; lan
     <p role="status">{done ? result.name : t('reelSlowing')}</p>
     <AnimatePresence>{done && <motion.div role="dialog" aria-modal="true" aria-label={t('wonCard')} className="prize-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       {prizeCard ? <div className="relative"><Burst color={rarityStyle[prizeCard.rarity].frame} /><motion.div initial={{ scale: .3, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={spring}><GameCard card={prizeCard} scale={1.4} hoverable={false} /></motion.div></div> : null}
-      <div className="pack-extras">{result.rewards.map((reward, i) => <RewardChip key={i} reward={reward} />)}</div>
-      <h2>{duplicate != null ? `${prizeCard?.name.ru ?? result.name} уже в альбоме → $${duplicate}` : prizeCard?.name.ru ?? result.name}</h2>
+      {skin?.kind === 'cosmetic' && skinItem ? <div className="relative"><Burst color="#c3a45e" /><motion.div className="prize-cosmetic" initial={{ scale: .3, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={spring}><CosmeticStage item={skinItem} name={t('guest')} /></motion.div></div> : null}
+      <div className="pack-extras">{result.rewards.filter(reward => reward.kind !== 'cosmetic').map((reward, i) => <RewardChip key={i} reward={reward} />)}</div>
+      <h2>{duplicate != null ? `${prizeCard?.name.ru ?? result.name} уже в альбоме → $${duplicate}` : skin?.kind === 'cosmeticDuplicate' ? t('cosmeticAlready', { name: skinName, amount: skin.amount }) : prizeCard?.name.ru ?? (skinName || result.name)}</h2>
       {duplicate != null && <p role="status">{t('dupeCash')}</p>}
       <InkButton tone="gold" onClick={onDone}>{t(duplicate != null ? 'takeDollars' : 'toCollection')}</InkButton>
     </motion.div>}</AnimatePresence>
   </div>;
 }
 function ReelTile({ tile }: { tile: ChestTile }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  if (tile.kind === 'cosmetic') {
+    const cosmetic = cosmeticById(tile.itemId);
+    const item = cosmetic && cosmeticItems(cosmetic.kind).find(c => c.shopId === cosmetic.id);
+    return <div className="reel-tile is-cosmetic"><div>{item && <CosmeticStage item={item} name={t('guest')} still />}</div><strong>{cosmetic ? pickLoc(cosmetic.name, i18n.language) : t('tileSkin')}</strong><i /></div>;
+  }
   if (tile.kind !== 'card') return <div className={`reel-tile is-${tile.kind}`}><div><span>{tile.kind === 'currency' ? '$' : tile.kind === 'xp' ? 'XP' : '◆'}</span></div><strong>{t(tile.kind === 'currency' ? 'tileCash' : tile.kind === 'xp' ? 'tileXp' : 'tileCards')}</strong><i /></div>;
   return <CardReelTile card={tile.card} />;
 }

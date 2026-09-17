@@ -163,6 +163,10 @@ export const HeroState = schema({
   power: HeroPowerState,
   /** Equipped hero skin (a purchased frame, see cosmetics.ts); '' = plain. */
   skin: t.string().default(''),
+  /** Equipped hero slam effect (see cosmetics.ts); '' = plain. */
+  slam: t.string().default(''),
+  /** Equipped portrait aura (see cosmetics.ts); '' = plain. */
+  aura: t.string().default(''),
 }, 'AutoBattlerHeroState');
 export type HeroState = InstanceType<typeof HeroState>;
 export const Hero = HeroState;
@@ -241,6 +245,14 @@ export const AutoBattlerPlayerState = schema({
   lastCombatDamage: t.number().default(0),
   lastCombatEventCount: t.number().default(0),
   lastCombatSummary: t.string().default(''),
+  /** Tribe the board leaned on in the last fight (see boardMainTribe); boards themselves are owner-only. */
+  mainTribe: t.string().default(''),
+  /** Equipped nickname effect (see cosmetics.ts); '' = plain. */
+  nameFx: t.string().default(''),
+  /** Equipped card back — public, opponents see it on the hidden hand and on face-down combat tokens. */
+  cardBack: t.string().default(''),
+  /** Size of the (owner-only) hand, so opponents can draw the right number of card backs. */
+  handCount: t.number().default(0),
   pendingDiscover: t.array(AutoBattlerMinionState).view(1),
   discoverOpen: t.boolean().default(false),
   recruitReady: t.boolean().default(false),
@@ -724,6 +736,17 @@ export function hasKeyword(keywords: Iterable<string>, keyword: string): boolean
 
 export function minionTribes(def: Pick<AutoBattlerMinionDef, 'tribes'> | undefined): AutoBattlerTribe[] {
   return def?.tribes?.length ? def.tribes : ['neutral'];
+}
+
+/** The tribe with the most bodies (2+, unique winner), 'mixed' when nothing leads, '' for an empty board. */
+export function boardMainTribe(board: readonly { tribes: readonly string[] }[]): string {
+  if (!board.length) return '';
+  const counts = new Map<string, number>();
+  for (const m of board) for (const tribe of m.tribes) if (tribe !== 'neutral' && tribe !== 'all') counts.set(tribe, (counts.get(tribe) ?? 0) + 1);
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const top = sorted[0];
+  if (!top || top[1] < 2 || sorted[1]?.[1] === top[1]) return 'mixed';
+  return top[0];
 }
 
 export function hasTribe(tribes: Iterable<string>, tribe: AutoBattlerTribe | 'all'): boolean {

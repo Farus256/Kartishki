@@ -4,17 +4,16 @@ import { AbHeroFace } from './AbHeroFace';
 import type { AbPlayer } from '../autoBattlerSession';
 import { PaperTooltip } from '../ui/PaperTooltip';
 import { useCombatHistory, type FightRecord } from './useCombatHistory';
-import { abCopyName, minionTribes } from '@kartishki/shared';
+import { abCopyName, boardMainTribe } from '@kartishki/shared';
 import { powerCopy } from './HeroPowerTooltip';
+import { PlayerName } from '../cosmetics/PlayerName';
 
-/** The tribe with the most bodies on the board (2+ and unique), else "mixed". */
-function likelyTribe(player: AbPlayer, catalog: AutoBattlerCatalog, lang: string, t: (key: string, opts?: { defaultValue?: string }) => string, ru: boolean): string {
-  const counts = new Map<string, number>();
-  for (const m of player.board) for (const tribe of minionTribes(catalog.minions.find(d => d.id === m.cardId))) if (tribe !== 'neutral') counts.set(tribe, (counts.get(tribe) ?? 0) + 1);
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  const top = sorted[0];
-  if (!top || top[1] < 2 || (sorted[1] && sorted[1][1] === top[1])) return ru ? 'смешанные существа' : 'mixed minions';
-  return abCopyName(catalog.copy, 'tribes', top[0], lang, t(`abTribe_${top[0]}`, { defaultValue: top[0] }));
+/** Opponent boards are owner-only, so their tribe comes from the server's last-fight snapshot; my own board is read live. */
+function likelyTribe(player: AbPlayer, meId: string, catalog: AutoBattlerCatalog, lang: string, t: (key: string, opts?: { defaultValue?: string }) => string, ru: boolean): string {
+  const tribe = player.sessionId === meId ? boardMainTribe(player.board.map(m => ({ tribes: m.tribes ?? [] }))) : player.mainTribe ?? '';
+  if (!tribe) return '—';
+  if (tribe === 'mixed') return ru ? 'смешанные существа' : 'mixed minions';
+  return abCopyName(catalog.copy, 'tribes', tribe, lang, t(`abTribe_${tribe}`, { defaultValue: tribe }));
 }
 
 function FightLog({ player, players, log, meId, ru, catalog }: { player: AbPlayer; players: AbPlayer[]; log: FightRecord[]; meId: string; ru: boolean; catalog: AutoBattlerCatalog }) {
@@ -27,13 +26,13 @@ function FightLog({ player, players, log, meId, ru, catalog }: { player: AbPlaye
     <header className="ab-lb-log-head">
       <span className="ab-lb-log-face"><AbHeroFace id={player.heroId || player.sessionId} art={hero?.art} /></span>
       <div>
-        <strong>{player.sessionId === meId ? t('you') : player.displayName}</strong>
+        <strong><PlayerName fx={player.nameFx} name={player.sessionId === meId ? t('you') : player.displayName} /></strong>
         <small>{hero ? (i18n.language.startsWith('en') ? hero.name.en || hero.name.ru : hero.name.ru) : '—'} · ♥ {player.health}</small>
       </div>
     </header>
     <dl className="ab-lb-log-facts">
       <div><dt>{ru ? 'Таверна' : 'Tavern'}</dt><dd>{t('abTier', { tier: player.tavernTier })}</dd></div>
-      <div><dt>{ru ? 'Собирает' : 'Building'}</dt><dd>{likelyTribe(player, catalog, i18n.language, t, ru)}</dd></div>
+      <div><dt>{ru ? 'Собирает' : 'Building'}</dt><dd>{likelyTribe(player, meId, catalog, i18n.language, t, ru)}</dd></div>
     </dl>
     <section className="ab-lb-log-power" aria-label={t('abPower')}>
       <strong className="ab-lb-log-title">{t('abPower')}</strong>
@@ -82,7 +81,7 @@ export function Leaderboard({ players, meId, catalog, turn = 0 }: { players: AbP
                   {player.eliminated && <span className="ab-out-mark" aria-label={t('abEliminated')} />}
                 </div>
                 <div className="ab-lb-copy">
-                  <strong>{player.sessionId === meId ? t('you') : player.displayName}</strong>
+                  <strong><PlayerName fx={player.nameFx} name={player.sessionId === meId ? t('you') : player.displayName} /></strong>
                   <span>♥ {player.health}</span>
                   <small>{t('abTier',{tier:player.tavernTier})}{player.eliminated?` · #${player.placement}`:''}</small>
                 </div>

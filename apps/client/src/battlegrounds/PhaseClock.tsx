@@ -51,9 +51,9 @@ export function FuseRope({ deadline, active }: { deadline: Deadline; active: boo
   const secs = useCountdown(deadline, active, ratio => { if (fill.current) fill.current.style.width = `${Math.min(1, ratio * deadline.totalMs / (FUSE_SECONDS * 1000)) * 100}%`; });
   if (!active || secs <= 0 || secs > FUSE_SECONDS) return null;
   return (
-    <div className="ab-rope is-short" data-testid="ab-rope" aria-label={t('abTimer', { n: secs })}>
+    <div className={`ab-rope is-short${secs <= 3 ? ' is-critical' : ''}`} data-testid="ab-rope" aria-label={t('abTimer', { n: secs })}>
       {/* Sparks (i) fly up off the ember; ash flakes (em) drift back along the burnt rope and sink. */}
-      <div ref={fill} className="ab-rope-remaining" style={{ width: `${Math.min(1, Math.max(0, deadline.endsAt - Date.now()) / (FUSE_SECONDS * 1000)) * 100}%` }}><span className="ab-rope-ember"><i /><i /><i /><em /><em /><em /><em /></span></div>
+      <div ref={fill} className="ab-rope-remaining" style={{ width: `${Math.min(1, Math.max(0, deadline.endsAt - Date.now()) / (FUSE_SECONDS * 1000)) * 100}%` }}><span className="ab-rope-ember"><i /><i /><i /><i /><em /><em /><em /><em /></span></div>
     </div>
   );
 }

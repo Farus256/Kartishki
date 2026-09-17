@@ -53,8 +53,8 @@
 .ab-stage::before {
   content:''; position:absolute; inset:156px 14px 272px 14px; pointer-events:none;
   border-radius:22% 22% 12% 12% / 16% 16% 10% 10%; border:12px ridge #735244;
-  background:radial-gradient(ellipse at 50% 35%,var(--ab-felt-light),var(--ab-felt) 70%,var(--ab-felt-dark));
-  box-shadow:0 0 0 7px #34262c,0 0 0 14px #876449,inset 0 0 50px #5d352b,0 15px 35px #140d16aa;
+  background:var(--ab-felt-texture,none) center / var(--ab-felt-texture-size,auto) var(--ab-felt-texture-repeat,no-repeat),radial-gradient(ellipse at 50% 35%,var(--ab-felt-light),var(--ab-felt) 70%,var(--ab-felt-dark));
+  box-shadow:0 0 0 7px var(--ab-ring),0 0 0 14px var(--ab-wood-light),inset 0 0 50px var(--ab-felt-dark),0 15px 35px #140d16aa;
 }
 .ab-zone-tavern,.ab-zone-player { position:absolute; inset:0; pointer-events:none; }
 .ab-tavern,.ab-tavern-row,.ab-tavern-row .ab-minion-wrap,.ab-board,.ab-slot,.ab-hand,.ab-hand .ab-minion-wrap { overflow:visible; }
@@ -139,9 +139,7 @@
 .ab-round-band > span:nth-child(2),.ab-round-band > small { display:none; }
 .ab-rope { position:absolute; top:382px; left:40px; right:122px; height:7px; z-index:8; pointer-events:none; background:#31251c55; border-radius:50%; }
 .ab-rope-remaining { position:relative; margin-left:auto; height:7px; background:repeating-linear-gradient(115deg,#6e3b19 0 3px,#dbac60 4px 7px); box-shadow:0 2px 3px #3a201b; }
-.ab-rope-ember { position:absolute; left:-8px; top:-8px; width:20px; height:20px; border-radius:50%; background:#fff8c1; box-shadow:0 0 8px 4px #ffcc39,0 0 23px 8px #ff641b; animation:ab-ember .18s infinite alternate; }
-.ab-rope-ember::after { content:'✦'; position:absolute; top:-21px; left:-4px; color:#ffd769; font-size:32px; }
-@keyframes ab-ember { to { transform:scale(.8,1.3) rotate(25deg); filter:brightness(1.3); } }
+.ab-rope-ember { position:absolute; left:-8px; top:-8px; width:20px; height:20px; border-radius:50%; background:#fff8c1; box-shadow:0 0 8px 4px #ffcc39,0 0 23px 8px #ff641b; }
 
 /* Board */
 .ab-zone-player .ab-board { position:absolute; top:404px; left:0; right:0; height:170px; min-height:170px; display:flex; align-items:center; justify-content:center; gap:var(--ab-line-gap,12px); pointer-events:auto; touch-action:none; --ab-card:150px; }
@@ -322,7 +320,12 @@
 .ab-drag-ghost.is-hand .ab-minion-stats { font-size:19px; bottom:6px; }
 .ab-drag-ghost.is-hand .ab-minion-stats b,.ab-drag-ghost.is-hand .ab-minion-stats i { width:28px; height:28px; }
 .ab-screen[data-ab-zone=sell] .ab-drag-ghost { opacity:.5; }
-.ab-aim-arrow { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:21; }
+/* Hidden arrows fade and shrink toward their tail instead of vanishing; the head is what the eye tracks, so it settles last. */
+.ab-aim-arrow { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:21; opacity:0; transition:opacity .22s ease-out; }
+.ab-aim-arrow.is-live { opacity:1; transition:opacity .08s ease-in; }
+.ab-aim-arrow:not(.is-live) .ab-aim-line { stroke-dasharray:4000; stroke-dashoffset:4000; transition:stroke-dashoffset .24s ease-in; }
+.ab-aim-arrow:not(.is-live) .ab-aim-head { transform:scale(.4); transform-box:fill-box; transform-origin:center; transition:transform .2s ease-in; }
+.ab-aim-arrow.is-live .ab-aim-line, .ab-aim-arrow.is-live .ab-aim-head { transition:none; }
 .ab-aim-arrow * { pointer-events:none!important; }
 .ab-aim-line { stroke:#ffd66b; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 2px #2a1408) drop-shadow(0 0 9px #ffb347); }
 .ab-aim-head { fill:#ffd66b; stroke:#2a1408; stroke-width:2; stroke-linejoin:round; filter:drop-shadow(0 0 9px #ffb347); }
@@ -340,7 +343,8 @@
 .ab-dossier-art { margin:4px 10px 0; height:148px; overflow:hidden; border:1px solid var(--ink); background:#d5cfbd; }
 .ab-dossier-art img { width:100%; height:100%; object-fit:cover; }
 .ab-dossier-name { margin:-12px 16px 0; padding:6px 10px; border:2px solid var(--ink); background:#efe6c9; font:22px/1.1 var(--font-hand); text-align:center; position:relative; z-index:1; }
-.ab-dossier-text { flex:1; margin:10px 12px 8px; padding:8px 10px; min-height:96px; max-height:140px; overflow:hidden; border:1px solid #1a1a1a44; background:#f4efe0; font:bold 18px/1.25 var(--font-hand); text-align:center; }
+.ab-dossier-text { flex:1; margin:10px 12px 8px; padding:8px 10px; min-height:96px; max-height:140px; overflow:hidden; border:1px solid #1a1a1a44; background:#f4efe0; font:18px/1.25 var(--font-hand); text-align:center; }
+.ab-dossier-text b, .ab-minion-text b { font-weight:bold; }
 .ab-dossier-text p { margin:0 0 8px; }
 .ab-dossier-text p:last-child { margin:0; }
 .ab-dossier-foot { display:flex; align-items:flex-end; justify-content:space-between; padding:0 6px 8px; font:13px var(--font-mono); }
@@ -385,27 +389,7 @@
 .ab-number .is-loss { color:#b32e23; }
 @keyframes ab-number-bump { 35% { transform:scale(1.55); filter:drop-shadow(0 0 7px currentColor); } }
 @keyframes ab-number-float { from { opacity:0; transform:translate(-50%,10px) scale(.7); } 20% { opacity:1; } to { opacity:0; transform:translate(-50%,-35px) scale(1.15); } }
-.ab-minion-wrap.is-buff-power .ab-minion,.ab-minion-wrap.is-buff-ability .ab-minion,.ab-minion-wrap.is-buff-card .ab-minion,
-.ab-combat-card.is-buff-power,.ab-combat-card.is-buff-ability,.ab-combat-card.is-buff-card { animation:ab-buff-lift .7s ease-out; }
-.ab-minion-wrap.is-buff-power::before,.ab-minion-wrap.is-buff-power::after,
-.ab-minion-wrap.is-buff-ability::before,.ab-minion-wrap.is-buff-ability::after,
-.ab-minion-wrap.is-buff-card::before,.ab-minion-wrap.is-buff-card::after,
-.ab-combat-card.is-buff-power::before,.ab-combat-card.is-buff-power::after,
-.ab-combat-card.is-buff-ability::before,.ab-combat-card.is-buff-ability::after,
-.ab-combat-card.is-buff-card::before,.ab-combat-card.is-buff-card::after { content:''; position:absolute; pointer-events:none; z-index:8; }
-.ab-minion-wrap.is-buff-power::before,.ab-combat-card.is-buff-power::before { inset:-28px -16px; background:conic-gradient(from 90deg,#f2ce6400 0 8%,#fff6c8 10%,#f2ce64 14%,#f2ce6400 18%); animation:ab-buff-power-ray 1.05s ease-out forwards; }
-.ab-minion-wrap.is-buff-power::after,.ab-combat-card.is-buff-power::after { inset:auto 18% -8px; height:42px; border-radius:50%; background:radial-gradient(circle,#fff6c8 0 18%,#f2ce6488 32%,transparent 70%); animation:ab-buff-power 1.05s ease-out forwards; }
-.ab-minion-wrap.is-buff-ability::before,.ab-combat-card.is-buff-ability::before { inset:-18px; border:4px dashed var(--ink); transform:rotate(-8deg); animation:ab-buff-ability 1.05s ease-out forwards; }
-.ab-minion-wrap.is-buff-ability::after,.ab-combat-card.is-buff-ability::after { inset:-8px; background:radial-gradient(circle at 30% 20%,#efe6d2cc 0 8%,transparent 18%),radial-gradient(circle at 80% 70%,#1a1a1aaa 0 10%,transparent 22%); animation:ab-buff-ability-ink 1.05s ease-out forwards; }
-.ab-minion-wrap.is-buff-card::before,.ab-combat-card.is-buff-card::before { inset:18% auto 18% -36px; width:48px; background:repeating-linear-gradient(90deg,transparent 0 8px,#2e8b57 8px 16px,transparent 16px 24px); clip-path:polygon(0 20%,70% 0,100% 50%,70% 100%,0 80%); animation:ab-buff-card 1.05s ease-out forwards; }
-.ab-minion-wrap.is-buff-card::after,.ab-combat-card.is-buff-card::after { inset:-12px; box-shadow:0 0 0 0 #2e8b5788; border-radius:8px; animation:ab-buff-card-ring 1.05s ease-out forwards; }
-@keyframes ab-buff-lift { 20% { transform:translateY(-10px) scale(1.06) rotate(-2deg); filter:drop-shadow(0 10px 0 #1a1a1a55); } 100% { transform:none; filter:none; } }
-@keyframes ab-buff-power { 0% { opacity:0; transform:scale(.3); } 35% { opacity:1; transform:scale(1.2); } to { opacity:0; transform:scale(1.7); } }
-@keyframes ab-buff-power-ray { 0% { opacity:0; transform:scale(.4) rotate(0deg); } 40% { opacity:1; transform:scale(1.05) rotate(18deg); } to { opacity:0; transform:scale(1.2) rotate(40deg); } }
-@keyframes ab-buff-ability { 0% { opacity:0; clip-path:inset(42%); } 35% { opacity:1; clip-path:inset(0); } to { opacity:0; transform:rotate(8deg) scale(1.12); } }
-@keyframes ab-buff-ability-ink { 0% { opacity:0; } 30% { opacity:1; } to { opacity:0; } }
-@keyframes ab-buff-card { 0% { opacity:0; transform:translateX(-16px); } 35% { opacity:1; transform:translateX(8px); } to { opacity:0; transform:translateX(28px); } }
-@keyframes ab-buff-card-ring { 0% { box-shadow:0 0 0 0 #2e8b57aa; } 40% { box-shadow:0 0 0 10px #2e8b5744; } to { box-shadow:0 0 0 18px #2e8b5700; } }
+/* Stat gain / loss: procedural, see cosmetics/buffFx.ts. */
 
 /* Combat: same bands as recruit, enemy hero where the bartender stood */
 .ab-screen.is-combat .ab-zone-tavern { visibility:hidden; pointer-events:none; animation:ab-tavern-retract .28s ease-in both; }
@@ -449,8 +433,7 @@
 .ab-combat-card.is-down .ab-combat-flip { transform:rotateY(180deg); }
 .ab-combat-face,.ab-combat-back { -webkit-backface-visibility:hidden; backface-visibility:hidden; }
 .ab-combat-face { position:relative; transform:rotateY(0deg); }
-.ab-combat-back { position:absolute; inset:0; transform:rotateY(180deg); border:4px solid #6e5740; border-radius:50%; background:#2c2924; box-shadow:0 3px 0 #261b18,0 7px 12px #24120f88; }
-.ab-combat-back::after { content:''; position:absolute; inset:14px; border:2px solid #c3a45e; border-radius:50%; background:#3a3530; }
+.ab-combat-back { position:absolute; inset:0; transform:rotateY(180deg); border-radius:50%; }
 .ab-combat-card.is-attacking { z-index:6; transition:none; filter:drop-shadow(0 0 8px var(--gold)); }
 .ab-combat-card[data-attack-style=thrust].is-attacking { filter:drop-shadow(0 -6px 10px #f2ce64); }
 .ab-combat-card[data-attack-style=hook].is-attacking { filter:drop-shadow(-8px 0 10px #e8a54a); }

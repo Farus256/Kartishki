@@ -110,7 +110,7 @@ input[type=range], input[type=checkbox] { accent-color: var(--blood); }
 .binder-board::after { content: ''; position: absolute; pointer-events: none; inset: 8px 9px; border: 2px dashed #6a594b; border-radius: 8px; }
 .shop-title { position: absolute; top: 108px; left: 55px; right: 55px; display: flex; justify-content: space-between; align-items: center; font-family: var(--font-hand); font-size: 27px; letter-spacing: 3px; }
 .shop-title small { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; opacity: .6; }
-.shop-tabs { position: absolute; top: 157px; left: 55px; display: flex; gap: 8px; }
+.shop-tabs { position: absolute; top: 118px; left: 55px; display: flex; gap: 8px; }
 .shop-tabs button { padding: 10px 18px; border: 3px solid #1a1a1a; font: 21px var(--font-hand); background: #d5c7af; box-shadow: 4px 4px #1a1a1a; }
 .shop-tabs button[aria-pressed=true] { background: #24231f; color: #efece4; transform: rotate(-1deg); }
 .shop-tabs button:disabled { opacity: .45; cursor: default; }
@@ -432,23 +432,6 @@ button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 /* In-game editor (Workshop): the editor app framed under the top bar; the menu entry stays locked until release */
 .editor-frame { position: absolute; inset: 200px 24px 24px; width: calc(100% - 48px); height: calc(100% - 224px); border: 4px solid #1a1a1a; background: #f4ecd6; box-shadow: 8px 10px 0 #1a1a1a80; }
 
-/* Cosmetics stall: tables, hero frames, premium heroes */
-.cosmetics { height: 100%; overflow: auto; padding: 4px 8px 24px; }
-.cosmetics section { margin-bottom: 26px; }
-.cosmetics h2 { margin: 0 0 10px; font: 30px var(--font-hand); color: #1a1a1a; }
-.cosmetics-note { margin: 0 0 12px; font: 13px/1.5 var(--font-mono); color: #5a4030; }
-.cosmetics-row { display: flex; flex-wrap: wrap; gap: 18px; }
-.cosmetic-card { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 196px; padding: 14px 12px 16px; border: 3px solid #1a1a1a; background: #e9dfc9; box-shadow: 6px 7px #24231f55; text-align: center; }
-.cosmetic-card.is-equipped { outline: 4px solid #c3a45e; outline-offset: 3px; }
-.cosmetic-card strong { font: 21px/1.1 var(--font-hand); }
-.cosmetic-card > span { font: 13px var(--font-mono); color: #5a4030; }
-.cosmetic-owned { font: 14px var(--font-mono); color: #1f6e3f; font-style: normal; }
-.board-swatch { position: relative; width: 150px; height: 92px; border-radius: 12px; border: 4px ridge #735244; background: radial-gradient(ellipse at 50% 35%, var(--ab-felt-light, #d6aa7c), var(--ab-felt, #ae7657) 70%, var(--ab-felt-dark, #795040)); box-shadow: 0 0 0 4px var(--ab-ring, #382932), 0 0 0 9px var(--ab-wood, #6a4235), 0 6px 14px #0006; }
-.board-swatch i { position: absolute; left: 12%; right: 12%; top: 28%; height: 3px; background: var(--ab-ridge, #b48b4e); opacity: .8; }
-.board-swatch b { position: absolute; left: 50%; bottom: 10px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; border: 3px ridge var(--ab-ridge, #b48b4e); background: var(--ab-amber, #ffe7a8); }
-.frame-preview { position: relative; width: 120px; height: 130px; padding: 4px; border: 5px ridge #b18c55; border-radius: 38% 38% 8% 8%; background: #493329; box-shadow: 0 0 0 4px #382932; }
-.frame-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 34% 34% 5% 5%; }
-
 /* Hero frames (bought skins): the same look on the dock, the combat portrait, the standings and the shop preview */
 [data-skin='skin-gold'] { border-color: #ffd76a !important; box-shadow: 0 0 0 4px #5a3f12, 0 0 0 7px #ffd76a, 0 0 26px #ffd76a99, 0 8px 20px #21141ca0 !important; }
 [data-skin='skin-ice'] { border-color: #dff4ff !important; box-shadow: 0 0 0 4px #1d2f3c, 0 0 0 7px #9ef0ff, 0 0 26px #9ef0ffaa, 0 8px 20px #21141ca0 !important; }
@@ -458,3 +441,19 @@ button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 /* Main menu: the card set that themes everything (menu faces, music, level names, the table). */
 .menu-set { display: flex; align-items: center; gap: 12px; margin-top: 16px; font: 11px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; }
 .menu-set select { flex: 1; min-width: 0; padding: 6px 10px; border: 2px solid var(--ink); background: var(--paper); font: 13px var(--font-mono); box-shadow: 3px 3px 0 var(--ink); }
+/* Five packs / four crates on one shelf: the shelf wraps instead of pushing the receipt off the page. */
+.catalog-shelf { flex-wrap: wrap; row-gap: 0; gap: 10px; padding-inline: 8px; }
+.catalog-shelf .product-choice { flex: 0 1 auto; }
+.catalog-shelf .foil-pack.compact { width: 150px; height: 222px; gap: 10px; }
+.catalog-shelf .foil-pack.compact strong { font-size: 20px; }
+.catalog-shelf.crates .wooden-crate { width: 196px; height: 152px; }
+
+/* Beer meter: a tilted glass that fills toward the dark league; foam rides the fill line. */
+.top-rank-row { display: flex; align-items: center; gap: 12px; }
+.beer-meter { display: block; width: 110px; }
+.beer-meter-glass { position: relative; display: block; height: 14px; border: 2px solid #302b22; border-radius: 2px 2px 5px 5px; background: linear-gradient(180deg, #f4ecd6, #e4d8bd); box-shadow: inset 0 2px 0 #ffffff88, 2px 3px 0 #302b2244; overflow: hidden; transform: skewX(-8deg); }
+.beer-meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #ffd66b, #e29a2c 60%, #b9731c); box-shadow: inset 0 -3px 0 #8a5312aa; }
+.beer-meter-fill::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 9px, #fff3b055 9px 11px); }
+.beer-meter-foam { position: absolute; top: -2px; bottom: -2px; width: 8px; margin-left: -4px; background: #fff8e6; border-radius: 4px; box-shadow: 0 0 0 1px #302b2255; }
+.beer-meter.is-dark .beer-meter-fill { background: linear-gradient(180deg, #7a4a1e, #3a2416 60%, #201309); }
+.beer-meter small { font: 10px var(--font-mono); letter-spacing: 1px; text-transform: uppercase; color: #6c6345; }

@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "build": "npm run build -w @kartishki/client && npm run build -w @kartishki/editor && npm run build -w @kartishki/server",
     "start": "npm run start -w @kartishki/server",
-    "test": "tsx --test apps/server/test/*.test.ts tests/pointerMath.test.ts tests/pointerDnd.test.ts tests/battlegroundsLayout.test.ts tests/leveling.test.ts tests/tavernReaction.test.ts tests/serverUrl.test.ts tests/serverReady.test.ts tests/shop.test.ts tests/abOptimistic.test.ts tests/workshop.test.ts tests/matchTribes.test.ts",
+    "test": "tsx --test apps/server/test/*.test.ts tests/pointerMath.test.ts tests/pointerDnd.test.ts tests/battlegroundsLayout.test.ts tests/leveling.test.ts tests/tavernReaction.test.ts tests/serverUrl.test.ts tests/serverReady.test.ts tests/shop.test.ts tests/abOptimistic.test.ts tests/workshop.test.ts tests/matchTribes.test.ts tests/cosmetics.test.ts",
     "validate:cards": "tsx scripts/deploy-cards.ts --validate",
     "deploy:cards": "tsx scripts/deploy-cards.ts",
     "test:browser": "playwright test",

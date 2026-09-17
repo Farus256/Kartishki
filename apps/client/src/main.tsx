@@ -4,6 +4,7 @@ import '@kartishki/i18n';
 import { createRoot } from 'react-dom/client';
 import { WakeScreen } from './screens/WakeScreen';
 import './style.css';
+import './cosmetics.css';
 
 audioManager.install();
 const root = createRoot(document.getElementById('root')!);

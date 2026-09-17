@@ -170,19 +170,23 @@ export function intentKey(intent: AbIntent): string {
 
 export function aimCurve(sx: number, sy: number, ex: number, ey: number): { d: string; head: string; angle: number } {
   const dx = ex - sx;
-  const lift = Math.min(80, Math.hypot(dx, ey - sy) * 0.25 + 24);
+  const dist = Math.hypot(dx, ey - sy);
+  const lift = Math.min(80, dist * 0.25 + 24);
   const c1x = sx + dx * 0.25;
   const c1y = sy - lift;
   const c2x = ex - dx * 0.15;
   const c2y = ey - lift * 0.4;
+  // Tangent at the cubic's tip (P3 − P2).
   const angle = Math.atan2(ey - c2y, ex - c2x);
-  const size = 14;
-  const hx = ex - size * Math.cos(angle);
-  const hy = ey - size * Math.sin(angle);
-  const left = `${hx - 7 * Math.sin(angle)},${hy + 7 * Math.cos(angle)}`;
-  const right = `${hx + 7 * Math.sin(angle)},${hy - 7 * Math.cos(angle)}`;
+  // Head caps the arc: shaft stops at the base, tip sits on the pointer.
+  const len = Math.min(22, Math.max(12, dist * 0.12));
+  const half = len * 0.55;
+  const bx = ex - len * Math.cos(angle);
+  const by = ey - len * Math.sin(angle);
+  const left = `${bx - half * Math.sin(angle)},${by + half * Math.cos(angle)}`;
+  const right = `${bx + half * Math.sin(angle)},${by - half * Math.cos(angle)}`;
   return {
-    d: `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`,
+    d: `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${bx} ${by}`,
     head: `${ex},${ey} ${left} ${right}`,
     angle,
   };

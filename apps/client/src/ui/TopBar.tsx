@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { levelFromXp } from '@kartishki/shared';
+import { BOTTLE_CAPACITY, levelFromXp } from '@kartishki/shared';
 import { useEconomy } from '../EconomyContext';
 import { playerSession } from '../playerSession';
 import { usePlayerLeveling } from './useCatalog';
+import { PlayerName } from '../cosmetics/PlayerName';
 
 function PlayerStamp() {
   return (
@@ -16,6 +17,16 @@ function PlayerStamp() {
       </svg>
     </span>
   );
+}
+
+/** A glass filling toward the dark league: the one rating threshold the game has (BOTTLE_CAPACITY). */
+function BeerMeter({ ml, dark }: { ml: number; dark: boolean }) {
+  const { t } = useTranslation();
+  const pct = dark ? 100 : Math.round(Math.min(1, ml / BOTTLE_CAPACITY) * 100);
+  const left = Math.max(0, BOTTLE_CAPACITY - ml);
+  return <span className={`beer-meter${dark ? ' is-dark' : ''}`} data-testid="beer-meter" title={dark ? t('leagueDark') : t('beerToDark', { n: left })}>
+    <span className="beer-meter-glass"><motion.i className="beer-meter-fill" initial={false} animate={{ width: `${pct}%` }} transition={{ type: 'spring', stiffness: 60, damping: 18 }} /><b className="beer-meter-foam" style={{ left: `${pct}%` }} /></span>
+  </span>;
 }
 
 /** Avatar, nickname, ELO badge and currency counter shown on the metagame screens. */
@@ -34,7 +45,7 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
     <header className="absolute top-0 right-0 left-0 z-[10000] flex h-[100px] items-center gap-6 bg-paper px-10">
       <PlayerStamp />
       <div className="level-bar" data-testid="player-level">
-        <p className="level-bar-name">{name} · {t('playerLevel', { n: progress.level })} · {title}</p>
+        <p className="level-bar-name"><PlayerName fx={profile?.settings?.nameFx} name={name} /> · {t('playerLevel', { n: progress.level })} · {title}</p>
         <span className="level-bar-row">
           <span className="level-bar-track"><i style={{ width: `${Math.round(progress.current / progress.need * 100)}%` }} /></span>
           <span className="level-bar-xp">{t('xpNow', { now: progress.current, need: progress.need })} · {progress.maxed ? t('xpMax') : t('xpLeft', { n: progress.left })}</span>
@@ -43,7 +54,7 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
       <div className="ml-auto flex items-center gap-5">
         <div className="top-rank">
           <span className={`beer-league-badge${dark ? ' is-dark' : ''}`} data-testid="beer-league">{t(dark ? 'leagueDark' : 'leagueLight')}</span>
-          <strong data-testid="beer-volume" className="top-rank-ml">{rank.remainingMl.toLocaleString('ru-RU')}<small>{t('ml')}</small></strong>
+          <span className="top-rank-row"><strong data-testid="beer-volume" className="top-rank-ml">{rank.remainingMl.toLocaleString('ru-RU')}<small>{t('ml')} {t('beerOf')}</small></strong><BeerMeter ml={rank.remainingMl} dark={dark} /></span>
         </div>
         <div className="relative">
           <div title={t(profile ? 'dollarsAccount' : 'dollarsDemo')} className="ink-edge flex min-w-[168px] shrink-0 items-center gap-3 border-[3px] border-ink bg-[#c5d3ac] px-4 py-2 text-[#245037] shadow-[4px_5px_0_#1a1a1a]">
@@ -64,7 +75,10 @@ export function TopBar({ right, onPlus }: { right?: ReactNode; onPlus?: () => vo
             ))}
           </div>
         </div>
-        <button aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))} className="border-[3px] border-ink px-3 py-2 text-[25px]">⚙</button>
+        <motion.button aria-label={t('settings')} onClick={() => window.dispatchEvent(new Event('open-settings'))} className="border-[3px] border-ink px-3 py-2 text-[25px]"
+          whileHover={{ rotate: 25, scale: 1.06 }} whileTap={{ rotate: 110, scale: .9, y: 2 }} transition={{ type: 'spring', stiffness: 380, damping: 18 }}>
+          <motion.span className="inline-block" aria-hidden>⚙</motion.span>
+        </motion.button>
         {right}
       </div>
       <span className="ink-rule" aria-hidden />

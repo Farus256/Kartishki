@@ -1,8 +1,8 @@
 ﻿import { test, expect, type Page } from '@playwright/test';
 const LADDER = [
-  { username: 'Алиса', elo: 1200, xp: 80, remainingMl: 980 },
-  { username: 'Борис', elo: 1100, xp: 40, remainingMl: 540 },
-  { username: 'Вера', elo: 1050, xp: 20, remainingMl: 210 },
+  { username: 'Алиса', elo: 980, xp: 80 },
+  { username: 'Борис', elo: 540, xp: 40 },
+  { username: 'Вера', elo: 210, xp: 20 },
 ];
 
 test('menu blocks actions and keeps retrying until backend recovers', async ({ page }) => {
@@ -34,13 +34,13 @@ async function stubMenuApis(page: Page) {
   await page.route('**/api/players/ladder', route => route.fulfill({ json: LADDER }));
 }
 async function patchBeer(page: Page, beerMl: number) {
-  await page.evaluate(`import('/src/playerSession.ts').then(m => m.playerSession.patchProfile({ elo: 1000, currency: 0, gained: 0, xp: 0, beerMl: ${beerMl} }))`);
+  await page.evaluate(`import('/src/playerSession.ts').then(m => m.playerSession.patchProfile({ elo: ${beerMl}, currency: 0, gained: 0, xp: 0 }))`);
 }
 test('bottle rank starts empty, only fills, promotes and persists without double rewards', async ({ page }) => {
   let beerMl = 0;
   await page.addInitScript(() => { localStorage.setItem('playerToken', 'menu-test'); localStorage.setItem('sound', 'off'); });
   await stubMenuApis(page);
-  await page.route('**/api/players/me', route => route.fulfill({ json: { profile: { id: 'beer-player', username: 'Барсик', elo: 1000, currency: 0, xp: 0, beerMl, dailyAvailable: true, lastDaily: null }, collection: [], decks: [] } }));
+  await page.route('**/api/players/me', route => route.fulfill({ json: { profile: { id: 'beer-player', username: 'Барсик', elo: beerMl, currency: 0, xp: 0, dailyAvailable: true, lastDaily: null }, collection: [], decks: [] } }));
   await page.goto('/');
   const bottle = page.getByTestId('beer-bottle');
   await expect(bottle).toHaveAttribute('data-ml', '0');

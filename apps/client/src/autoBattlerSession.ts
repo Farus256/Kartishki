@@ -27,7 +27,7 @@ const RECONNECT_KEY = 'kartishki-ab-reconnect';
 export type AbMinion = {
   id: string; cardId: string; baseId: string; kind: string;
   attack: number; health: number; maxHealth: number; tavernTier: number;
-  keywords: string[]; golden: boolean; owner: string;
+  keywords: string[]; /** Replicated with the minion; combat boards and test fixtures may omit it. */ tribes?: string[]; golden: boolean; owner: string;
 };
 
 export type AbPower = {
@@ -37,7 +37,7 @@ export type AbPower = {
 
 export type AbPlayer = {
   sessionId: string; displayName: string;
-  heroId: string; portraitKey: string; skin: string; health: number; maxHealth: number;
+  heroId: string; portraitKey: string; skin: string; slam?: string; aura?: string; nameFx?: string; cardBack?: string; /** Public hand size (the hand itself is owner-only). */ handCount?: number; /** Tribe of the board's last fight (server-side, see boardMainTribe). */ mainTribe?: string; health: number; maxHealth: number;
   power: AbPower; gold: number; tavernTier: number; upgradeCost: number;
   board: AbMinion[]; hand: AbMinion[];
   tavern: { offers: AbMinion[]; frozen: boolean; size: number };
@@ -72,14 +72,14 @@ function toMinion(m: AutoBattlerMinionState): AbMinion {
   return {
     id: m.id, cardId: m.cardId, baseId: m.baseId, kind: m.kind,
     attack: m.attack, health: m.health, maxHealth: m.maxHealth, tavernTier: m.tavernTier,
-    keywords: [...m.keywords], golden: m.golden, owner: m.owner,
+    keywords: [...m.keywords], tribes: [...(m.tribes ?? [])], golden: m.golden, owner: m.owner,
   };
 }
 
 function toPlayer(p: AutoBattlerPlayerState): AbPlayer {
   return {
     sessionId: p.sessionId, displayName: p.displayName || p.sessionId.slice(0, 8),
-    heroId: p.hero.heroId, portraitKey: p.hero.portraitKey, skin: p.hero.skin ?? '',
+    heroId: p.hero.heroId, portraitKey: p.hero.portraitKey, skin: p.hero.skin ?? '', slam: p.hero.slam ?? '', aura: p.hero.aura ?? '', cardBack: p.cardBack ?? '', handCount: p.handCount ?? 0, nameFx: p.nameFx ?? '', mainTribe: p.mainTribe ?? '',
     health: p.hero.health, maxHealth: p.hero.maxHealth,
     power: {
       id: p.hero.power.id, isPassive: p.hero.power.isPassive, goldCost: p.hero.power.goldCost,

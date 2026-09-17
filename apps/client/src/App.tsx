@@ -13,6 +13,7 @@ import { MatchScreen } from './screens/MatchScreen';
 import { BattlegroundsScreen } from './screens/BattlegroundsScreen';
 import { EditorScreen } from './screens/EditorScreen';
 import { SettingsModal } from './screens/SettingsModal';
+import { CustomizationModal } from './screens/CustomizationModal';
 import { audioManager } from './AudioManager';
 import { builtInBackgroundTracks } from './gameAudioAssets';
 import { menuTrackUrl, useMenuTracks } from './ui/useCatalog';
@@ -29,6 +30,7 @@ export function App() {
   const [guest, setGuest] = useState(() => !!sessionStorage.getItem('kartishki-ab-reconnect') || session.canResume());
   const [queue, setQueue] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [customize, setCustomize] = useState(false);
   const signedIn = !!player.library;
   const menuTracks = useMenuTracks();
 
@@ -68,7 +70,7 @@ export function App() {
             <MainMenuScreen onPlay={() => setQueue(true)} onBattlegrounds={() => setScreen('battlegrounds')}
               onDeck={() => setScreen('deck')} onShop={() => setScreen('shop')}
               onEditor={() => setScreen('editor')}
-              onSettings={() => setSettings(true)} onExit={exit} />
+              onCustomize={() => setCustomize(true)} onExit={exit} />
           )}
           {screen === 'deck' && <DeckBuilderScreen onBack={toMenu} onShop={() => setScreen('shop')} />}
           {screen === 'shop' && <ShopScreen onBack={toMenu} />}
@@ -90,6 +92,7 @@ export function App() {
       <AnimatePresence>
         {queue && <MatchmakingModal onFound={() => { setQueue(false); setScreen('match'); }} onCancel={() => setQueue(false)} />}
         {settings && <SettingsModal onClose={() => setSettings(false)} />}
+        {customize && <CustomizationModal onClose={() => setCustomize(false)} onShop={() => setScreen('shop')} />}
       </AnimatePresence>
     </Stage>
   );

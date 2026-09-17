@@ -1,12 +1,12 @@
 import i18n from '@kartishki/i18n';
 import { audioManager } from './AudioManager';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { applyShopCredit, applyShopDebit, applyShopResult, resolveShopAction, shopBonusXp, shopCard, shopCash, shopMixed, type CardDefinition, type ShopAction, type ShopProduct, type ShopResult, type ShopReward, type ShopWallet } from '@kartishki/shared';
+import { COSMETICS, applyShopCredit, applyShopDebit, applyShopResult, resolveShopAction, shopBonusXp, shopCard, shopCash, shopMixed, type CardDefinition, type ShopAction, type ShopProduct, type ShopResult, type ShopReward, type ShopWallet } from '@kartishki/shared';
 import { playerSession } from './playerSession';
 import { useCatalog, useShopConfig } from './ui/useCatalog';
 import { demoCards } from './economy';
 
-export type ChestTile = { kind: 'card'; card: CardDefinition } | { kind: 'currency' | 'xp' | 'cards'; amount: number };
+export type ChestTile = { kind: 'card'; card: CardDefinition } | { kind: 'cosmetic'; itemId: string } | { kind: 'currency' | 'xp' | 'cards'; amount: number };
 export type Opening = { kind: 'packs'; result: ShopResult; name: string; cards: { card: CardDefinition; duplicate?: number }[]; extras: ShopReward[] }
   | { kind: 'chests'; result: ShopResult; reel: ChestTile[]; landing: number }
   | { kind: 'slots'; result: ShopResult; reels: number[]; label: string; credited: boolean }
@@ -51,6 +51,7 @@ function slotLabel(result: ShopResult) {
 }
 function prizeTile(prize: ShopProduct['prizes'][number]): ChestTile {
   if (prize.kind === 'currency' || prize.kind === 'xp') return { kind: prize.kind, amount: prize.amount };
+  if (prize.kind === 'cosmetic') return { kind: 'cosmetic', itemId: COSMETICS[Math.floor(Math.random() * COSMETICS.length)]!.id };
   return { kind: 'cards', amount: prize.amount };
 }
 function chestReel(result: ShopResult, catalog: CardDefinition[], product: ShopProduct) {
@@ -64,7 +65,9 @@ function chestReel(result: ShopResult, catalog: CardDefinition[], product: ShopP
     return { reel, landing };
   }
   const reel: ChestTile[] = Array.from({ length: 48 }, () => prizeTile(product.prizes[Math.min(product.prizes.length - 1, Math.floor(Math.random() * product.prizes.length))]!));
-  reel[landing] = prizeTile(prize);
+  const skin = result.rewards.find(r => r.kind === 'cosmetic' || r.kind === 'cosmeticDuplicate');
+  // A guest's skin roll pays cash instead, so the reel lands on the dollars they actually got.
+  reel[landing] = skin ? { kind: 'cosmetic', itemId: skin.itemId } : prize.kind === 'cosmetic' ? { kind: 'currency', amount: shopCash(result.rewards) } : prizeTile(prize);
   return { reel, landing };
 }
 function useEconomyState() {

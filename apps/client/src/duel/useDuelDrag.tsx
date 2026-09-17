@@ -163,7 +163,7 @@ export function useDuelDrag({ screenRef, legalTargets, onPlay, onAttack, onPower
 
   const overlay = <>
     <div ref={ghostLayer} className="ab-dnd-layer duel-ghost-layer" aria-hidden />
-    {view.armed && view.aim?.kind !== 'hand' && <svg className="ab-aim-arrow" viewBox={`0 0 ${DUEL.TABLE_W} ${DUEL.TABLE_H}`} aria-hidden><path ref={pathRef} className="ab-aim-line" d="" /><polygon ref={headRef} className="ab-aim-head" points="" /></svg>}
+    <svg className={`ab-aim-arrow ${view.armed && view.aim?.kind !== 'hand' ? 'is-live' : ''}`} viewBox={`0 0 ${DUEL.TABLE_W} ${DUEL.TABLE_H}`} aria-hidden><path ref={pathRef} className="ab-aim-line" fill="none" d="" /><polygon ref={headRef} className="ab-aim-head" points="" /></svg>
   </>;
   const didDrag = useCallback(() => suppressed.current, []);
   const justArmed = useCallback(() => performance.now() - armedAt.current < 300, []);

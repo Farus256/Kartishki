@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { playBuffFx } from '../cosmetics/buffFx';
 import { useTranslation } from 'react-i18next';
 import { abCopyName, printedStats, type AutoBattlerCatalog } from '@kartishki/shared';
 import type { AbMinion, AbPlayer } from '../autoBattlerSession';
 import type { AbDragKind } from './pointerDnd';
-import { isSpell, KEYWORD_MARK, minionDossierLines, minionName, minionTribeLabel } from './minionView';
+import { emphasizeKeywords, isSpell, KEYWORD_MARK, keywordTitles, minionDossierLines, minionName, minionTribeLabel } from './minionView';
 import { useCardArt } from '../ui/cardArt';
 import { PaperTooltip } from '../ui/PaperTooltip';
 import { illustrationUrl } from './illustrations';
@@ -63,6 +64,10 @@ export function HeartIcon() {
   </svg>;
 }
 
+function CardText({ line, titles }: { line: string; titles: string[] }) {
+  return <>{emphasizeKeywords(line, titles).map((run, i) => run.bold ? <b key={i}>{run.text}</b> : run.text)}</>;
+}
+
 function MinionDossier({ minion, catalog, inline = false }: { minion: AbMinion; catalog: AutoBattlerCatalog; inline?: boolean }) {
   const { i18n, t } = useTranslation();
   const spell = isSpell(minion);
@@ -72,6 +77,7 @@ function MinionDossier({ minion, catalog, inline = false }: { minion: AbMinion; 
   const name = minionName(minion.cardId, catalog, i18n.language);
   const tribes = minionTribeLabel(def, catalog, i18n.language, t);
   const lines = minionDossierLines(minion, catalog, i18n.language, t);
+  const titles = keywordTitles(catalog, i18n.language, t);
   const tone = (now: number, base?: number) => base === undefined || now === base ? '' : now > base ? ' is-buffed' : ' is-nerfed';
   return (
     <article className={`ab-dossier ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''}`} data-testid={inline ? undefined : 'ab-dossier'}>
@@ -79,7 +85,7 @@ function MinionDossier({ minion, catalog, inline = false }: { minion: AbMinion; 
       <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId)} alt="" />}</div>
       <h3 className="ab-dossier-name">{name}</h3>
       <div className="ab-dossier-text">
-        {lines.map(line => <p key={line}>{line}</p>)}
+        {lines.map(line => <p key={line}><CardText line={line} titles={titles} /></p>)}
       </div>
       <footer className="ab-dossier-foot">
         {!spell && <b className={tone(minion.attack, printed?.attack)}><SwordIcon />{minion.attack}</b>}
@@ -114,6 +120,9 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
   const { i18n, t } = useTranslation();
   const dnd = useAbDnd();
   const flash = useContext(BuffFlashContext).get(minion.id);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  // Stat gain on the tavern/board tile: the procedural pulse (cosmetics/buffFx.ts) runs on the wrapper.
+  useEffect(() => { const wrap = buttonRef.current?.parentElement; if (flash && wrap && !ghost) playBuffFx(wrap, flash); }, [flash, ghost]);
   const spell = isSpell(minion);
   const def = catalog.minions.find(m => m.id === minion.cardId);
   const printed = def ? printedStats(def, minion.golden) : undefined;
@@ -129,8 +138,8 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
   // Hand cards are the hover dossier itself; the discover window keeps the compact full card (dossier off).
   const asDossier = fullCard && dossier;
   return (
-    <PaperTooltip className={`ab-minion-wrap ${!ghost && arrive ? 'is-arrive' : ''} ${flash ? `is-buff-${flash}` : ''}`} data-buff={flash} style={{ animationDelay: `${arriveDelay}ms`, '--fan-r': fan * 2.2, '--fan-y': fan * fan * 2.6, '--idle-phase': `${(-idlePhase(minion.id) * 2.8).toFixed(2)}s` } as CSSProperties} placement="right" boxClassName="paper-tooltip is-dossier" delay={220} content={ghost || !dossier || asDossier || dnd?.armed ? null : <MinionDossier minion={minion} catalog={catalog} />}>
-      <button type="button" aria-label={`${name}${actionLabel ? ' · ' + actionLabel : ''}`}
+    <PaperTooltip className={`ab-minion-wrap ${!ghost && arrive ? 'is-arrive' : ''}`} data-buff={flash} style={{ animationDelay: `${arriveDelay}ms`, '--fan-r': fan * 2.2, '--fan-y': fan * fan * 2.6, '--idle-phase': `${(-idlePhase(minion.id) * 2.8).toFixed(2)}s` } as CSSProperties} placement="right" boxClassName="paper-tooltip is-dossier" delay={220} content={ghost || !dossier || asDossier || dnd?.armed ? null : <MinionDossier minion={minion} catalog={catalog} />}>
+      <button ref={buttonRef} type="button" aria-label={`${name}${actionLabel ? ' · ' + actionLabel : ''}`}
         className={`ab-minion ${fullCard ? 'is-full-card' : 'is-token'} ${asDossier ? 'is-dossier' : ''} ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''} ${selected ? 'is-selected' : ''} ${canDrag ? 'is-draggable' : ''} ${lifted ? 'is-lifted' : ''} ${shopLift ? 'is-shop-lift' : ''} ${parked ? 'is-parked' : ''} ${isTarget ? 'is-target' : ''} ${dim ? 'is-dim' : ''}`}
         aria-disabled={!!disabled}
         data-ab-id={minion.id}
@@ -156,7 +165,7 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
         {minion.keywords.includes('windfury') && <span className="ab-wind" aria-hidden="true"><i /><i /><i /></span>}
         <span className="ab-minion-name">{name}</span>
         {fullCard && !spell && <span className="ab-minion-tribe">{minionTribeLabel(def, catalog, i18n.language, t)}</span>}
-        {fullCard && !dossier && <span className="ab-minion-text">{minionDossierLines(minion, catalog, i18n.language, t)[0]}</span>}
+        {fullCard && !dossier && <span className="ab-minion-text"><CardText line={minionDossierLines(minion, catalog, i18n.language, t)[0] ?? ''} titles={keywordTitles(catalog, i18n.language, t)} /></span>}
         {!spell && (
           <span className="ab-minion-stats">
             <b className={tone(minion.attack, printed?.attack)} aria-label={`${t('attack')}: ${minion.attack}`}>

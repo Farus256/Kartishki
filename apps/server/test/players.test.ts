@@ -19,7 +19,7 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     const again = await store.login('Алиса', 'password1');
     assert.equal(again.library.profile.elo, 0);
     assert.equal(again.library.profile.xp, 0);
-    assert.equal(again.library.profile.beerMl, 0);
+    assert.equal(again.library.profile.elo, 0);
     assert.equal(again.library.profile.currency, 0);
     assert.equal(again.library.profile.dailyAvailable, true);
     assert.equal(again.library.profile.lastDaily, null);
@@ -56,13 +56,12 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
     assert.equal(rewards[playerId]!.gained, WIN_REWARD);
     assert.equal(rewards[playerId]!.xp, PACK_XP + CASE_XP + MATCH_WIN_XP);
     assert.equal(rewards[bob.library.profile.id]!.xp, MATCH_LOSS_XP);
-    assert.equal(rewards[playerId]!.elo, rewards[playerId]!.beerMl);
     assert.equal(rewards[bob.library.profile.id]!.elo, 0);
-    assert.ok(rewards[playerId]!.beerMl >= BEER_WIN_MIN && rewards[playerId]!.beerMl <= BEER_WIN_MAX);
-    assert.equal(rewards[bob.library.profile.id]!.beerMl, 0);
+    assert.ok(rewards[playerId]!.elo >= BEER_WIN_MIN && rewards[playerId]!.elo <= BEER_WIN_MAX);
+    assert.equal(rewards[bob.library.profile.id]!.elo, 0);
     const vsGuest = await store.settleVs(playerId, 1);
     assert.ok(vsGuest.elo > rewards[playerId]!.elo);
-    assert.ok(vsGuest.beerMl >= rewards[playerId]!.beerMl + BEER_WIN_MIN && vsGuest.beerMl <= rewards[playerId]!.beerMl + BEER_WIN_MAX);
+    assert.ok(vsGuest.elo >= rewards[playerId]!.elo + BEER_WIN_MIN && vsGuest.elo <= rewards[playerId]!.elo + BEER_WIN_MAX);
     assert.equal(vsGuest.xp, PACK_XP + CASE_XP + MATCH_WIN_XP + MATCH_WIN_XP);
     const stored = await store.saveSettings(playerId, { language: 'en', sound: false, sfxVolume: 0.25, musicVolume: 0.1 });
     assert.equal(stored.profile.settings.language, 'en');
@@ -95,21 +94,53 @@ test('players persist decks, daily ink, packs, cases and ranked results', { time
       { playerId, place: 1 },
       { playerId: bob.library.profile.id, place: 2 },
     ], 40, 2);
-    assert.equal(bg[playerId]!.elo, bg[playerId]!.beerMl);
     assert.equal(bg[playerId]!.gained, 400);
     assert.equal(bg[playerId]!.currency, beforeBg.profile.currency + battlegroundsCurrencyReward(1));
     assert.equal(bg[bob.library.profile.id]!.gained, battlegroundsCurrencyReward(2, 2));
     assert.equal(bg[playerId]!.xp, beforeBg.profile.xp + MATCH_WIN_XP);
-    assert.ok(bg[playerId]!.beerMl >= beforeBg.profile.beerMl + BEER_WIN_MIN && bg[playerId]!.beerMl <= beforeBg.profile.beerMl + BEER_WIN_MAX);
+    assert.ok(bg[playerId]!.elo >= beforeBg.profile.elo + BEER_WIN_MIN && bg[playerId]!.elo <= beforeBg.profile.elo + BEER_WIN_MAX);
     assert.equal(bg[bob.library.profile.id]!.xp, MATCH_LOSS_XP + MATCH_LOSS_XP);
     const ladder = await store.ladder();
     assert.equal(ladder[0]!.username, 'Алиса');
     assert.equal(ladder[0]!.xp, PACK_XP + CASE_XP + MATCH_WIN_XP + MATCH_WIN_XP + PACK_XP + PACK_XP + CASINO_XP + MATCH_WIN_XP);
-    assert.equal(ladder[0]!.remainingMl, bg[playerId]!.beerMl);
+    assert.equal(ladder[0]!.elo, bg[playerId]!.elo);
     await store.logout(again.token);
     await assert.rejects(() => store.authenticate(again.token), error => error instanceof PlayerError && error.code === 'loginRequired');
   } finally {
     await db.close();
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('cosmetics: bought and looted skins persist on the account and gate what can be worn', { timeout: 30000 }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kartishki-cosmetics-'));
+  const db = await openDatabase(undefined, dir);
+  try {
+    await migratePlayers(db);
+    const store = new PlayerStore(db);
+    const { library } = await store.register('Вера', 'password1');
+    const id = library.profile.id;
+    await store.changeCurrency(id, 2500);
+    await assert.rejects(() => store.saveSettings(id, { heroSlam: 'slam-fire' }), error => error instanceof PlayerError && error.code === 'notOwned');
+    await assert.rejects(() => store.buyCosmetic(id, 'hero-ab-hero-tycoon'), error => error instanceof PlayerError && error.code === 'invalidProduct');
+    const bought = await store.buyCosmetic(id, 'slam-fire');
+    assert.deepEqual(bought.unlocks, ['slam-fire']);
+    await assert.rejects(() => store.buyCosmetic(id, 'slam-fire'), error => error instanceof PlayerError && error.code === 'alreadyOwned');
+    await store.buyCosmetic(id, 'back-fire');
+    const worn = await store.saveSettings(id, { heroSlam: 'slam-fire', nameFx: '', cardBack: 'back-fire' });
+    assert.equal((await store.cosmetics(id)).cardBack, 'back-fire');
+    await assert.rejects(() => store.saveSettings(id, { cardBack: 'back-gold' }), error => error instanceof PlayerError && error.code === 'notOwned');
+    assert.equal(worn.profile.settings.heroSlam, 'slam-fire');
+    assert.equal((await store.cosmetics(id)).heroSlam, 'slam-fire');
+    // Wardrobe chest rolls roll until a skin lands; every fresh one is written to player_unlocks.
+    let unlocks = new Set(worn.unlocks);
+    for (let i = 0; i < 40 && unlocks.size < 3; i++) {
+      await store.changeCurrency(id, 350);
+      const { result, library: next } = await store.shop(id, starterCards, resolveShop(defaultShop), { type: 'buy', productId: 'atelier' });
+      for (const reward of result.rewards) if (reward.kind === 'cosmetic') assert.ok(next.unlocks?.includes(reward.itemId), 'looted skin saved');
+      unlocks = new Set(next.unlocks);
+    }
+    assert.ok(unlocks.size >= 2, 'the atelier hands out skins');
+    assert.deepEqual((await store.login('Вера', 'password1')).library.unlocks, [...unlocks].sort());
+  } finally { await db.close(); rmSync(dir, { recursive: true, force: true }); }
 });

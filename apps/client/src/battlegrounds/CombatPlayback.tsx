@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { PlayerName } from '../cosmetics/PlayerName';
+import { Aura } from '../cosmetics/Aura';
+import { CardBackFace } from '../cosmetics/CardBackFace';
+import { HIT_EFFECTS, playHitEffect } from '../cosmetics/hitEffects';
+import { STRIKES } from '../cosmetics/strikeMotion';
+import { playBuffFx } from '../cosmetics/buffFx';
+import { playSlamSound } from '../cosmetics/vfxAudio';
 import { useTranslation } from 'react-i18next';
 import { AUTO_BATTLER, abCopyName, type AutoBattlerCatalog, type CombatEvent, type CombatEventsMessage } from '@kartishki/shared';
 import type { AbCombatBoards, AbMinion, AbPlayer } from '../autoBattlerSession';
@@ -20,6 +27,8 @@ const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?320
 export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pairing=[],initialHeroes,waiting=false,recruitAfter=true,phaseReady=true,onDone,onHeroHealth}:Props){
  const done=useRef(onDone);done.current=onDone;
  const heroHealth=useRef(onHeroHealth);heroHealth.current=onHeroHealth;
+ /** The hit effect in flight, cancelled with the rest of the playback. */
+ const slamRef=useRef<ReturnType<typeof playHitEffect>>(undefined);
  const transition=useRef({phaseReady,recruitAfter});transition.current={phaseReady,recruitAfter};
  const [tally,setTally]=useState<{id:string;amount:number}|null>(null);
  const [settled,setSettled]=useState(false);
@@ -28,6 +37,8 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
  const [heroVitals,setHeroVitals]=useState(() => Object.fromEntries((initialHeroes ?? players).map(p=>[p.sessionId,{health:p.health,damage:0}])));
  const [failed,setFailed]=useState(false);
  const [pieces,setPieces]=useState<Piece[]>([]);const [facedown,setFacedown]=useState<Set<string>>(new Set());
+ /** Enemy tokens mid-reveal: the flip runs as a staggered CSS animation, then the class comes off so hit animations own the element again. */
+ const [revealing,setRevealing]=useState(false);
  const [banner,setBanner]=useState('VS');const [result,setResult]=useState<'win'|'loss'|'draw'|null>(null);const [recruit,setRecruit]=useState(false);const [leaving,setLeaving]=useState(false);
  const {t,i18n}=useTranslation();
  const mineA=combat.playerA===meId;const topOwner=mineA?combat.playerB:combat.playerA;
@@ -289,10 +300,13 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
     await paint();
     if(cancelled)return;
     restack(start);
-    await pause(reduced?8:520);
+    // Card backs are a bought look: hold them long enough to read, then turn them over one after another.
+    await pause(reduced?8:800);
     if(cancelled)return;
-    setFacedown(new Set());
-    await pause(reduced?8:860);
+    setFacedown(new Set());setRevealing(true);
+    await pause(reduced?8:900+Math.min(6,enemy.length-1)*70);
+    setRevealing(false);
+    await pause(reduced?8:520);
     setBanner('');
     let attacker:string|null=null;
     let struck=false;
@@ -377,11 +391,9 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
      }else if(event.kind==='STATS'){
       if(event.targetId){
        const tile=tiles.current.get(event.targetId);
-       tile?.classList.remove('is-buff-card','is-buff-ability','is-buff-power');
        const previous=list.find(p=>p.minion.id===event.targetId)?.minion;
        const decreased=previous&&((event.attack??previous.attack)<previous.attack||(event.remainingHealth??previous.health)<previous.health);
-       tile?.classList.remove('is-debuff');
-       if(tile){void tile.offsetWidth;tile.classList.add(decreased?'is-debuff':event.sourceId?'is-buff-card':'is-buff-ability');}
+       if(tile&&!reduced&&rate.current<100)playBuffFx(tile,decreased?'debuff':event.sourceId?'card':'ability',{rate:rate.current});
        await commit(list.map(p=>p.minion.id===event.targetId?{...p,minion:{...p.minion,attack:event.attack??p.minion.attack,health:event.remainingHealth??p.minion.health,keywords:event.keywords??p.minion.keywords}}:p));
       }
       await pause(ms);
@@ -474,8 +486,15 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
          // Three tempers keyed on the event: a straight slam, a wide hook, a spinning charge. Each winds up for the
          // first third and snaps across in the last stretch — longer than before, sharper on the landing.
          const variant=event.id%3,sign=combat.turn%2?1:-1;
+         const slam=players.find(p=>p.sessionId===winnerId)?.slam??'';
+         if(slam)striker.dataset.slamLive=slam;
          striker.style.zIndex='20';
-         await pause(760*budget,u=>{
+         const strike=HIT_EFFECTS[slam]?STRIKES[HIT_EFFECTS[slam]!.motion]:undefined;
+         // Portraits face each other vertically here, so a hop's height becomes a sideways arc — damp it.
+         const sideK=HIT_EFFECTS[slam]&&['crush','bounce'].includes(HIT_EFFECTS[slam]!.motion)?.45:1;
+         // A bought hit brings its own approach; the free hit keeps the three tempers below.
+         if(strike)await pause(strike.approachMs*budget,u=>{const q=strike.pose(u,sign);striker.style.translate=`${q.side*sideK}px ${dy*q.ax}px`;striker.style.rotate=`${q.r}deg`;striker.style.scale=String(q.s);striker.style.opacity=q.alpha==null?'':String(q.alpha);});
+         else await pause(760*budget,u=>{
           const wind=Math.min(1,u/.34),dash=Math.max(0,(u-.34)/.66);
           const k=u<.34?-.12*(1-(1-wind)**2):-.12+1.12*dash**4;
           const x=variant===1?(k<0?-sign*46*wind:-sign*46*(1-dash)+Math.sin(Math.PI*dash)*sign*130):0;
@@ -489,17 +508,22 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
        setHeroVitals(prev=>({...prev,[id]:{health:event.remainingHealth??prev[id]?.health??0,damage:event.amount??0}}));
        if(event.remainingHealth!==undefined)heroHealth.current?.(id,event.remainingHealth);
        const heroEl=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me':'.ab-combat-foe');
-       if(heroEl&&!reduced&&rate.current<100){
+       // A bought hit effect owns the victim's punch and recoil; the plain shake is the free version.
+       const slamId=(winnerId&&amount>0?players.find(p=>p.sessionId===winnerId)?.slam:'')??'';
+       const slamFx=slamId&&victim&&!reduced&&rate.current<100?playHitEffect(victim,slamId,{rate:rate.current,dir:{x:(combat.turn%2?1:-1)*.35,y:winnerId===meId?-1:1}}):undefined;
+       slamRef.current=slamFx;if(slamFx)playSlamSound(slamId);
+       if(heroEl&&!reduced&&rate.current<100&&!slamFx){
         const k=Math.min(1,amount/12);
         animate(victim??heroEl,[{translate:'0 0',rotate:'0deg'},{translate:`${-6-10*k}px ${8+10*k}px`,rotate:`${-3-3*k}deg`,offset:.2},{translate:`${6+10*k}px ${-4*k}px`,rotate:`${3+2*k}deg`,offset:.45},{translate:`${-3-4*k}px ${3*k}px`,rotate:'-1deg',offset:.7},{translate:'0 0',rotate:'0deg'}],320+200*k);
        }
-       audioManager.play('ab_hit_hero');if(heroEl)burst(heroEl,amount,undefined,undefined,true);await pause(reduced?8:combatImpact(amount).duration*budget);
+       audioManager.play('ab_hit_hero');if(heroEl)burst(heroEl,amount,undefined,undefined,true);
+       await pause(reduced?8:combatImpact(amount).duration*budget);
        if(striker){
         const [x=0,y=0]=striker.style.translate.split(' ').map(v=>parseFloat(v)||0);
         let r=(parseFloat(striker.style.rotate)||0)%360;if(r>180)r-=360;
         const s=(parseFloat(striker.style.scale)||1)-1;
         await pause(reduced?8:420*budget,u=>{const e=1-(1-u)**3;striker.style.translate=`${x*(1-e)}px ${y*(1-e)}px`;striker.style.rotate=`${r*(1-e)}deg`;striker.style.scale=String(1+s*(1-e));});
-        striker.style.translate='';striker.style.rotate='';striker.style.scale='';striker.style.zIndex='';
+        striker.style.translate='';striker.style.rotate='';striker.style.scale='';striker.style.zIndex='';striker.style.opacity='';delete striker.dataset.slamLive;
        }
        // Beat after the slam settles; lethal shatter only then, and results wait for the shards to finish.
        await pause(reduced?8:1200*budget);
@@ -557,7 +581,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
    document.removeEventListener('visibilitychange',onVisible);
    window.removeEventListener('ab-combat-rate',onRate);
    effects.forEach(animation=>animation.cancel());
-   field.current?.querySelectorAll('.ab-combat-pop,.ab-tier-fly,.ab-combat-shard,.ab-combat-dust,.ab-combat-dust-puff,.ab-combat-drop,.ab-combat-chip,.ab-combat-spark,.ab-combat-splat,.ab-combat-mist,.ab-combat-shine,.ab-combat-veil,.ab-combat-slash,.ab-combat-hero-shard,.ab-combat-skull,.ab-combat-bone').forEach(el=>el.remove());
+   field.current?.querySelectorAll('.ab-combat-pop,.ab-tier-fly,.ab-combat-shard,.ab-combat-dust,.ab-combat-dust-puff,.ab-combat-drop,.ab-combat-chip,.ab-combat-spark,.ab-combat-splat,.ab-combat-mist,.ab-combat-shine,.ab-combat-veil,.ab-combat-slash,.ab-combat-hero-shard,.ab-combat-skull,.ab-combat-bone,.hfx').forEach(el=>el.remove());slamRef.current?.cancel();
    field.current?.querySelectorAll<HTMLElement>('.ab-combat-hero-image,.ab-combat-face').forEach(el=>{el.style.visibility='';});
    field.current?.classList.remove('is-duel');
    tiles.current.forEach(el=>{el.classList.remove('is-rip','is-hit','is-hp-drop','is-attacking','is-dashing','is-defending','is-poisoned','is-thinking','is-targeted','is-buff-card','is-buff-ability','is-buff-power','is-shouting','is-baiting','is-startled','is-debuff','is-shield-breaking');el.style.transform='';el.style.opacity='';});
@@ -570,11 +594,11 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
   {failed?<div className="ab-combat-fallback"><h2>{t('abCombat')}</h2><p>{combat.summary.tie?t('draw'):combat.summary.winnerId===meId?t('win'):t('loss')}</p><button onClick={onDone}>{t('done')}</button></div>:
   <div ref={field} className="ab-combat">
    {[{player:foe,cls:'ab-combat-foe'},{player:mine,cls:'ab-combat-me'}].map(({player,cls})=>player&&<div key={player.sessionId} className={cls+(heroVitals[player.sessionId]?.health<=0?' is-lethal':'')} data-testid={cls}>
-    <div className="ab-hero-face" data-skin={player.skin}>
-    <AbHeroFace className="ab-combat-hero-image" id={player.heroId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} />
+    <div className="ab-hero-face" data-skin={player.skin} data-aura={player.aura||undefined}>
+    <AbHeroFace className="ab-combat-hero-image" id={player.heroId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} /><Aura id={player.aura} skin={player.skin} />
     <span className="ab-combat-hero-vitals ab-hero-health" aria-label={`${t('health')}: ${heroVitals[player.sessionId]?.health}`}><HeartIcon /><span>{heroVitals[player.sessionId]?.health}</span></span>
     </div>
-    <div className="ab-hero-vitals"><strong>{combat.ghost&&player===foe?t('abGhost')+' ':''}{player.displayName}</strong></div>
+    <div className="ab-hero-vitals"><strong>{combat.ghost&&player===foe?t('abGhost')+' ':''}<PlayerName fx={player.nameFx} name={player.displayName} /></strong></div>
     <HeroPowerTooltip power={player.power} catalog={catalog} combat className="ab-hero-power-anchor ab-combat-power-anchor">
     <div className="ab-power" tabIndex={0} aria-label={t('abPower')}>
       <b>{abCopyName(catalog.copy,'powers',player.power.id,i18n.language,t(`abPower_${player.power.id}`,{defaultValue:t('abPower')}))}</b>
@@ -587,12 +611,13 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
    {banner&&<p className="ab-combat-banner">{banner}</p>}
    {pieces.map(piece=>{
     const p=homeOf(pieces,piece.minion.id);
-    return <div key={piece.minion.id} className={`ab-combat-card ${facedown.has(piece.minion.id)?'is-down':''}`}
+    const enemyIndex=piece.side===0?pieces.filter(q=>q.side===0).findIndex(q=>q.minion.id===piece.minion.id):-1;
+    return <div key={piece.minion.id} className={`ab-combat-card ${facedown.has(piece.minion.id)?'is-down':''} ${revealing&&piece.side===0?'is-reveal':''}`}
       ref={el=>{if(el)tiles.current.set(piece.minion.id,el);else tiles.current.delete(piece.minion.id);}}
-      style={{left:`${(p.x/W)*100}%`,top:`${(p.y/H)*100}%`,'--idle-phase':`${(-idlePhase(piece.minion.id)*3.4).toFixed(2)}s`} as CSSProperties}>
+      style={{left:`${(p.x/W)*100}%`,top:`${(p.y/H)*100}%`,'--idle-phase':`${(-idlePhase(piece.minion.id)*3.4).toFixed(2)}s`,'--reveal-delay':`${Math.max(0,enemyIndex)*70}ms`} as CSSProperties}>
      <div className="ab-combat-flip">
       <div className="ab-combat-face"><MinionTile minion={piece.minion} catalog={catalog} disabled arrive={false} /></div>
-      <div className="ab-combat-back" aria-hidden />
+      <div className="ab-combat-back" aria-hidden>{piece.side===0&&<CardBackFace id={foe?.cardBack} shape="oval" live={facedown.has(piece.minion.id)||(revealing&&piece.side===0)} />}</div>
      </div>
     </div>;
    })}
