@@ -147,6 +147,16 @@
 [data-skin='skin-fire'] { border-color: #5a2a10 !important; background: #1a0a06 !important; box-shadow: 0 0 0 4px #2a1208, 0 0 0 7px #7a3a12, 0 0 22px #ff5a1a88, 0 8px 20px #21141ca0 !important; animation: skin-fire-heat 2.4s ease-in-out infinite; }
 @keyframes skin-fire-heat { 50% { box-shadow: 0 0 0 4px #3a1608, 0 0 0 7px #b0501a, 0 0 34px #ff7a1acc, 0 8px 20px #21141ca0; } }
 .ab-frame-layer[data-fx='skin-fire'] { filter: url(#kartishki-heat); }
+/* King (ULTIMATE): a burgundy velvet rim in a broad gold band, and a jewelled crown floating above the portrait — the crown is an
+   inline SVG on ::after that bobs slowly and glows; the glints, sparkles and gold dust are the canvas layer (auras.ts kingFrame). */
+[data-skin='skin-king'] { border-color: #ffe9a8 !important; background: #4a1020 !important; box-shadow: 0 0 0 4px #5a3a0c, 0 0 0 8px #f2cf6a, 0 0 0 10px #8a5a12, 0 0 30px #ffd66b88, 0 8px 22px #21141ca0 !important; overflow: visible; animation: skin-king 4.2s ease-in-out infinite; }
+@keyframes skin-king { 50% { box-shadow: 0 0 0 4px #5a3a0c, 0 0 0 8px #fff0b0, 0 0 0 10px #8a5a12, 0 0 44px #ffd66bcc, 0 8px 22px #21141ca0; } }
+[data-skin='skin-king']::after { content: ''; position: absolute; left: 50%; top: -34%; width: 78%; aspect-ratio: 5 / 3; translate: -50% 0; pointer-events: none; z-index: 5;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff0b0'/%3E%3Cstop offset='.5' stop-color='%23e0a32a'/%3E%3Cstop offset='1' stop-color='%23a06a10'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M8 52 L4 16 L26 32 L42 6 L50 4 L58 6 L74 32 L96 16 L92 52 Z' fill='url(%23g)' stroke='%235a3a0c' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M8 52 H92' stroke='%235a3a0c' stroke-width='3'/%3E%3Crect x='10' y='44' width='80' height='8' fill='%23b8121d' stroke='%235a3a0c' stroke-width='2.5'/%3E%3Ccircle cx='50' cy='4' r='4' fill='%23fff8e6' stroke='%235a3a0c' stroke-width='2'/%3E%3Ccircle cx='26' cy='34' r='4.2' fill='%23d81f3c' stroke='%235a3a0c' stroke-width='2'/%3E%3Ccircle cx='74' cy='34' r='4.2' fill='%232f7fe0' stroke='%235a3a0c' stroke-width='2'/%3E%3Ccircle cx='50' cy='32' r='5.2' fill='%2325b463' stroke='%235a3a0c' stroke-width='2'/%3E%3Ccircle cx='50' cy='48' r='2.6' fill='%23ffe9a8'/%3E%3Ccircle cx='24' cy='48' r='2.2' fill='%23ffe9a8'/%3E%3Ccircle cx='76' cy='48' r='2.2' fill='%23ffe9a8'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter: drop-shadow(0 4px 6px #21141c99) drop-shadow(0 0 10px #ffd66b88);
+  animation: king-crown 3.6s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes king-crown { 0%, 100% { transform: translateY(0) rotate(-1.5deg); filter: drop-shadow(0 4px 6px #21141c99) drop-shadow(0 0 10px #ffd66b88); } 50% { transform: translateY(-5px) rotate(1.5deg); filter: drop-shadow(0 8px 10px #21141c99) drop-shadow(0 0 18px #ffd66bcc); } }
+@media (prefers-reduced-motion: reduce) { [data-skin='skin-king']::after { animation: none; } }
 /* Oak and brass (tavern): a dark oak rim with four brass rivets; the brass catches the light slowly, like a bar rail. */
 [data-skin='skin-tavern'] { border-color: #6b4020 !important; background: #2a1a10 !important; box-shadow: 0 0 0 4px #3b2416, 0 0 0 7px #c9a04a, 0 0 0 9px #3b2416, 0 0 16px #e29a2c44, 0 8px 20px #21141ca0 !important; }
 [data-skin='skin-tavern']:not([data-aura])::before { mix-blend-mode: screen;
@@ -182,6 +192,7 @@
 .ab-hero-face[data-slam-live='slam-neon'] { --slam-a: #ff7de9; --slam-b: #62d8ff; }
 .ab-hero-face[data-slam-live='slam-glitch'] { --slam-a: #00ffa3; --slam-b: #ff2a6d; }
 .ab-hero-face[data-slam-live='slam-comet'] { --slam-a: #ffd66b; --slam-b: #ff7a1a; }
+.ab-hero-face[data-slam-live='slam-spit'] { --slam-a: #a8e08a; --slam-b: #4f8a3a; }
 .ab-hero-face[data-slam-live='slam-shadow'] { --slam-a: #6a2bd9; --slam-b: #120820; }
 .ab-hero-face[data-slam-live='slam-petal'] { --slam-a: #ffb3d9; --slam-b: #ff5a9e; }
 .ab-hero-face[data-slam-live='slam-tavern'] { --slam-a: #ffe9a8; --slam-b: #e29a2c; }
@@ -204,7 +215,7 @@
 .stall-guest { margin: 0; }
 .stall-featured { position: relative; display: grid; grid-template-columns: minmax(280px, 400px) 1fr; gap: 22px; padding: 18px 18px 18px 26px; border: 4px solid var(--ink); background: linear-gradient(135deg, #f4ecd6, #e9dfc9); box-shadow: 8px 9px 0 #24231f55; }
 .stall-featured::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-left: 10px solid var(--tier, #c3a45e); }
-.stall-featured.is-common { --tier: #9aa0a6; } .stall-featured.is-rare { --tier: #5b8dd6; } .stall-featured.is-epic { --tier: #a45bd6; } .stall-featured.is-legendary { --tier: #e0a32a; } .stall-featured.is-free { --tier: #8c918b; }
+.stall-featured.is-common { --tier: #9aa0a6; } .stall-featured.is-rare { --tier: #5b8dd6; } .stall-featured.is-epic { --tier: #a45bd6; } .stall-featured.is-legendary { --tier: #e0a32a; } .stall-featured.is-ultimate { --tier: #ffe9a8; } .stall-featured.is-free { --tier: #8c918b; }
 .stall-preview { position: relative; display: grid; place-items: center; min-height: 270px; }
 .stall-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .stall-copy .eyebrow { font: 11px var(--font-mono); letter-spacing: 3px; text-transform: uppercase; color: var(--tier, #5a4030); }

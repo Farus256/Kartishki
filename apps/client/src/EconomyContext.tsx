@@ -1,7 +1,7 @@
 import i18n from '@kartishki/i18n';
 import { audioManager } from './AudioManager';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { COSMETICS, applyShopCredit, applyShopDebit, applyShopResult, resolveShopAction, shopBonusXp, shopCard, shopCash, shopMixed, type CardDefinition, type ShopAction, type ShopProduct, type ShopResult, type ShopReward, type ShopWallet } from '@kartishki/shared';
+import { rollCosmetic, applyShopCredit, applyShopDebit, applyShopResult, resolveShopAction, shopBonusXp, shopCard, shopCash, shopMixed, type CardDefinition, type ShopAction, type ShopProduct, type ShopResult, type ShopReward, type ShopWallet } from '@kartishki/shared';
 import { playerSession } from './playerSession';
 import { useCatalog, useShopConfig } from './ui/useCatalog';
 import { demoCards } from './economy';
@@ -51,7 +51,7 @@ function slotLabel(result: ShopResult) {
 }
 function prizeTile(prize: ShopProduct['prizes'][number]): ChestTile {
   if (prize.kind === 'currency' || prize.kind === 'xp') return { kind: prize.kind, amount: prize.amount };
-  if (prize.kind === 'cosmetic') return { kind: 'cosmetic', itemId: COSMETICS[Math.floor(Math.random() * COSMETICS.length)]!.id };
+  if (prize.kind === 'cosmetic') return { kind: 'cosmetic', itemId: rollCosmetic().id };
   return { kind: 'cards', amount: prize.amount };
 }
 function chestReel(result: ShopResult, catalog: CardDefinition[], product: ShopProduct) {

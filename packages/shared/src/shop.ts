@@ -1,5 +1,5 @@
 import { CASE_XP, CASINO_XP, PACK_XP } from './leveling';
-import { COSMETICS, cosmeticById, cosmeticRefund } from './cosmetics';
+import { cosmeticById, cosmeticRefund, rollCosmetic } from './cosmetics';
 
 export const SHOP_RARITIES = ['common', 'rare', 'epic', 'legendary', 'ultimate'] as const;
 export type ShopCatalogCard = { id: string; name: Record<string, string>; rarity: (typeof SHOP_RARITIES)[number] };
@@ -12,9 +12,11 @@ export type ShopConfig = {
   sellPrices: number[];
 };
 const cardPrizes: ShopPrize[] = [{ kind: 'cards', amount: 1, weight: 100 }];
-const mixed: ShopPrize[] = [{ kind: 'currency', amount: 50, weight: 28 }, { kind: 'xp', amount: 15, weight: 20 }, { kind: 'cards', amount: 1, weight: 32 }, { kind: 'cosmetic', amount: 1, weight: 10 }, { kind: 'currency', amount: 250, weight: 8 }, { kind: 'cards', amount: 3, weight: 2 }];
-// Wardrobe loot: mostly skins, cash to soften a dry roll.
-const wardrobe: ShopPrize[] = [{ kind: 'cosmetic', amount: 1, weight: 50 }, { kind: 'currency', amount: 100, weight: 28 }, { kind: 'xp', amount: 30, weight: 10 }, { kind: 'currency', amount: 300, weight: 8 }, { kind: 'cards', amount: 1, weight: 4 }];
+// Drop odds per draw (weights sum to 100): skins are rare everywhere; the tier of a skin drop is rolled by COSMETIC_DROP_ODDS.
+// Mixed: 1.5% skin, the rest cash / xp / cards.
+const mixed: ShopPrize[] = [{ kind: 'currency', amount: 50, weight: 34 }, { kind: 'xp', amount: 15, weight: 20 }, { kind: 'cards', amount: 1, weight: 34 }, { kind: 'cosmetic', amount: 1, weight: 1.5 }, { kind: 'currency', amount: 250, weight: 8.5 }, { kind: 'cards', amount: 3, weight: 2 }];
+// Wardrobe loot: 12% skin per draw (a 3-draw pack lands one ~32% of the time), cash and xp otherwise.
+const wardrobe: ShopPrize[] = [{ kind: 'cosmetic', amount: 1, weight: 12 }, { kind: 'currency', amount: 100, weight: 48 }, { kind: 'xp', amount: 30, weight: 22 }, { kind: 'currency', amount: 300, weight: 14 }, { kind: 'cards', amount: 1, weight: 4 }];
 // EV $68 per $75 auto spin (RTP 90.7%); manual $400 spin lands by visual slice, RTP ~39%.
 const wheelCash: ShopPrize[] = [
   { kind: 'currency', amount: 25, weight: 62 },
@@ -131,7 +133,7 @@ export function takeAlbumCard(owned: Record<string, number>, card: ShopCatalogCa
 }
 /** Mutates `unlocks` so a second roll in the same grant becomes cash; guests (no unlocks) always take the cash. */
 export function takeCosmetic(unlocks: string[] | undefined, random = Math.random): ShopReward {
-  const item = COSMETICS[Math.min(COSMETICS.length - 1, Math.floor(random() * COSMETICS.length))]!;
+  const item = rollCosmetic(random);
   if (!unlocks) return { kind: 'currency', amount: cosmeticRefund(item) };
   if (unlocks.includes(item.id)) return { kind: 'cosmeticDuplicate', itemId: item.id, amount: cosmeticRefund(item) };
   unlocks.push(item.id);

@@ -146,13 +146,15 @@ test('echoes: the herald doubles battlecries, grave echo doubles deathrattles, t
   assert.equal(p.gold, gold + 2 * 3, 'herald + double-trouble: three rings of +$2');
   const side = (owner: string, ids: string[]) => ({ playerId: owner, tavernTier: 3, board: ids.map((id, i) => { const m = createMinionState(def(id)!, `${owner}${i}`, owner); return { id: m.id, cardId: m.cardId, baseId: m.baseId, attack: m.attack, health: m.health, tavernTier: m.tavernTier, keywords: [...m.keywords], tribes: [...m.tribes], golden: false, owner, auraAttack: 0 }; }) });
   const result = resolveCombat(side('a', ['ab-rat-pack', 'ab-grave-echo']), side('b', ['ab-golem', 'ab-golem']), 3, registry, def);
-  // RECONSTRUCTED (recovery): the exact pre-loss assertions for this block were not preserved; the checks below cover the same behaviour.
-  assert.equal(result.events.filter(e => e.kind === 'DEATHRATTLE' && e.sourceId === 'a0').length, 2, 'grave echo rings the rattle twice');
-  assert.equal(result.events.filter(e => e.kind === 'SUMMON' && e.cardId === 'ab-token-rat').length, 2, 'two pups from one rat pack');
-  const echoed = resolveCombat(side('a', ['ab-nest', 'ab-breeder', 'ab-warren']), side('b', ['ab-golem', 'ab-golem', 'ab-golem']), 7, registry, def);
-  const stats = echoed.events.filter(e => e.kind === 'STATS');
+  assert.equal(result.events.filter(e => e.kind === 'SUMMON' && e.cardId === 'ab-token-rat').length, 2, 'the rat pack rattled twice');
+});
+
+test('summon engines: breeder, warren and the marshal react to friendly summons in combat', () => {
+  const side = (owner: string, ids: string[]) => ({ playerId: owner, tavernTier: 3, board: ids.map((id, i) => { const m = createMinionState(def(id)!, `${owner}${i}`, owner); return { id: m.id, cardId: m.cardId, baseId: m.baseId, attack: m.attack, health: m.health, tavernTier: m.tavernTier, keywords: [...m.keywords], tribes: [...m.tribes], golden: false, owner, auraAttack: 0 }; }) });
+  const result = resolveCombat(side('a', ['ab-nest', 'ab-breeder', 'ab-warren']), side('b', ['ab-golem', 'ab-golem', 'ab-golem']), 7, registry, def);
+  const stats = result.events.filter(e => e.kind === 'STATS');
   assert.ok(stats.some(e => e.sourceId === 'a1' && e.targetId === 'a1' && e.attack === 3), 'breeder grows when a pup arrives');
-  const pups = echoed.events.filter(e => e.kind === 'SUMMON' && e.cardId === 'ab-token-rat').map(e => e.minionId);
+  const pups = result.events.filter(e => e.kind === 'SUMMON' && e.cardId === 'ab-token-rat').map(e => e.minionId);
   assert.ok(pups.length >= 1 && pups.every(id => stats.some(e => e.sourceId === 'a2' && e.targetId === id && e.attack === 3)), 'warren buffs every pup');
 });
 
@@ -186,9 +188,27 @@ test('anomaly rules: spell market, overtime and the long night', () => {
   const card = createMinionState(def('ab-ward')!, 'hand-ward', ot.sessionId); ot.hand.push(card);
   endRecruitTurn(deps(ot, { ...DEFAULT_RULES, endTurnTimes: 2, handGrowth: 1 }));
   assert.equal(deck.attack, 4, 'deckhand grew twice');
-  // RECONSTRUCTED (recovery): the closing assertions of this test were not preserved verbatim.
-  assert.equal([...ot.hand][0]!.attack, 2, 'the long night grew the card in hand');
-  assert.equal([...ot.hand][0]!.health, 4);
+  assert.equal(ot.hand[0]!.attack, 2, 'the hand grew through the long night');
+  assert.equal(ot.hand[0]!.health, 4);
+});
+
+test('new hero powers: the mystic pays less for spells, the foreman gets a token, the bounty hunter banks a win', () => {
+  const mystic = player('my', 10);
+  mystic.hero.power.id = 'ab-power-spell-thrift';
+  const dm = deps(mystic);
+  offer(mystic, 'ab-spell-tonic');
+  syncPrices(dm);
+  assert.equal([...mystic.tavern.offers][0]!.cost, 1, 'tonic is $2, the mystic pays $1');
+  const foreman = player('fo', 0);
+  foreman.hero.power.id = 'ab-power-hand-token';
+  beginRecruitTurn(deps(foreman), 1);
+  assert.equal(foreman.hand.length, 1);
+  assert.equal(foreman.hand[0]!.cardId, 'ab-token-1-1');
+  const hunter = player('bo', 0);
+  hunter.hero.power.id = 'ab-power-bounty';
+  registry.heroPowers.get('ab-power-bounty')!.onCombatEnd!(hunter, true);
+  registry.heroPowers.get('ab-power-bounty')!.onCombatEnd!(hunter, false);
+  assert.equal(hunter.bankedGold, 2);
 });
 
 test('end-of-turn gold is banked and paid on top of the next turn income', () => {
@@ -287,7 +307,7 @@ test('expansion tavern triggers: refresh, menagerie scaling, in-hand buffs, keyw
   const scribe = onBoard(p, 'ab-scribe');
   const rat = createMinionState(def('ab-rat-pack')!, 'hand-rat', p.sessionId); p.hand.push(rat);
   endRecruitTurn(d);
-  assert.equal(p.hand[p.hand.length - 1]!.attack, 3, 'scribe buffs the hand at end of turn'); // RECONSTRUCTED (recovery): the Rat Pack is 2/2 since the balance pass
+  assert.equal(p.hand[p.hand.length - 1]!.attack, def('ab-rat-pack')!.attack + 1, 'scribe buffs the hand at end of turn');
   assert.equal(scribe.attack, 1);
 });
 

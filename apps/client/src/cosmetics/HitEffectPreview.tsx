@@ -5,7 +5,7 @@ import { AbHeroFace } from '../battlegrounds/AbHeroFace';
 import { HIT_EFFECTS, playHitEffect } from './hitEffects';
 import { STRIKES, type Pose } from './strikeMotion';
 import { Aura } from './Aura';
-import { playSlamSound } from './vfxAudio';
+import { playSlamSound, playSlamWindup } from './vfxAudio';
 import { playProjectile } from './projectiles';
 
 type Phase = 'wind' | 'hit' | 'recoil' | 'rest';
@@ -70,6 +70,7 @@ export function HitEffectPreview({ id, striker, victim, size = 'md', loop = true
         const strike = STRIKES[HIT_EFFECTS[id]?.motion ?? 'punch'];
         a.dataset.slamLive = id;
         setPhase('wind');
+        playSlamWindup(id);
         await drive(a, strike.approachMs, u => strike.pose(u, 1), dash);
         if (!alive) return;
         // Ranged styles: the shot crosses the stage first, the impact waits for it.

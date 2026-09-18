@@ -452,9 +452,42 @@ function iceFrame(layer: VfxLayer, w: number, h: number) {
   });
 }
 
+/**
+ * King frame (ULTIMATE). The crown itself is CSS (a jewelled SVG floating above the portrait, see cosmetics.css);
+ * this layer gives it life: a glint that travels along the crown's rim, gem sparkles, a fine gold dust that sifts
+ * down from it over the portrait's shoulders, and a warm halo that breathes under the crown.
+ */
+function kingFrame(layer: VfxLayer, w: number, h: number) {
+  layer.max = 120;
+  const k = Math.max(.6, Math.min(1.5, w / 160));
+  // Crown box in host coordinates: centred, sitting just above the top edge (matches the CSS ::after placement).
+  const cw = w * .62, ch = 30 * k, cx = w / 2, cy = -ch * .55;
+  let acc = 0, next = 0;
+  layer.emitter((dt, t) => {
+    const bob = Math.sin(t * 1.2) * 2.5 * k;
+    acc += dt * (REDUCED() ? 2 : 7);
+    while (acc >= 1) { acc -= 1; layer.spawn({ x: cx + rand(-cw / 2, cw / 2), y: cy + ch * .45 + bob, vx: rand(-4, 4), vy: rand(10, 22) * k, ay: 8, turb: 14, drag: .2, life: rand(1.6, 2.8), size: rand(1, 1.8) * k, size1: .4, color: pick(['#fff3b0', '#ffd66b', '#f2cf6a']), alpha: rand(.6, .95), fadeIn: .15, fadeOut: .5, weight: q => .5 + .5 * Math.max(0, Math.sin(q.age * 4 + q.seed)) }); }
+    if (t >= next) { next = t + rand(.5, 1.4) * (REDUCED() ? 3 : 1); const gx = cx + pick([-cw * .32, 0, cw * .32]) + rand(-3, 3); layer.spawn({ x: gx, y: cy + ch * .05 + bob, life: .55, size: 1, size1: 9 * k, shape: 'star', color: '#ffffff', alpha: 1, fadeIn: .2, fadeOut: .5, rot: rand(0, 1), spin: .8 }); }
+    layer.paint((ctx) => {
+      ctx.globalCompositeOperation = 'lighter';
+      const x = layer.inset + cx, y = layer.inset + cy + bob;
+      const breathe = .7 + .3 * Math.sin(t * 1.6);
+      const g = ctx.createRadialGradient(x, y + ch * .3, 2, x, y + ch * .3, cw * .7);
+      g.addColorStop(0, `rgba(255,214,107,${.22 * breathe})`); g.addColorStop(.5, `rgba(255,180,60,${.08 * breathe})`); g.addColorStop(1, 'rgba(255,160,40,0)');
+      ctx.fillStyle = g; ctx.fillRect(x - cw, y - ch, cw * 2, ch * 3);
+      // The travelling glint: a short bright bead that runs along the crown's lower band.
+      const u = (t * .35) % 1, gx = x - cw / 2 + cw * u, gy = y + ch * .42;
+      const r = 7 * k;
+      const gl = ctx.createRadialGradient(gx, gy, 0, gx, gy, r); gl.addColorStop(0, 'rgba(255,255,255,.9)'); gl.addColorStop(.4, 'rgba(255,240,180,.5)'); gl.addColorStop(1, 'rgba(255,214,107,0)');
+      ctx.fillStyle = gl; ctx.fillRect(gx - r, gy - r, r * 2, r * 2);
+    });
+  });
+}
+
 /* Frames with their own motion: flames licking the rim, arcs jumping along it, molten gold running round it, ice hanging off it. */
 const FRAME_FX: Record<string, Aura> = {
   'skin-fire': flameFrame,
+  'skin-king': kingFrame,
   'skin-electric': electricFrame,
   'skin-liquid-gold': liquidGoldFrame,
   'skin-gold': goldFrame,

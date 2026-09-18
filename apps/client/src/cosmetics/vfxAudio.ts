@@ -61,6 +61,8 @@ const HIT_SOUNDS: Record<string, (ac: AudioContext, t: number) => void> = {
   'slam-petal': (ac, t) => { burst(ac, t, { a: .02, d: .35, peak: .35 }, { type: 'bandpass', from: 2500, to: 900, q: 1.2 }); [880, 1108, 1318].forEach((f, i) => tone(ac, t + .04 + i * .06, { d: .35, peak: .18 }, { type: 'sine', from: f })); thump(ac, t, .35); },
   'slam-tavern': (ac, t) => { burst(ac, t, { d: .07, peak: .9 }, { type: 'highpass', from: 3200 }); for (let i = 0; i < 5; i++) tone(ac, t + .01 + i * .02, { d: .22 + i * .05, peak: .22 }, { type: 'sine', from: 2400 + Math.random() * 2200 }); thump(ac, t, .7); burst(ac, t + .06, { a: .02, d: .4, peak: .35 }, { type: 'lowpass', from: 1200, to: 200 }); for (let i = 0; i < 4; i++) burst(ac, t + .18 + i * .09, { d: .05, peak: .12 }, { type: 'bandpass', from: 900 + Math.random() * 600, q: 3 }); },
   'slam-comet': (ac, t) => { burst(ac, Math.max(ac.currentTime, t - .3), { a: .2, d: .25, peak: .5 }, { type: 'bandpass', from: 300, to: 2400, q: 1.5 }); thump(ac, t, 1); burst(ac, t, { d: .6, peak: .7 }, { type: 'lowpass', from: 1800, to: 150 }); for (let i = 0; i < 4; i++) burst(ac, t + .1 + Math.random() * .4, { d: .03, peak: .3 }, { type: 'bandpass', from: 2000 + Math.random() * 3000, q: 6 }); },
+  /* Spit: a wet slap (lowpass burst + a short sine pop), then two or three drips plinking off. */
+  'slam-spit': (ac, t) => { burst(ac, t, { d: .14, peak: .9 }, { type: 'lowpass', from: 1600, to: 220, q: 1.5 }); tone(ac, t, { d: .12, peak: .5 }, { type: 'sine', from: 420, to: 90 }); burst(ac, t + .03, { d: .2, peak: .3 }, { type: 'bandpass', from: 900, to: 300, q: 2 }); for (let i = 0; i < 3; i++) tone(ac, t + .25 + i * .14 + Math.random() * .05, { d: .09, peak: .16 }, { type: 'sine', from: 1400 + Math.random() * 600, to: 700 }); },
 };
 
 /** Impact voice of a hero slam, scheduled a few ms ahead so it lands with the flash. */
@@ -81,12 +83,18 @@ export function playBoughtSound() {
   [523, 659, 784].forEach((f, i) => tone(ac, t + i * .07, { d: .32, peak: .3 }, { type: 'triangle', from: f }));
   burst(ac, t + .2, { d: .25, peak: .15 }, { type: 'highpass', from: 5000 });
 }
-/**
- * Wind-up voice heard while a hero rears back for a slam: a short rising sweep that hands over to the impact.
- * ponytail: recovery note — the pre-loss version keyed this per style; the generic sweep below stands in for it.
- */
+/* Wind-up voices, played when the striker starts its approach (only styles that gather something audible). */
+const WINDUP_SOUNDS: Record<string, (ac: AudioContext, t: number) => void> = {
+  /* Hawking: a throaty rasp that climbs, twice, then a wet snort as it lets go. */
+  'slam-spit': (ac, t) => { for (let i = 0; i < 2; i++) burst(ac, t + i * .28, { a: .04, d: .22, peak: .32 }, { type: 'bandpass', from: 160 + i * 40, to: 520 + i * 120, q: 4 }); tone(ac, t + .1, { a: .05, d: .3, peak: .12 }, { type: 'sawtooth', from: 70, to: 120 }); burst(ac, t + .62, { d: .12, peak: .38 }, { type: 'highpass', from: 1800, to: 900 }); },
+};
 export function playSlamWindup(id: string) {
   const ac = context();
-  if (!ac || !HIT_SOUNDS[id]) return;
-  try { burst(ac, ac.currentTime + .01, { a: .12, d: .22, peak: .3 }, { type: 'bandpass', from: 400, to: 1800, q: 1.4 }); } catch { /* audio never blocks the hit */ }
+  const fx = WINDUP_SOUNDS[id];
+  if (!ac) return;
+  try {
+    if (fx) fx(ac, ac.currentTime + .02);
+    else if (HIT_SOUNDS[id]) burst(ac, ac.currentTime + .01, { a: .12, d: .22, peak: .3 }, { type: 'bandpass', from: 400, to: 1800, q: 1.4 });
+  } catch { /* audio never blocks the hit */ }
 }
+/** Impact voice of a hero slam, scheduled a few ms ahead so it lands with the flash. */

@@ -321,7 +321,7 @@ button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 .menu-ladder .place { width: 32px; text-align: center; font: 14px var(--font-mono); color: #665641; }
 .menu-ladder .lvl { width: 34px; text-align: center; }
 .menu-ladder .ml { width: 64px; text-align: right; font: 18px var(--font-stencil); }
-.menu-ladder .nick { max-width: 0; text-overflow: ellipsis; }
+.menu-ladder .nick { max-width: 0; overflow: visible; text-overflow: ellipsis; }
 .menu-ladder-trophy { display: block; width: 18px; height: 20px; margin: 0 auto; }
 .menu-ladder tr.is-gold td { background: #c3a45e55; }
 .menu-ladder tr.is-silver td { background: #c9c2b388; }

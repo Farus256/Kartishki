@@ -130,6 +130,6 @@ export type PlayerLogin = { token: string; library: PlayerLibrary };
 export type LootCard = { id: string; rarity: string; name: Record<string, string> };
 export type PackResult = { cards: LootCard[]; currency: number; xp: number; duplicates: { id: string; amount: number }[] };
 export type CaseResult = { prize: LootCard; reel: LootCard[]; landing: number; currency: number; xp: number; duplicates: { id: string; amount: number }[] };
-export type LadderRow = { username: string; elo: number; xp: number };
+export type LadderRow = { username: string; elo: number; xp: number; /** Equipped nickname effect (see cosmetics.ts). */ nameFx?: string };
 export type MatchRewards = { elo: number; currency: number; gained: number; xp: number };
 export type BattlegroundsRewards = MatchRewards & { place: number; eloDelta: number; xpGain: number; beerMlGain: number };

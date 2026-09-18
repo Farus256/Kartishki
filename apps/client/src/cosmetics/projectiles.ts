@@ -7,7 +7,7 @@ import { VfxLayer, noise2, pick, rand, rgba } from './vfx';
  * combat field or the shop stage), from the striker's centre to the target's, and resolves the moment it lands so
  * the caller can play the impact effect. Coordinates are host-relative and undo the field's CSS scale.
  */
-export type RangedKind = 'bolt' | 'comet' | 'breath' | 'mug' | 'orb' | 'beam' | 'gust' | 'blob';
+export type RangedKind = 'bolt' | 'comet' | 'breath' | 'mug' | 'orb' | 'beam' | 'gust' | 'blob' | 'spit';
 
 type Pt = { x: number; y: number };
 function centre(host: HTMLElement, el: HTMLElement): Pt {
@@ -18,7 +18,7 @@ function centre(host: HTMLElement, el: HTMLElement): Pt {
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
 
 /** Flight time at rate 1 per kind, so the caller can plan the impact. */
-export const RANGED_MS: Record<RangedKind, number> = { bolt: 160, comet: 560, breath: 520, mug: 520, orb: 480, beam: 140, gust: 600, blob: 460 };
+export const RANGED_MS: Record<RangedKind, number> = { bolt: 160, comet: 560, breath: 520, mug: 520, orb: 480, beam: 140, gust: 600, blob: 460, spit: 440 };
 
 export function playProjectile(host: HTMLElement, from: HTMLElement, to: HTMLElement, kind: RangedKind, opts: { rate?: number } = {}): Promise<void> & { cancel: () => void } {
   const rate = Math.max(.05, opts.rate ?? 1);
@@ -89,6 +89,23 @@ export function playProjectile(host: HTMLElement, from: HTMLElement, to: HTMLEle
         const p = along(u, -40);
         layer.paint((ctx) => { ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 13, 9 + 4 * Math.sin(t * 20), Math.atan2(dy, dx), 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#3a2f2a'; ctx.beginPath(); ctx.arc(p.x - 4, p.y - 3, 3, 0, Math.PI * 2); ctx.fill(); });
         if (Math.random() < .6) layer.spawn({ x: p.x, y: p.y + 4, vx: -dx / dist * 20, vy: 30, ay: 300, life: rand(.4, .7), size: rand(2, 3.5), size1: 1.4, shape: 'drop', blend: 'source-over', color: '#1a1a1a', alpha: .95, fadeIn: .02, fadeOut: .3 });
+        if (u >= 1) { land(); off(); }
+        return;
+      }
+      case 'spit': {
+        // A glistening glob on a high lob, stretching along its flight, a thin thread of drool trailing it; droplets shake loose.
+        const p = along(u, -64), q = along(Math.max(0, u - .06), -64);
+        const stretch = 1 + 1.2 * Math.sin(u * Math.PI);
+        layer.paint((ctx) => {
+          ctx.save(); ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = 'rgba(168,224,138,.55)'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+          ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.y - q.y, p.x - q.x));
+          const g = ctx.createRadialGradient(-3, -3, 1, 0, 0, 11); g.addColorStop(0, '#ffffff'); g.addColorStop(.25, '#f4ffd6'); g.addColorStop(.7, '#a8e08a'); g.addColorStop(1, 'rgba(79,138,58,.85)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 11 * stretch, 8 + 2 * Math.sin(t * 24), 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.ellipse(-4 * stretch, -3, 3.2, 1.8, -.5, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        });
+        if (Math.random() < .7) layer.spawn({ x: p.x + rand(-4, 4), y: p.y + 4, vx: -dx / dist * rand(10, 30) + nx * rand(-15, 15), vy: rand(10, 30), ay: 320, life: rand(.4, .7), size: rand(1.8, 3.2), size1: 1.2, shape: 'drop', blend: 'source-over', color: pick(['#a8e08a', '#f4ffd6']), alpha: .95, fadeIn: .02, fadeOut: .3 });
         if (u >= 1) { land(); off(); }
         return;
       }

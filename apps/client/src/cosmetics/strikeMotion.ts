@@ -4,7 +4,7 @@
  * along the striker→target axis (0 home, 1 contact), `side` is a perpendicular offset in px, `r` degrees,
  * `s` scale. Contact is always at the end of `approachMs`, so timing stays readable whatever the style.
  */
-export type StrikeStyle = 'punch' | 'slash' | 'knockback' | 'snap' | 'pulse' | 'bounce' | 'crush' | 'sweep' | 'blink' | 'cast';
+export type StrikeStyle = 'punch' | 'slash' | 'knockback' | 'snap' | 'pulse' | 'bounce' | 'crush' | 'sweep' | 'blink' | 'cast' | 'hawk';
 export type Pose = { ax: number; side: number; r: number; s: number; alpha?: number };
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -30,6 +30,9 @@ export const STRIKES: Record<StrikeStyle, { approachMs: number; pose: (u: number
   sweep: { approachMs: 720, retreatMs: 480, pose: (u, sign) => { const wind = clamp01(u / .3), swing = clamp01((u - .3) / .7); return { ax: swing ** 1.6, side: sign * (-50 * wind + Math.sin(swing * Math.PI) * 140), r: sign * (-18 * wind + swing ** 2 * 380), s: 1 + .06 * Math.sin(swing * Math.PI) }; } },
   /* Cast: the striker stays home — a slow lean back gathering the shot, then a short thrust forward as it lets go (a projectile crosses the gap, see projectiles.ts). */
   cast: { approachMs: 520, retreatMs: 320, pose: (u, sign) => { const wind = clamp01(u / .68), push = clamp01((u - .68) / .32); return { ax: -.1 * easeOut(wind) + .22 * easeOut(push), side: sign * 4 * Math.sin(wind * Math.PI), r: -7 * sign * wind * (1 - push) + 3 * sign * push, s: 1 + .05 * wind + .08 * Math.sin(push * Math.PI) }; } },
+  /* Hawk: the striker stays home and gathers it — three little heaves, cheeks puffing (scale up), a lean back, then one sharp
+     forward snap as it lets fly (the glob is a projectile, see projectiles.ts 'spit'). */
+  hawk: { approachMs: 980, retreatMs: 360, pose: (u, sign) => { const gather = clamp01(u / .62), puff = clamp01((u - .5) / .3), snap = clamp01((u - .8) / .2); const heave = u < .62 ? Math.sin(gather * Math.PI * 3) * 3 * (1 - gather * .4) : 0; return { ax: -.14 * easeOut(gather) - .01 * heave + .3 * easeOut(snap), side: sign * (heave + 2 * Math.sin(puff * Math.PI)), r: -9 * sign * easeOut(gather) * (1 - snap) + 5 * sign * snap, s: 1 + .16 * easeOut(puff) * (1 - snap) + .04 * Math.sin(snap * Math.PI) }; } },
   /* Blink: fades out at home, flickers, and reappears at the target's throat. */
   blink: { approachMs: 560, retreatMs: 340, pose: (u) => { const out = clamp01(u / .35), inn = clamp01((u - .6) / .25); const flick = u > .35 && u < .6 ? (Math.floor(u * 40) % 2 ? .35 : 0) : 0; return { ax: u < .6 ? -.06 * out : 1.02, side: 0, r: 0, s: u < .35 ? 1 - .15 * out : u < .6 ? .8 : .85 + .3 * easeOut(inn), alpha: u < .35 ? 1 - out : u < .6 ? flick : easeOut(inn) }; } },
 };
@@ -59,6 +62,9 @@ export function victimFrames(style: StrikeStyle, dir: { x: number; y: number }, 
     case 'slash': return [
       { transform: brace }, { transform: `translate(${rx * .9}px,${ry * .9}px) rotate(${dir.x * -14 || 14}deg) scale(1.02,.96)`, offset: .08 }, { transform: `translate(${rx * .7}px,${ry * .7}px) rotate(${dir.x * -10 || 10}deg)`, offset: .3 },
       { transform: `translate(${rx * .15}px,${ry * .15}px) rotate(${dir.x * 3 || -3}deg)`, offset: .65 }, { transform: home }];
+    case 'hawk': return [
+      { transform: brace }, { transform: `translate(${rx * .5}px,${ry * .5}px) rotate(${dir.x * -4 || 4}deg) scale(.98,1.02)`, offset: .06 }, { transform: `translate(${rx * .45}px,${ry * .45}px) rotate(${dir.x * -5 || 5}deg) scale(.985,1.02)`, offset: .45 },
+      { transform: `translate(${rx * .15}px,${ry * .15}px) rotate(${dir.x * -1 || 1}deg)`, offset: .8 }, { transform: home }];
     case 'blink': return [
       { transform: brace }, { transform: `translate(${rx * .8}px,${ry * .8}px) scale(${1 + p},${1 - p * .5})`, offset: .1 }, { transform: `translate(${rx * .3}px,${ry * .3}px) scale(.97)`, offset: .45 }, { transform: home }];
     default: return [

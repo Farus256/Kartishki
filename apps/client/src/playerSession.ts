@@ -11,14 +11,19 @@ function loadGuestRank(): BeerRank {
   try { const stored: unknown = JSON.parse(localStorage.getItem(GUEST_RANK_KEY) ?? 'null'); if (isBeerRank(stored)) return stored; } catch { /* keep the calibrated guest bottle */ }
   return calibratedRank();
 }
-let token = localStorage.getItem('playerToken') ?? '';
+type Shared = { token: string; snapshot: typeof initialSnapshot; listeners: Set<() => void> };
+// ponytail: the session lives on globalThis so Vite HMR module copies (a long dev session) never split into two sessions that disagree.
+const shared: Shared = ((globalThis as { __kartishkiPlayerSession?: Shared }).__kartishkiPlayerSession ??= { token: localStorage.getItem('playerToken') ?? '', snapshot: undefined as unknown as typeof initialSnapshot, listeners: new Set() });
+let token = shared.token;
 function loadGuestXp(): number {
   try { const n = Number(localStorage.getItem(GUEST_XP_KEY)); if (Number.isInteger(n) && n >= 0) return n; } catch { /* keep zero until a write succeeds */ }
   return 0;
 }
-let snapshot: { beerRank: BeerRank; xp: number; library?: PlayerLibrary; selectedDeck: string; loading: boolean; error: string; lastReward?: MatchReward } = { beerRank: token ? calibratedRank() : loadGuestRank(), xp: token ? 0 : loadGuestXp(), selectedDeck: '', loading: !!token, error: '' };
-const listeners = new Set<() => void>();
-const publish = (patch: Partial<typeof snapshot>) => { snapshot = { ...snapshot,...patch }; listeners.forEach(fn => fn()); };
+const initialSnapshot: { beerRank: BeerRank; xp: number; library?: PlayerLibrary; selectedDeck: string; loading: boolean; error: string; lastReward?: MatchReward } = { beerRank: token ? calibratedRank() : loadGuestRank(), xp: token ? 0 : loadGuestXp(), selectedDeck: '', loading: !!token, error: '' };
+shared.snapshot ??= initialSnapshot;
+let snapshot = shared.snapshot;
+const listeners = shared.listeners;
+const publish = (patch: Partial<typeof snapshot>) => { snapshot = shared.snapshot = { ...shared.snapshot, ...patch }; listeners.forEach(fn => fn()); };
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(`${endpoint}/api/players${path}`, { method, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { 'Content-Type':'application/json' } : {}) }, ...(body !== undefined ? { body:JSON.stringify(body) } : {}) });
   if (!response.ok) { const data = await response.json().catch(()=>({})); throw new Error(data.error ?? 'playerServerError'); }
@@ -50,7 +55,7 @@ async function run(action: () => Promise<void>) {
 }
 export const playerSession = {
   subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
-  getSnapshot: () => snapshot,
+  getSnapshot: () => shared.snapshot,
   selectDeck(id: string) { publish({ selectedDeck:id }); if (token) void playerSession.saveSettings({ selectedDeck: id }); },
   async saveSettings(patch: Partial<PlayerSettings>) {
     if (!token || !snapshot.library) return false;
@@ -106,7 +111,7 @@ export const playerSession = {
   async authenticate(action: 'register'|'login', username: string, password: string) {
     await run(async()=>{
       const result = await request<PlayerLogin>(`/${action}`,'POST',{username,password});
-      token=result.token; localStorage.setItem('playerToken',token);
+      token = shared.token = result.token; localStorage.setItem('playerToken', token);
       if (action === 'register') {
         setLibrary(result.library);
         await playerSession.saveSettings(currentLocalSettings());
@@ -114,7 +119,7 @@ export const playerSession = {
     });
   },
   async refresh() { await run(async()=>setLibrary(await request<PlayerLibrary>('/me'), true)); },
-  async logout() { await run(async()=>{ await request('/logout','POST'); token=''; localStorage.removeItem('playerToken'); publish({library:undefined,selectedDeck:'',beerRank:loadGuestRank(), xp: loadGuestXp(), lastReward: undefined}); }); },
+  async logout() { await run(async()=>{ await request('/logout','POST'); token = shared.token = ''; localStorage.removeItem('playerToken'); publish({library:undefined,selectedDeck:'',beerRank:loadGuestRank(), xp: loadGuestXp(), lastReward: undefined}); }); },
   async claimDaily() { await run(async()=>setLibrary(await request<PlayerLibrary>('/daily','POST',{}))); },
   /** Buys a table preset, hero frame or premium hero once; prices live on the server. */
   async buyCosmetic(itemId: string) {

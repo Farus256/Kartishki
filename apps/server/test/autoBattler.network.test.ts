@@ -60,8 +60,8 @@ test('two clients start an auto-battler, recruit, and receive combat events', { 
     a.send(MSG.startGame);
     await until(() => a.state.phase === 'HERO_SELECTION');
 
-    // A passive-gold hero (Tycoon) would skew the turn-one gold check.
-    const heroA = offersA.find(hero => hero.power.id !== 'ab-power-rich') ?? offersA[0]!;
+    // A passive-gold hero (Tycoon) or token hero (Foreman) would skew turn-one checks.
+    const heroA = offersA.find(hero => hero.power.id !== 'ab-power-rich' && hero.power.id !== 'ab-power-hand-token') ?? offersA[0]!;
     a.send(MSG.chooseHero, { heroId: heroA.id });
     b.send(MSG.chooseHero, { heroId: offersB[0]!.id });
     await until(() => a.state.phase === 'RECRUIT_PHASE' && a.state.turn === 1);

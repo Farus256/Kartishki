@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { DAILY_REWARD, levelFromXp, type LadderRow } from '@kartishki/shared';
@@ -8,6 +8,7 @@ import { MenuFotoWallpaper } from '../ui/MenuFotoWallpaper';
 import { BeerBottle } from '../ui/BeerBottle';
 import { InkButton, spring } from '../ui/InkButton';
 import { TopBar } from '../ui/TopBar';
+import { PlayerName } from '../cosmetics/PlayerName';
 import { apiBase, menuTrackUrl, useCardSets, usePlayerLeveling } from '../ui/useCatalog';
 import { chosenCardSet, rememberCardSet, useActiveCardSet } from '../activeCardSet';
 import { pickLoc } from '@kartishki/shared';
@@ -133,7 +134,7 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEdit
             const medal = row && (place === 1 || place === 2 || place === 3) ? place : 0;
             return <tr key={row ? `${row.username}-${place}` : `empty-${place}`} className={!row ? 'is-empty' : medal ? `is-${['', 'gold', 'silver', 'bronze'][medal]}` : undefined}>
               <td className="place">{medal ? <Trophy place={medal} /> : place}</td>
-              <td className="nick">{row?.username ?? ''}</td>
+              <td className="nick">{row && <PlayerName fx={row.username === profile?.username ? profile.settings.nameFx : row.nameFx} name={row.username} />}</td>
               <td className="lvl">{row ? levelFromXp(row.xp, leveling).level : ''}</td>
               <td className="ml">{row ? row.elo.toLocaleString('ru-RU') : ''}</td>
             </tr>;

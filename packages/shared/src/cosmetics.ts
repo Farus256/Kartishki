@@ -82,6 +82,8 @@ export const HERO_SKINS: HeroSkin[] = [
   { id: 'skin-liquid-gold', name: L('Жидкое золото', 'Liquid gold'), cost: 14000 },
   { id: 'skin-occult', name: L('Оккультная рама', 'Occult frame'), cost: 8000, set: 'occult' },
   { id: 'skin-tavern', name: L('Дуб и латунь', 'Oak and brass'), cost: 2000, set: 'tavern' },
+  /** ULTIMATE: a jewelled crown floats above the portrait (CSS crown + canvas glints, see auras.ts FRAME_FX). */
+  { id: 'skin-king', name: L('Королевская корона', "King's crown"), cost: 80000 },
 ];
 
 /** Hero slam: the effect that lands on the loser's portrait when a hero hits it (data-slam on .ab-slam-fx). */
@@ -99,6 +101,8 @@ export const HERO_SLAMS: HeroSlam[] = [
   { id: 'slam-shadow', name: L('Теневой удар', 'Shadow strike'), cost: 8000, set: 'occult' },
   { id: 'slam-petal', name: L('Лепестковый вихрь', 'Petal storm'), cost: 6000 },
   { id: 'slam-tavern', name: L('Кружкой по лицу', 'Mug smash'), cost: 6000, set: 'tavern' },
+  /** ULTIMATE: the hero hawks and spits across the table; the glob splats on the loser's portrait and drips off. */
+  { id: 'slam-spit', name: L('Плевок чемпиона', "Champion's spit"), cost: 80000 },
 ];
 
 /** Portrait effect: a living aura around the hero portrait for the whole match (data-aura on .ab-hero-face). */
@@ -171,9 +175,24 @@ export const COSMETIC_SETTING: Record<CosmeticKind, 'board' | 'heroSkin' | 'hero
 /** Visual tier from price: drives the card's trim in the shop.
  * Anchored to casino money: common ≈ many wheel spins, rare ≈ a strong slots pair,
  * epic ≈ wheel jackpot territory, legendary ≈ slots top jackpot. */
-export function cosmeticTier(cost: number): 'common' | 'rare' | 'epic' | 'legendary' | 'ultimate' {
-  // Recovery note: 'ultimate' at >= 60000 per the session notes for the 2026-09-18 balance pass (skin-king / slam-spit items themselves were not recovered).
+export type CosmeticTier = 'common' | 'rare' | 'epic' | 'legendary' | 'ultimate';
+export const COSMETIC_TIERS: CosmeticTier[] = ['common', 'rare', 'epic', 'legendary', 'ultimate'];
+export function cosmeticTier(cost: number): CosmeticTier {
   return cost >= 60000 ? 'ultimate' : cost >= 8000 ? 'legendary' : cost >= 4500 ? 'epic' : cost >= 1500 ? 'rare' : 'common';
+}
+
+/**
+ * Pack/chest skin drops: when a prize row says 'cosmetic', the tier is rolled with these odds (percent of skin drops),
+ * then one item of that tier. Common skins dominate; an ultimate is 1 in 500 skin drops.
+ */
+export const COSMETIC_DROP_ODDS: Record<CosmeticTier, number> = { common: 55, rare: 30, epic: 11, legendary: 3.8, ultimate: .2 };
+export function rollCosmetic(random = Math.random): Cosmetic {
+  const tiers = COSMETIC_TIERS.filter(t => COSMETICS.some(c => cosmeticTier(c.cost) === t));
+  let n = random() * tiers.reduce((sum, t) => sum + COSMETIC_DROP_ODDS[t], 0);
+  let tier = tiers[tiers.length - 1]!;
+  for (const t of tiers) { n -= COSMETIC_DROP_ODDS[t]; if (n < 0) { tier = t; break; } }
+  const pool = COSMETICS.filter(c => cosmeticTier(c.cost) === tier);
+  return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))]!;
 }
 
 /** Duplicate cosmetic from a pack or chest pays half its price back. */

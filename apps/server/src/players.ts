@@ -120,9 +120,9 @@ export class PlayerStore {
     });
   }
   async ladder(): Promise<LadderRow[]> {
-    return (await this.db.query<{ username: string; elo: string | number; xp: string | number }>(
-      'SELECT username, elo, xp FROM players ORDER BY elo DESC, username LIMIT 10')).rows
-      .map(row => ({ username: row.username, elo: Number(row.elo), xp: Number(row.xp) }));
+    return (await this.db.query<{ username: string; elo: string | number; xp: string | number; nameFx: string | null }>(
+      "SELECT username, elo, xp, settings->>'nameFx' AS \"nameFx\" FROM players ORDER BY elo DESC, username LIMIT 10")).rows
+      .map(row => ({ username: row.username, elo: Number(row.elo), xp: Number(row.xp), nameFx: row.nameFx ?? '' }));
   }
   private async validateDeck(tx: Sql, playerId: string, cards: unknown, catalog: CardDefinition[]): Promise<string[]> {
     if (!Array.isArray(cards) || cards.length !== DECK_SIZE || !cards.every(id => typeof id === 'string' && catalog.some(c => c.id === id))) throw new PlayerError('invalidDeck');

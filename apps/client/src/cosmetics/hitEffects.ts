@@ -21,6 +21,8 @@ export type HitEffectConfig = {
   streaks: number;
   /** Extras that make each style read differently. */
   bolt?: boolean; ink?: boolean; text?: string; glitch?: boolean; frost?: boolean; comet?: boolean; runes?: boolean; foam?: boolean;
+  /** A wet glob: a glossy splat that sags, long drips that run off the chin, a few bubbles, and a slow-motion wince on the portrait. */
+  spit?: boolean;
   recoil: number; punch: number;
   /** How the striker moves and how the target answers (see strikeMotion.ts). */
   motion: StrikeStyle;
@@ -44,6 +46,9 @@ export const HIT_EFFECTS: Record<string, HitEffectConfig> = {
   /* Mug smash: a glass mug comes down from above — glass shards fly, beer blots splatter and sag, foam clings and slides off. */
   'slam-tavern': { core: '#fff8e6', mid: '#e29a2c', edge: '#8a4d12', flash: .5, shock: 'ring', particle: { shape: 'shard', count: 16, speed: 200, gravity: 320, size: [6, 14], spin: true, life: 800 }, streaks: 0, ink: true, foam: true, recoil: 22, punch: .16, motion: 'cast', range: 'mug', duration: 1050 },
   'slam-comet': { core: '#fffbe6', mid: '#ffd66b', edge: '#ff7a1a', flash: .9, shock: 'burst', particle: { shape: 'ember', count: 26, speed: 220, gravity: 110, size: [5, 12], life: 900 }, streaks: 16, comet: true, recoil: 34, punch: .2, motion: 'cast', range: 'comet', duration: 1200 },
+  /* Champion's spit (ULTIMATE): the hero hawks, puffs up and lets fly; a glistening glob arcs over the table and splats on the loser —
+     the portrait winces in slow motion, the glob sags and drips off the chin, a ТЬФУ! stamp lands on top. Rude, never gory. */
+  'slam-spit': { core: '#f4ffd6', mid: '#a8e08a', edge: '#4f8a3a', flash: .25, shock: 'none', particle: { shape: 'drop', count: 18, speed: 150, gravity: 300, size: [5, 12], life: 800 }, streaks: 0, spit: true, text: 'ТЬФУ!', recoil: 14, punch: .1, motion: 'hawk', range: 'spit', duration: 1250 },
 };
 
 export type HitEffectOptions = {
@@ -188,6 +193,18 @@ export function playHitEffect(target: HTMLElement, id: string, options: HitEffec
           size: rand(14, 30) * k * .6, size1: rand(20, 36) * k * .6, rot: rand(0, 6), spin: rand(-.5, .5), shape: 'drop', blend: 'source-over', color: i ? cfg.mid : cfg.core, alpha: .95, fadeIn: .05, fadeOut: .35 });
       }
       for (let i = 0; i < 8; i++) fx.spawn({ x: cx + rand(-30, 30) * k, y: cy + rand(-10, 20) * k, vx: rand(-6, 6), vy: rand(30, 90) * k, ay: 160, life: rand(.5, .9), size: rand(2, 4) * k, size1: 1, shape: 'drop', blend: 'source-over', color: cfg.mid, alpha: .9, fadeIn: .05, fadeOut: .5 });
+    }
+    if (cfg.spit) {
+      // The glob itself: a glossy pale-green blot that lands slightly off-centre, spreads, then sags down the face.
+      const blot = el('i', 'hfx-spit', `position:absolute;left:${cx - 26 * k}px;top:${cy - 20 * k}px;width:${52 * k}px;height:${40 * k}px;border-radius:46% 54% 52% 48% / 58% 52% 48% 42%;background:radial-gradient(circle at 34% 30%,#ffffffee 0,${cfg.core}cc 22%,${cfg.mid}dd 55%,${cfg.edge}aa 100%);box-shadow:inset 0 -${4 * k}px ${8 * k}px ${cfg.edge}66,0 ${2 * k}px ${6 * k}px #00000033`);
+      layer.appendChild(blot);
+      run(blot, [{ transform: 'scale(.2,.2)', opacity: 0 }, { transform: 'scale(1.35,.8)', opacity: 1, offset: .08 }, { transform: 'scale(1,1.05)', opacity: 1, offset: .2 }, { transform: `translateY(${10 * k}px) scale(.9,1.5)`, opacity: .95, offset: .6 }, { transform: `translateY(${34 * k}px) scale(.55,2.1)`, opacity: 0 }], { duration: cfg.duration - impactAt, easing: EASE_OUT });
+      // Long drips that run down off the chin, and a couple of bubbles that pop where it landed.
+      for (let i = 0; i < 7; i++) fx.spawn({ x: cx + rand(-22, 22) * k, y: cy + rand(-6, 12) * k, vx: rand(-4, 4), vy: rand(24, 60) * k, ay: 140, drag: .3, life: rand(.7, 1.1), size: rand(2.4, 4.2) * k, size1: rand(1, 1.8) * k, shape: 'drop', blend: 'source-over', color: i % 2 ? cfg.mid : cfg.core, alpha: .95, fadeIn: .05, fadeOut: .4 });
+      for (let i = 0; i < 6; i++) fx.spawn({ x: cx + rand(-18, 18) * k, y: cy + rand(-14, 6) * k, vx: rand(-8, 8), vy: rand(-14, -4), ay: 40, drag: 1, life: rand(.35, .7), size: rand(1.8, 3.2) * k, size1: rand(2.4, 4) * k, shape: 'bubble', blend: 'source-over', color: 'rgba(244,255,214,.9)', alpha: .9, fadeIn: .05, fadeOut: .5 });
+      // Slow-motion wince: the portrait dims and softens for a beat, as if squinting the stuff away.
+      const img = target.querySelector<HTMLElement>('img');
+      if (img) run(img, [{ filter: 'none' }, { filter: 'brightness(.9) saturate(.8) blur(.6px)', offset: .15 }, { filter: 'brightness(.96) saturate(.9)', offset: .6 }, { filter: 'none' }], { duration: cfg.duration - impactAt, easing: 'ease-out' });
     }
     if (cfg.foam) {
       // Foam: white blobs that cling around the impact, swell a little and slide down before drying off.
