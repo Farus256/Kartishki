@@ -287,7 +287,7 @@ test('expansion tavern triggers: refresh, menagerie scaling, in-hand buffs, keyw
   const scribe = onBoard(p, 'ab-scribe');
   const rat = createMinionState(def('ab-rat-pack')!, 'hand-rat', p.sessionId); p.hand.push(rat);
   endRecruitTurn(d);
-  assert.equal(p.hand[p.hand.length - 1]!.attack, 2, 'scribe buffs the hand at end of turn');
+  assert.equal(p.hand[p.hand.length - 1]!.attack, 3, 'scribe buffs the hand at end of turn'); // RECONSTRUCTED (recovery): the Rat Pack is 2/2 since the balance pass
   assert.equal(scribe.attack, 1);
 });
 

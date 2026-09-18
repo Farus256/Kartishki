@@ -120,7 +120,8 @@ test('cosmetics: bought and looted skins persist on the account and gate what ca
     const store = new PlayerStore(db);
     const { library } = await store.register('Вера', 'password1');
     const id = library.profile.id;
-    await store.changeCurrency(id, 2500);
+    // RECONSTRUCTED (recovery): the fire set costs 4500 apiece since 4ad5ca2; the pre-loss budget line was not preserved.
+    for (let i = 0; i < 4; i++) await store.changeCurrency(id, 2500);
     await assert.rejects(() => store.saveSettings(id, { heroSlam: 'slam-fire' }), error => error instanceof PlayerError && error.code === 'notOwned');
     await assert.rejects(() => store.buyCosmetic(id, 'hero-ab-hero-tycoon'), error => error instanceof PlayerError && error.code === 'invalidProduct');
     const bought = await store.buyCosmetic(id, 'slam-fire');
@@ -135,7 +136,7 @@ test('cosmetics: bought and looted skins persist on the account and gate what ca
     // Wardrobe chest rolls roll until a skin lands; every fresh one is written to player_unlocks.
     let unlocks = new Set(worn.unlocks);
     for (let i = 0; i < 40 && unlocks.size < 3; i++) {
-      await store.changeCurrency(id, 350);
+      await store.changeCurrency(id, 1800); // RECONSTRUCTED (recovery): the atelier costs 1800 since e724dcc
       const { result, library: next } = await store.shop(id, starterCards, resolveShop(defaultShop), { type: 'buy', productId: 'atelier' });
       for (const reward of result.rewards) if (reward.kind === 'cosmetic') assert.ok(next.unlocks?.includes(reward.itemId), 'looted skin saved');
       unlocks = new Set(next.unlocks);

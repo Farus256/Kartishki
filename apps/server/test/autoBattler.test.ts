@@ -195,18 +195,19 @@ test('poisonous kills after a shield is gone', () => {
   assert.equal(result.winnerId, 'a');
 });
 
+// RECONSTRUCTED (recovery): the Breeder lost its deathrattle in the 2026-09-18 balance pass; the Rat Pack is the tier-1 rattler now.
 test('deathrattle summons a token at the death index and respects the board cap', () => {
   const a = { playerId: 'a', tavernTier: 2, board: [minion({ id: 'a1', cardId: 'ab-whelp', attack: 3, health: 1, owner: 'a' })] };
   const b = {
     playerId: 'b', tavernTier: 2,
     board: [
       minion({ id: 'left', cardId: 'ab-ward', attack: 0, health: 1, owner: 'b' }),
-      minion({ id: 'rattler', cardId: 'ab-breeder', attack: 0, health: 1, owner: 'b', keywords: ['deathrattle', 'taunt'] }),
+      minion({ id: 'rattler', cardId: 'ab-rat-pack', attack: 0, health: 1, owner: 'b', keywords: ['deathrattle', 'taunt'] }),
       minion({ id: 'right', cardId: 'ab-ward', attack: 0, health: 1, owner: 'b' }),
     ],
   };
   const result = resolveCombat(a, b, 8, registry, def);
-  assert.ok(result.events.some(event => event.kind === 'SUMMON' && event.cardId === 'ab-token-1-1'));
+  assert.ok(result.events.some(event => event.kind === 'SUMMON' && event.cardId === 'ab-token-rat'));
   const summon = result.events.find(event => event.kind === 'SUMMON');
   assert.equal(summon?.index, 1);
 
@@ -302,6 +303,7 @@ test('targeted hero power rejects missing or wrong-zone targets and accepts a ta
   assert.equal(p.tavern.offers[0]!.attack, before + 2);
 });
 
+// RECONSTRUCTED (recovery): the Captain's heal is a free +2 since the 2026-09-18 balance pass.
 test('untargeted hero power fires without a target', () => {
   const pool = new SharedMinionPool(catalog);
   const p = player('a');
@@ -315,7 +317,7 @@ test('untargeted hero power fires without a target', () => {
   beginRecruitTurn(d, 1);
   p.gold = 3;
   assert.equal(tryHeroPower(d).ok, true);
-  assert.equal(p.hero.health, 38);
+  assert.equal(p.hero.health, 37);
   assert.equal(p.hero.power.isExhausted, true);
   assert.equal(tryHeroPower(d).ok, false);
   p.hero.health = p.hero.maxHealth;

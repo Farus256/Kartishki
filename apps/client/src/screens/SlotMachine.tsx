@@ -750,6 +750,9 @@ export function SlotMachine() {
   const [jackpot, setJackpot] =
     useState(false);
 
+  /** Reels whose pay-line symbol is part of the paying pair/triple (lit once the drums stop). */
+  const [win, setWin] = useState<number[]>([]);
+
   const opening =
     economy.opening?.kind ===
     'slots'
@@ -869,6 +872,7 @@ export function SlotMachine() {
       return;
     }
 
+    setWin([]);
     setRound(
       current =>
         current + 1,
@@ -1187,6 +1191,8 @@ export function SlotMachine() {
         ? reward.amount
         : 0;
 
+    const landed = opening.reels.slice(0, 3);
+    setWin(money > 0 ? landed.flatMap((r, i) => r === opening.result.prizeIndex ? [i] : []) : []);
     payout(money);
 
     void economy.settleSlot();
@@ -1236,28 +1242,9 @@ export function SlotMachine() {
                     key={
                       round
                     }
-                    initial={{
-                      y:
-                        -reels[
-                          reelIndex
-                        ] *
-                        CELL,
-                    }}
-                    animate={{
-                      y:
-                        -(
-                          opening
-                            ? 24 +
-                              opening
-                                .reels[
-                                reelIndex
-                              ]
-                            : reels[
-                                reelIndex
-                              ]
-                        ) *
-                        CELL,
-                    }}
+                    className="reel-strip"
+                    initial={{ y: rowY(8 + (reels[reelIndex] ?? 0)) }}
+                    animate={{ y: rowY(opening ? 24 + (opening.reels[reelIndex] ?? 0) : 8 + (reels[reelIndex] ?? 0)) }}
                     transition={
                       opening
                         ? {
