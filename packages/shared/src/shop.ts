@@ -185,3 +185,15 @@ export function applyShopCredit(wallet: ShopWallet, result: ShopResult): ShopWal
 export function applyShopResult(wallet: ShopWallet, result: ShopResult): ShopWallet {
   return applyShopCredit(applyShopDebit(wallet, result), result);
 }
+/**
+ * Winning paylines of a settled spin, from the authoritative result only (never recomputed from odds).
+ * The machine has one line — the middle row — so a pair or a triple is one line through the matching reels
+ * (a pair on reels 0 and 2 still connects across the middle). Nothing paid = no line.
+ */
+export type SlotPayline = { symbol: number; reels: number[] };
+export function slotPaylines(result: Pick<ShopResult, 'reels' | 'prizeIndex' | 'rewards'>): SlotPayline[] {
+  const reels = result.reels ?? [];
+  const paid = result.rewards.some(r => r.kind === 'currency' && r.amount > 0);
+  const hits = reels.flatMap((r, i) => r === result.prizeIndex ? [i] : []);
+  return paid && hits.length >= 2 ? [{ symbol: result.prizeIndex, reels: hits }] : [];
+}

@@ -11,7 +11,9 @@ import { motion } from 'framer-motion';
 import {
   SLOT_BETS,
   scaleSlot,
+  slotPaylines,
   slotStake,
+  type SlotPayline,
 } from '@kartishki/shared';
 
 import { useEconomy } from '../EconomyContext';
@@ -42,6 +44,41 @@ const CELL = 104;
 const ROWS = 3;
 /** Strip offset that puts symbol `r` on the middle row (the rows above and below are its real strip neighbours). */
 const rowY = (r: number) => -(r - 1) * CELL;
+
+/**
+ * Winning paylines drawn over the reels: the middle row is the only line, so each win is a stroke through the centres
+ * of its reels (a split pair crosses the middle reel) with a ring around every paying symbol. The overlay measures the
+ * reels grid (3 columns, 10px gaps) so rings stay round and the line meets the real column centres at any width.
+ */
+function PaylineOverlay({ lines }: { lines: SlotPayline[] }) {
+  const ref = useRef<SVGSVGElement>(null);
+  const [box, setBox] = useState({ w: 300, h: CELL * ROWS });
+  useEffect(() => {
+    const el = ref.current?.parentElement;
+    if (!el) return;
+    const read = () => setBox({ w: el.clientWidth || 300, h: el.clientHeight || CELL * ROWS });
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const gap = 10, col = (box.w - gap * 2) / 3;
+  const cx = (reel: number) => col * (reel + 0.5) + gap * reel;
+  const cy = CELL * 1.5;
+  return (
+    <svg ref={ref} className="slot-paylines" viewBox={`0 0 ${box.w} ${box.h}`} aria-hidden data-testid="slot-paylines">
+      {lines.map(line => {
+        const reels = [...line.reels].sort((a, b) => a - b);
+        const d = reels.map((r, i) => `${i ? 'L' : 'M'}${cx(r)} ${cy}`).join(' ');
+        return <g key={line.symbol} data-reels={reels.join(',')}>
+          <path className="slot-payline-ink" d={d} />
+          <path className="slot-payline" d={d} />
+          {reels.map(r => <circle key={r} className="slot-payline-ring" cx={cx(r)} cy={cy} r={CELL * 0.46} />)}
+        </g>;
+      })}
+    </svg>
+  );
+}
 
 type Bill = {
   id: string;
@@ -188,6 +225,17 @@ const slotStyles = `
 
   overflow: hidden !important;
 }
+
+.slot-machine .reels { position: relative !important; }
+/* Paylines: gold ink over the glass, drawn in after the drums settle; cleared by the next spin. */
+.slot-machine .slot-paylines { position: absolute; inset: 0; z-index: 4; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.slot-machine .slot-payline, .slot-machine .slot-payline-ink { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 900; stroke-dashoffset: 900; animation: slot-payline-draw .7s ease-out forwards; }
+.slot-machine .slot-payline-ink { stroke: #1a1a1a; stroke-width: 9px; opacity: .55; }
+.slot-machine .slot-payline { stroke: #f5a623; stroke-width: 5px; filter: drop-shadow(0 0 6px #f5a623aa); }
+.slot-machine .slot-payline-ring { fill: none; stroke: #f5a623; stroke-width: 4px; opacity: 0; transform-box: fill-box; transform-origin: center; animation: slot-payline-ring .45s ease-out .5s forwards; }
+@keyframes slot-payline-draw { to { stroke-dashoffset: 0; } }
+@keyframes slot-payline-ring { from { opacity: 0; transform: scale(.7); } to { opacity: .85; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .slot-machine .slot-payline, .slot-machine .slot-payline-ink { animation: none; stroke-dashoffset: 0; } .slot-machine .slot-payline-ring { animation: none; opacity: .85; } }
 
 .slot-machine .reel-window {
   position: relative;
@@ -752,6 +800,8 @@ export function SlotMachine() {
 
   /** Reels whose pay-line symbol is part of the paying pair/triple (lit once the drums stop). */
   const [win, setWin] = useState<number[]>([]);
+  /** Paylines of the settled spin (from the server result), drawn over the reels until the next spin. */
+  const [lines, setLines] = useState<SlotPayline[]>([]);
 
   const opening =
     economy.opening?.kind ===
@@ -873,6 +923,7 @@ export function SlotMachine() {
     }
 
     setWin([]);
+    setLines([]);
     setRound(
       current =>
         current + 1,
@@ -1193,6 +1244,7 @@ export function SlotMachine() {
 
     const landed = opening.reels.slice(0, 3);
     setWin(money > 0 ? landed.flatMap((r, i) => r === opening.result.prizeIndex ? [i] : []) : []);
+    setLines(slotPaylines({ ...opening.result, reels: landed }));
     payout(money);
 
     void economy.settleSlot();
@@ -1302,6 +1354,7 @@ export function SlotMachine() {
                 </div>
               ),
             )}
+            {!spinning && lines.length > 0 && <PaylineOverlay lines={lines} />}
           </div>
 
           <div

@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { applyShopResult, defaultShop, parseShopAction, resolveShop, resolveShopAction, shopCard, shopCash, shopMixed, shopProducts, takeAlbumCard, validateShopConfig, weightedIndex } from '@kartishki/shared';
+import { applyShopResult, defaultShop, parseShopAction, resolveShop, resolveShopAction, shopCard, shopCash, shopMixed, shopProducts, slotPaylines, takeAlbumCard, validateShopConfig, weightedIndex } from '@kartishki/shared';
 import { demoCards } from '../apps/client/src/economy';
 
 const wallet = { currency: 8000, xp: 0, owned: Object.fromEntries(demoCards.slice(0, 18).map(card => [card.id, 6])) };
@@ -31,6 +31,18 @@ test('slots pay currency pairs and triples from the shop table', () => {
   assert.deepEqual(double.rewards, [{ kind: 'currency', amount: defaultShop.slots.triple[0]! * 2 }]);
   const invalid = resolveShopAction(defaultShop, demoCards, wallet, { type: 'buy', productId: 'slots', bet: 40 }, always);
   assert.equal(invalid.cost, 50);
+});
+
+test('slot paylines follow the settled result: one middle line through the paying reels, none on a miss', () => {
+  const paid = [{ kind: 'currency' as const, amount: 150 }];
+  assert.deepEqual(slotPaylines({ reels: [2, 2, 2], prizeIndex: 2, rewards: paid }), [{ symbol: 2, reels: [0, 1, 2] }]);
+  assert.deepEqual(slotPaylines({ reels: [4, 1, 4], prizeIndex: 4, rewards: paid }), [{ symbol: 4, reels: [0, 2] }], 'a split pair still connects across the middle reel');
+  assert.deepEqual(slotPaylines({ reels: [1, 1, 5], prizeIndex: 1, rewards: paid }), [{ symbol: 1, reels: [0, 1] }]);
+  assert.deepEqual(slotPaylines({ reels: [0, 3, 7], prizeIndex: 0, rewards: [{ kind: 'currency', amount: 0 }] }), [], 'no payout, no line');
+  assert.deepEqual(slotPaylines({ reels: [3, 3, 1], prizeIndex: 3, rewards: [{ kind: 'currency', amount: 0 }] }), [], 'a zero-paying pair draws nothing');
+  // The real resolver's result maps straight onto a line.
+  const jackpot = resolveShopAction(defaultShop, demoCards, wallet, { type: 'buy', productId: 'slots' }, () => 0);
+  assert.deepEqual(slotPaylines(jackpot), [{ symbol: 0, reels: [0, 1, 2] }]);
 });
 
 test('wheel manual land costs 400 and uses the chosen sector', () => {
