@@ -106,3 +106,20 @@ Previous-session work described in the session notes with no surviving source:
 
 ## Not part of the rebuilt repo
 `R9/`, `Recuva/`, `UFS/` stay in `D:\KARTISHKI` untouched. `.env.local` (DB credentials) was copied for local runs and is git-ignored.
+
+## Validation (after the safety commit `788f036`)
+
+| Step | Result |
+|---|---|
+| `npm install` | 258 packages, no errors |
+| `npx tsc --noEmit` | clean (after replaying three `perl -0pi` SlotMachine edits the first pass had skipped — commit `21a255b`) |
+| `npm test` (170 tests) | 170 / 170 on two consecutive runs. The first run had one failure in `autoBattler.match.test.ts` (wheel-of-fate table) that did not reproduce in three standalone runs and two further full runs. Four assertions in HEAD-baseline tests were stale against the recovered balance pass and HEAD's own shop prices; each edit carries a `RECONSTRUCTED (recovery)` marker (`autoBattler.test.ts` ×2, `autoBattler.effects.test.ts` ×1, `players.test.ts` ×2 lines) |
+| `npm run build` | client, editor and server build. The client bundles are 0.1–3.3 kB smaller and the two CSS chunks 2.5–3.4 kB smaller than the zero-filled shells of the lost 13:24 build in `R9/` — the size of the previous-session client work listed under "Known lost" |
+| Playwright `ab-polish.spec.ts` + `meta-polish.spec.ts` (this session's specs) | 7 / 7 passed; screenshots in `artifacts/` (combat enemy-hand fan, no drag ghost, spell ovals, wheel, 3-row reels, chest polish) |
+| Playwright `ab-dnd.spec.ts` | 9 / 9 passed |
+| Playwright `ab-live-polish.spec.ts` (real two-seat table) | 1 failure: the first-listed hero was the Foreman, whose passive puts a token in hand at turn start, so the spec's "hand is empty after the drop" expectation fails. Hero-dependent spec, not a recovery defect; the recruit screen itself renders correctly (demon tribe listed, one spell on the counter, anomaly gem) |
+| Playwright `battlegrounds.spec.ts` | 7 failed / 9 passed — the **same 7 failures with the same errors** when the spec is run against the untouched `4ad5ca2` sources (pre-existing drift between spec and UI, also seen by the lost session) |
+| Playwright `ab-composition.spec.ts` | 7 failures, identical to what the lost session recorded against a `HEAD` worktree (`toBeHidden` ×4, `toHaveClass`, matrix, hover) — pre-existing |
+| i18n key audit | every literal `t('…')` key used by the client exists in both languages (3 remaining hits are HEAD-era dynamic keys with `defaultValue`) |
+
+Not run: `test:metagame` (needs the shop/economy browser flow), `photo-editor`/`portrait-refresh`/`heroes`/`game` specs (untouched areas).
