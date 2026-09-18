@@ -7,7 +7,7 @@ import {
   type CardDefinition, type CaseResult, type LadderRow, type LootCard, type MatchRewards,
   type PackResult, type PlayerLibrary, type PlayerLogin, type PlayerProfile, type SavedDeck,
   type ShopConfig, type ShopResult, type ShopWallet,
-  resolveSettings, validateSettingsPatch,
+  resolveSettings, validateSettingsPatch, rewardsFor, type MatchMode,
 } from '@kartishki/shared';
 import { type Database, type Sql } from './database';
 
@@ -279,7 +279,8 @@ export class PlayerStore {
     });
   }
   /** `amount` is the editor's 1st-place beer (last place loses as much); see battlegroundsEloDelta. */
-  async settleBattlegrounds(results: { playerId: string; place: number }[], amount = DEFAULT_BATTLEGROUNDS_ELO, count = 0): Promise<Record<string, MatchRewards>> {
+  /** `mode` scales the payout (see MATCH_MODES): a custom room pays a third of the cash, half the xp and no rating. */
+  async settleBattlegrounds(results: { playerId: string; place: number }[], amount = DEFAULT_BATTLEGROUNDS_ELO, count = 0, mode: MatchMode = 'ranked'): Promise<Record<string, MatchRewards>> {
     const unique = new Map<string, number>();
     for (const row of results) if (row.playerId && row.place > 0) unique.set(row.playerId, row.place);
     if (unique.size < 1) return {};
@@ -290,10 +291,10 @@ export class PlayerStore {
         const row = (await tx.query<{ elo: string | number; currency: string | number; xp: string | number }>('SELECT elo, currency, xp FROM players WHERE id = $1 FOR UPDATE', [id])).rows[0];
         if (!row) continue;
         const place = unique.get(id)!;
-        const xpGain = battlegroundsXp(place, field);
-        const gained = battlegroundsCurrencyReward(place, field);
-        const xp = Number(row.xp) + xpGain;
-        const elo = applyBeerMl(Number(row.elo), beerMlForPlace(place, field, amount));
+        const paid = rewardsFor(mode, { xp: battlegroundsXp(place, field), currency: battlegroundsCurrencyReward(place, field), rating: beerMlForPlace(place, field, amount) });
+        const gained = paid.currency;
+        const xp = Number(row.xp) + paid.xp;
+        const elo = applyBeerMl(Number(row.elo), paid.rating);
         const currency = Number(row.currency) + gained;
         await tx.query('UPDATE players SET elo = $2, currency = $3, xp = $4 WHERE id = $1', [id, elo, currency, xp]);
         result[id] = { elo, currency, gained, xp };

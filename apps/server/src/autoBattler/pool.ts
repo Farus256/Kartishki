@@ -117,7 +117,10 @@ export class SharedMinionPool {
   }
 
   syncToState(state: AutoBattlerRoomState): void {
-    for (const [index, stock] of this.stocks().entries()) {
+    const stocks = this.stocks();
+    // A lobby that switches to a smaller set leaves no stale rows behind.
+    while (state.pool.length > stocks.length) state.pool.pop();
+    for (const [index, stock] of stocks.entries()) {
       const row = state.pool[index] ?? new PoolStockState();
       row.baseId = stock.baseId;
       row.remaining = stock.remaining;

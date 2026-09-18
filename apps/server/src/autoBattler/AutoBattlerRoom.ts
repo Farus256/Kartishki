@@ -30,7 +30,14 @@ import {
   type CombatEventsMessage,
   type DiscoverOptionsMessage,
   boardMainTribe,
+  DEFAULT_ROOM_SETTINGS,
+  matchModeOf,
+  rewardsFor,
+  validateRoomSettings,
+  type MatchMode,
+  type RoomSettings,
 } from '@kartishki/shared';
+import { BattlegroundsBot, executeBotAction, type BotAction } from './bot';
 import { PlayerError, type PlayerStore } from '../players';
 import { resolveCombat, snapshotBoard } from './combat';
 import { errorPayload, ok } from './errors';
@@ -69,9 +76,12 @@ function readNumber(input: unknown, key: string): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+/** Tavern regulars a bot seat is named after; the client adds a localised BOT tag next to the name. */
+const BOT_NAMES = ['Петрович', 'Зюзя', 'Кузьмич', 'Люся', 'Тарас', 'Фёдор', 'Клава', 'Митяй'];
+
 export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
   protected playerStore?: PlayerStore;
-  maxClients = AUTO_BATTLER.MAX_PLAYERS;
+  maxClients: number = AUTO_BATTLER.MAX_PLAYERS;
   state = new AutoBattlerRoomState();
   private readonly playerIds = new Map<string, string>();
   private readonly settledIds = new Set<string>();
@@ -104,8 +114,37 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
   private heroTicker?: { clear(): void };
   private combatDeadline?: { clear(): void };
   private readonly actionSequences = new Map<string, Set<number>>();
+  /** 'ranked' = the public queue; 'custom' = a server-browser room (host-configured, no rating, reduced payouts). */
+  private mode: MatchMode = 'ranked';
+  private settings: RoomSettings = { ...DEFAULT_ROOM_SETTINGS };
+  /** Server-driven seats: the same recruit rules, no client. Keyed by the seat's sessionId (`bot-N`). */
+  private readonly bots = new Map<string, BattlegroundsBot>();
+  private readonly botTimers = new Map<string, { clear(): void }>();
+  private botSerial = 0;
+  private table = '';
 
   private nextId = () => `ab${++this.serial}`;
+
+  /** Seats held by people (bots excluded). */
+  private humans(): AutoBattlerPlayerState[] {
+    return [...this.state.players.values()].filter(p => !p.isBot);
+  }
+
+  /** Human seats this table can take before it starts on its own. */
+  private humanSeats(): number {
+    return this.mode === 'custom' ? this.settings.maxPlayers - this.settings.bots : AUTO_BATTLER.MAX_PLAYERS;
+  }
+
+  /** Room listing for the server browser: everything a row shows, nothing a client may forge. */
+  private syncListing(): void {
+    const status = this.state.phase === 'LOBBY' ? 'waiting' : this.state.phase === 'GAME_OVER' ? 'finished' : 'playing';
+    const host = this.state.players.get(this.state.room.hostId);
+    void this.setMetadata({
+      mode: this.mode, table: this.table, set: this.state.setId,
+      name: this.settings.name, host: host?.displayName ?? '', players: this.humans().length, maxPlayers: this.settings.maxPlayers,
+      bots: this.settings.bots, anomaly: this.state.anomalyId, anomalySetting: this.settings.anomaly, timer: this.settings.timer, status,
+    });
+  }
 
   private defFor = (baseId: string) => this.catalog.minions.find(item => item.id === baseId);
 
@@ -143,40 +182,67 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     };
   }
 
-  onCreate(options: { recruitMs?: unknown; heroMs?: unknown; debug?: unknown; table?: unknown; anomaly?: unknown; set?: unknown; tribes?: unknown } = {}) {
+  /** Anomaly for this table: a custom room follows its setting, a ranked table rolls one from the seed (tests may pin it). */
+  private applyAnomaly(pinned?: string): void {
+    const rolled = AB_ANOMALIES[createRng(hashSeed(['anomaly', this.state.combatSeed])).int(AB_ANOMALIES.length)] ?? '';
+    if (pinned !== undefined) this.state.anomalyId = pinned;
+    else if (this.mode === 'custom') this.state.anomalyId = this.settings.anomaly === 'none' ? '' : this.settings.anomaly === 'random' ? rolled : this.settings.anomaly;
+    else this.state.anomalyId = rolled;
+  }
+
+  /**
+   * The table's catalog: the starter tavern or a published Workshop set (an unknown id falls back silently), cut down to
+   * the tribes in play (Hearthstone rule; tests may pin the list). Re-run when a custom host picks another set in the lobby.
+   */
+  private applyCatalog(setId: string, pinnedTribes?: string[]): void {
+    const set = setId ? catalogStore.cardSet(setId) : undefined;
+    let catalog = resolveAutoBattlerCatalog(this.published);
+    if (set) catalog = catalogFromCardSet(set, catalog.version, catalog.heroes);
+    this.state.setId = set?.id ?? '';
+    const tribes = pinnedTribes ?? pickMatchTribes(catalog, createRng(hashSeed(['tribes', this.state.combatSeed])).int);
+    this.catalog = restrictCatalogToTribes(catalog, tribes);
+    this.pool = new SharedMinionPool(this.catalog);
+    this.registry = createDefaultRegistry(this.catalog.minions);
+    while (this.state.tribes.length) this.state.tribes.pop();
+    for (const id of tribes) this.state.tribes.push(id);
+    this.state.catalogVersion = this.catalog.version;
+    this.pool.syncToState(this.state);
+  }
+
+  onCreate(options: { recruitMs?: unknown; heroMs?: unknown; debug?: unknown; table?: unknown; anomaly?: unknown; set?: unknown; tribes?: unknown; mode?: unknown; room?: unknown } = {}) {
     this.clock.start();
-    // A table may play a published Workshop set instead of the starter tavern; an unknown id falls back silently.
-    const set = typeof options.set === 'string' && options.set ? catalogStore.cardSet(options.set) : undefined;
-    if (set) {
-      this.catalog = catalogFromCardSet(set, this.catalog.version, this.catalog.heroes);
-      this.pool = new SharedMinionPool(this.catalog);
-      this.registry = createDefaultRegistry(this.catalog.minions);
-      this.state.setId = set.id;
-    }
-    this.setMetadata({ table: typeof options.table === 'string' ? options.table.slice(0, 64) : '', set: set?.id ?? '' });
     const testMode = process.env.AB_TEST_MODE === '1' && process.env.NODE_ENV !== 'production';
-    const requested = testMode && typeof options.recruitMs === 'number' && Number.isFinite(options.recruitMs) ? options.recruitMs : AUTO_BATTLER.RECRUIT_MS;
+    this.testMode = testMode;
+    this.mode = matchModeOf(options.mode);
+    this.state.mode = this.mode;
+    if (this.mode === 'custom') {
+      // The creator's settings are validated like a lobby patch; anything off falls back to the defaults.
+      const checked = validateRoomSettings(DEFAULT_ROOM_SETTINGS, options.room ?? {}, 1, catalogStore.cardSetSummaries().map(s => s.id));
+      if (checked.ok) this.settings = checked.settings;
+      this.state.room.name = this.settings.name;
+      this.state.room.maxPlayers = this.settings.maxPlayers;
+      this.state.room.bots = this.settings.bots;
+      this.state.room.anomaly = this.settings.anomaly;
+      this.state.room.timer = this.settings.timer;
+      this.maxClients = this.humanSeats();
+    }
+    const requested = testMode && typeof options.recruitMs === 'number' && Number.isFinite(options.recruitMs) ? options.recruitMs
+      : this.mode === 'custom' ? this.settings.timer * 1000 : AUTO_BATTLER.RECRUIT_MS;
     this.recruitMs = Math.min(120_000, Math.max(200, Math.floor(requested)));
     const heroRequested = testMode && typeof options.heroMs === 'number' && Number.isFinite(options.heroMs) ? options.heroMs : AUTO_BATTLER.HERO_SELECT_MS;
     this.heroMs = Math.min(120_000, Math.max(200, Math.floor(heroRequested)));
     this.debug = options.debug === true && process.env.AB_DEBUG === '1' && process.env.NODE_ENV !== 'production';
-    this.testMode = testMode;
     if (testMode) this.testCombatMs = Number(process.env.AB_TEST_COMBAT_MS ?? 80) || 80;
-    this.state.catalogVersion = this.catalog.version;
     this.state.combatSeed = randomInt(1, 0xffffffff);
-    // One seeded rule twist per table, visible from the lobby on.
-    this.state.anomalyId = AB_ANOMALIES[createRng(hashSeed(['anomaly', this.state.combatSeed])).int(AB_ANOMALIES.length)] ?? '';
-    // Tests pin the twist ('' = none) so turn-one gold and prices are predictable.
-    if (testMode && typeof options.anomaly === 'string') this.state.anomalyId = options.anomaly;
-    // Hearthstone rule: a handful of the tavern's tribes play at this table; the rest sit out (tests may pin the list).
+    // One rule twist per table, visible from the lobby on. Tests pin it ('' = none) so turn-one gold and prices are predictable.
+    this.applyAnomaly(testMode && typeof options.anomaly === 'string' ? options.anomaly : undefined);
     const pinned = testMode && Array.isArray(options.tribes) ? options.tribes.filter((id): id is string => typeof id === 'string') : undefined;
-    const tribes = pinned ?? pickMatchTribes(this.catalog, createRng(hashSeed(['tribes', this.state.combatSeed])).int);
-    this.catalog = restrictCatalogToTribes(this.catalog, tribes);
-    this.pool = new SharedMinionPool(this.catalog);
-    this.registry = createDefaultRegistry(this.catalog.minions);
-    for (const id of tribes) this.state.tribes.push(id);
-    this.pool.syncToState(this.state);
-    abLog('room.create', { seed: this.state.combatSeed, anomaly: this.state.anomalyId });
+    const setId = this.mode === 'custom' ? this.settings.setId : typeof options.set === 'string' ? options.set : '';
+    this.applyCatalog(setId, pinned);
+    this.settings.setId = this.state.setId;
+    this.table = typeof options.table === 'string' ? options.table.slice(0, 64) : '';
+    this.syncListing();
+    abLog('room.create', { seed: this.state.combatSeed, anomaly: this.state.anomalyId, mode: this.mode });
     const recruit = (message: string, act: (player: AutoBattlerPlayerState, input: unknown, client: Client) => ActionResult, whenReady = false) => {
       this.onMessage(message, (client, input: unknown) => {
         const turn = readNumber(input, 'turn');
@@ -200,11 +266,39 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         this.reject(client, 'WRONG_PHASE');
         return;
       }
-      if (this.state.players.size < AUTO_BATTLER.MIN_PLAYERS) {
+      // A ranked table needs two people; a custom room counts its bots (the host may play against bots alone).
+      const seats = this.humans().length + (this.mode === 'custom' ? this.settings.bots : 0);
+      if (seats < AUTO_BATTLER.MIN_PLAYERS || (this.mode === 'custom' && client.sessionId !== this.state.room.hostId)) {
         this.reject(client, 'REJECTED');
         return;
       }
       this.beginHeroSelection();
+    });
+
+    // Custom rooms: the host tunes the table while it waits. Everything is re-validated here; clients only ask.
+    this.onMessage(MSG.roomSettings, (client: Client, input: unknown) => {
+      if (this.mode !== 'custom' || this.state.phase !== 'LOBBY' || client.sessionId !== this.state.room.hostId) { this.reject(client, 'REJECTED'); return; }
+      const checked = validateRoomSettings(this.settings, input, this.humans().length, catalogStore.cardSetSummaries().map(s => s.id));
+      if (!checked.ok) { this.reject(client, 'INVALID_TARGET'); return; }
+      const previous = this.settings;
+      this.settings = checked.settings;
+      this.state.room.name = this.settings.name;
+      this.state.room.maxPlayers = this.settings.maxPlayers;
+      this.state.room.bots = this.settings.bots;
+      this.state.room.anomaly = this.settings.anomaly;
+      this.state.room.timer = this.settings.timer;
+      this.maxClients = this.humanSeats();
+      if (!this.testMode) this.recruitMs = Math.min(120_000, Math.max(200, this.settings.timer * 1000));
+      if (this.settings.anomaly !== previous.anomaly) this.applyAnomaly();
+      if (this.settings.setId !== previous.setId) {
+        this.applyCatalog(this.settings.setId);
+        this.settings.setId = this.state.setId;
+        for (const id of this.state.players.keys()) this.heroOffers.set(id, this.dealHeroes(id));
+        for (const other of this.clients) { other.send(EV.catalog, this.catalog); other.send(EV.heroOffers, this.heroOffers.get(other.sessionId) ?? []); }
+      }
+      this.state.revision++;
+      this.syncListing();
+      abLog('room.settings', { by: client.sessionId, ...this.settings });
     });
 
     this.onMessage(MSG.chooseHero, (client: Client, input: unknown) => {
@@ -274,6 +368,89 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.clearRecruitClock();
     this.clearHeroClock();
     this.combatDeadline?.clear();
+    this.clearBotTimers();
+  }
+
+  // ── Bots ──────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  /** Seats a bot: a normal player row (public isBot flag), no client, no account. It picks its hero right away. */
+  private addBot(): AutoBattlerPlayerState {
+    const id = `bot-${++this.botSerial}`;
+    const player = new AutoBattlerPlayerState();
+    player.sessionId = id;
+    player.displayName = BOT_NAMES[(this.state.combatSeed + this.botSerial) % BOT_NAMES.length]!;
+    player.isBot = true;
+    player.connected = true;
+    player.upgradeCost = initialUpgradeCost(1);
+    player.tavern.size = tavernSizeForTier(1);
+    this.state.players.set(id, player);
+    this.state.playerOrder.push(id);
+    const bot = new BattlegroundsBot(id);
+    this.bots.set(id, bot);
+    const offers = this.dealHeroes(id);
+    this.heroOffers.set(id, offers);
+    const hero = bot.chooseHero(offers, [...this.state.tribes], this.state.anomalyId) ?? offers[0];
+    if (hero) this.applyHero(player, hero);
+    abLog('bot.seated', { id, name: player.displayName, hero: hero?.id });
+    return player;
+  }
+
+  private clearBotTimers(): void {
+    for (const timer of this.botTimers.values()) timer.clear();
+    this.botTimers.clear();
+  }
+
+  /** Human-like pacing: a short think before the first action, then quick clicks. Tests run without delays. */
+  private botDelayMs(first: boolean): number {
+    if (this.testMode) return 0;
+    return first ? 900 + Math.floor(Math.random() * 1200) : 320 + Math.floor(Math.random() * 480);
+  }
+
+  private scheduleBot(id: string, first: boolean): void {
+    this.botTimers.get(id)?.clear();
+    this.botTimers.set(id, this.clock.setTimeout(() => this.runBot(id), this.botDelayMs(first)));
+  }
+
+  /** One bot action per tick, through the same rule functions a client message takes; the bot ends its own turn. */
+  private runBot(id: string, failures = 0): void {
+    this.botTimers.delete(id);
+    const bot = this.bots.get(id);
+    const player = this.alive(id);
+    if (!bot || !player || this.state.phase !== 'RECRUIT_PHASE' || player.recruitReady) return;
+    // Wrap up ahead of the bell so the last action never lands on a closed counter.
+    const closing = Date.now() >= this.state.phaseEndsAt - 1500;
+    let action: BotAction = { kind: 'end' };
+    if (!closing) {
+      try {
+        const opponent = this.state.players.get(player.nextOpponentId);
+        action = bot.planAction({
+          me: player, turn: this.state.turn, rules: this.rules(), tribes: [...this.state.tribes], defFor: this.defFor,
+          opponent: opponent ? { health: opponent.hero.health, tavernTier: opponent.tavernTier, mainTribe: opponent.mainTribe } : undefined,
+        });
+      } catch (error) { console.error('Bot planning failed', error); }
+    }
+    if (action.kind === 'end') {
+      player.recruitReady = true;
+      this.state.revision++;
+      if (this.allRecruitLocked()) this.beginCombat();
+      return;
+    }
+    const result = executeBotAction(this.deps(player), action);
+    if (!result.ok) abLog('bot.rejected', { id, action: action.kind, code: result.code });
+    const failed = result.ok ? 0 : failures + 1;
+    this.pool.syncToState(this.state);
+    this.state.revision++;
+    // Three rejections in a row (or the action ceiling) mean the plan is stuck: end the turn rather than spin.
+    if (failed >= 3) { this.runBotEnd(id); return; }
+    this.botTimers.set(id, this.clock.setTimeout(() => this.runBot(id, failed), this.botDelayMs(false)));
+  }
+
+  private runBotEnd(id: string): void {
+    const player = this.alive(id);
+    if (!player || this.state.phase !== 'RECRUIT_PHASE') return;
+    player.recruitReady = true;
+    this.state.revision++;
+    if (this.allRecruitLocked()) this.beginCombat();
   }
 
   async onAuth(_client: Client, options: { playerToken?: unknown } = {}): Promise<{ playerId?: string }> {
@@ -320,8 +497,11 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.grantPrivateView(client, player);
     this.state.playerOrder.push(client.sessionId);
     this.heroOffers.set(client.sessionId, this.dealHeroes(client.sessionId));
+    if (this.mode === 'custom' && !this.state.room.hostId) this.state.room.hostId = client.sessionId;
     abLog('player.join', { id: client.sessionId, name: player.displayName });
-    if (this.state.players.size >= AUTO_BATTLER.MAX_PLAYERS) this.beginHeroSelection();
+    this.syncListing();
+    // A full ranked table starts on its own; a custom room waits for its host (who may still be tuning it).
+    if (this.mode === 'ranked' && this.humans().length >= this.humanSeats()) this.beginHeroSelection();
   }
 
   onReconnect(client: Client) {
@@ -349,6 +529,9 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
       const order = [...this.state.playerOrder].filter(id => id !== client.sessionId);
       while (this.state.playerOrder.length) this.state.playerOrder.pop();
       for (const id of order) this.state.playerOrder.push(id);
+      // The host walked out of the lobby: the longest-seated player takes over.
+      if (this.state.room.hostId === client.sessionId) this.state.room.hostId = order[0] ?? '';
+      this.syncListing();
       return;
     }
 
@@ -365,9 +548,9 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.settleAfterLeave();
   }
 
-  /** More than half the table walked out: nobody plays on, nobody is paid. */
+  /** More than half the people at the table walked out: nobody plays on, nobody is paid. Bots never leave and do not count. */
   private walkedOut(): boolean {
-    return this.leftIds.size * 2 > this.state.players.size;
+    return this.leftIds.size * 2 > this.humans().length;
   }
 
   private cancelMatch(): void {
@@ -472,7 +655,11 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
   private beginHeroSelection(): void {
     if (this.state.phase !== 'LOBBY') return;
     void this.lock();
+    // Custom rooms seat the bots the host asked for; a ranked table with an odd crowd gets exactly one so nobody sits out.
+    const wanted = this.mode === 'custom' ? this.settings.bots : this.humans().length % 2;
+    for (let n = 0; n < wanted; n++) this.addBot();
     this.state.phase = 'HERO_SELECTION';
+    this.syncListing();
     this.startHeroClock();
     this.state.revision++;
     abLog('phase.hero', {});
@@ -525,10 +712,12 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.pool.syncToState(this.state);
     this.startRecruitClock();
     this.state.revision++;
+    for (const id of this.bots.keys()) if (this.alive(id)) this.scheduleBot(id, true);
     abLog('phase.recruit', { turn: this.state.turn });
   }
 
   private clearRecruitClock(): void {
+    this.clearBotTimers();
     this.recruitDeadline?.clear();
     this.recruitTicker?.clear();
     this.recruitDeadline = undefined;
@@ -818,6 +1007,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.combatDeadline?.clear();
     this.state.phaseEndsAt = 0;
     this.state.revision++;
+    this.syncListing();
     abLog('game.over', { winner: this.state.winnerId });
     if (!this.state.cancelled) void this.persistRewards();
     return true;
@@ -835,20 +1025,23 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     });
     let persisted: Record<string, { elo: number; currency: number; gained: number; xp: number }> = {};
     try {
-      if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, this.ratingAmount, count);
+      // Bots are never in loggedIn (no account behind the seat); the mode scales the payouts and switches rating off.
+      if (this.playerStore && loggedIn.length) persisted = await this.playerStore.settleBattlegrounds(loggedIn, this.ratingAmount, count, this.mode);
     } catch (error) { console.error('Failed to persist battlegrounds result', error); }
     for (const player of players) {
-      if (player.placement < 1) continue;
+      if (player.placement < 1 || player.isBot) continue;
       const client = this.clients.find(item => item.sessionId === player.sessionId);
       if (!client) continue;
       const playerId = this.playerIds.get(player.sessionId);
       const row = playerId ? persisted[playerId] : undefined;
-      const beerMlGain = beerMlForPlace(player.placement, count, this.ratingAmount);
-      const eloDelta = beerMlGain;
-      const xpGain = battlegroundsXp(player.placement, count);
+      const paid = rewardsFor(this.mode, {
+        currency: battlegroundsCurrencyReward(player.placement, count),
+        xp: battlegroundsXp(player.placement, count),
+        rating: beerMlForPlace(player.placement, count, this.ratingAmount),
+      });
       const payload: BattlegroundsRewards = {
-        place: player.placement, eloDelta, xpGain, beerMlGain,
-        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? battlegroundsCurrencyReward(player.placement, count), xp: row?.xp ?? 0,
+        place: player.placement, eloDelta: paid.rating, xpGain: paid.xp, beerMlGain: paid.rating,
+        elo: row?.elo ?? 0, currency: row?.currency ?? 0, gained: row?.gained ?? paid.currency, xp: row?.xp ?? 0,
       };
       client.send(EV.rewards, payload);
     }

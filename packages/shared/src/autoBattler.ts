@@ -101,6 +101,8 @@ export const AUTO_BATTLER_MESSAGES = {
   endRecruit: 'endRecruit',
   cancelRecruit: 'cancelRecruit',
   discoverPick: 'discoverPick',
+  /** Host only, lobby only: patch the custom room settings (see validateRoomSettings). */
+  roomSettings: 'roomSettings',
 } as const;
 
 export const ACTION_ERROR_CODES = [
@@ -266,8 +268,23 @@ export const AutoBattlerPlayerState = schema({
   eliminated: t.boolean().default(false),
   placement: t.number().default(0),
   connected: t.boolean().default(true),
+  /** Server-driven seat (see autoBattler/bot): no client, no account, no persistent rewards. Public so every table marks it. */
+  isBot: t.boolean().default(false),
 }, 'AutoBattlerPlayerState');
 export type AutoBattlerPlayerState = InstanceType<typeof AutoBattlerPlayerState>;
+
+/** Custom room settings (see validateRoomSettings); only meaningful when mode === 'custom'. */
+export const CustomRoomState = schema({
+  name: t.string().default(''),
+  hostId: t.string().default(''),
+  maxPlayers: t.number().default(AUTO_BATTLER.MAX_PLAYERS),
+  bots: t.number().default(0),
+  /** 'random', 'none' or an AB_ANOMALIES id. */
+  anomaly: t.string().default('random'),
+  /** Base recruit length in seconds (see AB_ROOM_TIMERS); grows per turn like the ranked table. */
+  timer: t.number().default(60),
+}, 'AutoBattlerCustomRoomState');
+export type CustomRoomState = InstanceType<typeof CustomRoomState>;
 
 export const AutoBattlerRoomState = schema({
   phase: t.string().default('LOBBY'),
@@ -292,6 +309,10 @@ export const AutoBattlerRoomState = schema({
   setId: t.string().default(''),
   /** Tribes in play at this table (see pickMatchTribes); neutral always plays and is not listed. */
   tribes: t.array('string'),
+  /** 'ranked' (the public queue, rating on) or 'custom' (a server-browser room: no rating, reduced payouts). See MATCH_MODES. */
+  mode: t.string().default('ranked'),
+  /** Custom room settings, replicated so the lobby can show them and the host can edit them. */
+  room: CustomRoomState,
 }, 'AutoBattlerRoomState');
 export type AutoBattlerRoomState = InstanceType<typeof AutoBattlerRoomState>;
 
@@ -563,6 +584,48 @@ export type AbAnomalyId = typeof AB_ANOMALIES[number];
 export const AB_WHEEL_BONUSES = ['gold', 'bank', 'tonic', 'hand', 'reroll', 'upgrade', 'shield', 'taunt', 'token', 'heal'] as const;
 export type AbWheelBonus = typeof AB_WHEEL_BONUSES[number];
 export type AutoBattlerHeroPowerId = keyof typeof autoBattlerHeroPowerPresets;
+
+/**
+ * Match modes. The room decides its mode at creation (a client can only ask for one); payouts are scaled server-side
+ * from this table, never from a client flag. Rounding: every payout is Math.round(base * multiplier) — see rewardsFor.
+ */
+export const MATCH_MODES = {
+  ranked: { moneyMultiplier: 1, xpMultiplier: 1, ratingEnabled: true },
+  custom: { moneyMultiplier: 1 / 3, xpMultiplier: 1 / 2, ratingEnabled: false },
+} as const;
+export type MatchMode = keyof typeof MATCH_MODES;
+export const matchModeOf = (value: unknown): MatchMode => value === 'custom' ? 'custom' : 'ranked';
+/** Payout for a place under a mode: the ranked curve scaled and rounded half-up, rating only when the mode keeps it. */
+export function rewardsFor(mode: MatchMode, base: { currency: number; xp: number; rating: number }): { currency: number; xp: number; rating: number } {
+  const m = MATCH_MODES[mode];
+  return { currency: Math.round(base.currency * m.moneyMultiplier), xp: Math.round(base.xp * m.xpMultiplier), rating: m.ratingEnabled ? base.rating : 0 };
+}
+
+/** One server-browser row (GET /api/rooms). Ids are only for joinById; the browser never displays them. */
+export type RoomListing = { roomId: string; name: string; host: string; players: number; maxPlayers: number; bots: number; setId: string; anomaly: string; anomalySetting: string; timer: number; status: 'waiting' | 'playing'; joinable: boolean };
+/** Base recruit-phase lengths a custom room may pick, in seconds. */
+export const AB_ROOM_TIMERS = [45, 60, 90] as const;
+export const AB_ROOM_NAME_MAX = 32;
+export type RoomSettings = { name: string; maxPlayers: number; bots: number; setId: string; anomaly: string; timer: number };
+export const DEFAULT_ROOM_SETTINGS: RoomSettings = { name: '', maxPlayers: AUTO_BATTLER.MAX_PLAYERS, bots: 0, setId: '', anomaly: 'random', timer: 60 };
+/**
+ * Merges a settings patch into the current settings, or names the offending field.
+ * `humans` = seats people already hold: the host cannot shrink the room under them, and one human seat always stays.
+ */
+export function validateRoomSettings(current: RoomSettings, patch: unknown, humans = 1, knownSets: readonly string[] = []): { ok: true; settings: RoomSettings } | { ok: false; field: keyof RoomSettings } {
+  if (!patch || typeof patch !== 'object') return { ok: false, field: 'name' };
+  const p = patch as Partial<Record<keyof RoomSettings, unknown>>;
+  const next: RoomSettings = { ...current };
+  const int = (n: unknown, min: number, max: number) => Number.isInteger(n) && (n as number) >= min && (n as number) <= max;
+  if (p.name !== undefined) { if (typeof p.name !== 'string' || p.name.length > AB_ROOM_NAME_MAX || /[\u0000-\u001f]/.test(p.name)) return { ok: false, field: 'name' }; next.name = p.name.trim(); }
+  if (p.maxPlayers !== undefined) { if (!int(p.maxPlayers, AUTO_BATTLER.MIN_PLAYERS, AUTO_BATTLER.MAX_PLAYERS)) return { ok: false, field: 'maxPlayers' }; next.maxPlayers = p.maxPlayers as number; }
+  if (p.bots !== undefined) { if (!int(p.bots, 0, AUTO_BATTLER.MAX_PLAYERS - 1)) return { ok: false, field: 'bots' }; next.bots = p.bots as number; }
+  if (p.setId !== undefined) { if (typeof p.setId !== 'string' || (p.setId && !knownSets.includes(p.setId))) return { ok: false, field: 'setId' }; next.setId = p.setId; }
+  if (p.anomaly !== undefined) { if (p.anomaly !== 'random' && p.anomaly !== 'none' && !(AB_ANOMALIES as readonly string[]).includes(p.anomaly as string)) return { ok: false, field: 'anomaly' }; next.anomaly = p.anomaly as string; }
+  if (p.timer !== undefined) { if (!(AB_ROOM_TIMERS as readonly number[]).includes(p.timer as number)) return { ok: false, field: 'timer' }; next.timer = p.timer as number; }
+  if (next.bots + Math.max(1, humans) > next.maxPlayers) return { ok: false, field: next.bots !== current.bots ? 'bots' : 'maxPlayers' };
+  return { ok: true, settings: next };
+}
 
 export type AutoBattlerHeroDef = {
   id: string;

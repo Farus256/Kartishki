@@ -14,6 +14,7 @@ import { portraitAssets } from './portraitAssets';
 import { corsAllowOrigin, tightenColyseusCors } from './cors';
 import { listenBind } from './listenBind';
 import { seedDevAccount } from './devAccount';
+import { listCustomRooms } from './autoBattler/roomList';
 tightenColyseusCors(matchMaker.controller);
 const db = await openDatabase(process.env.DATABASE_URL, process.env.PLAYER_DATA_DIR);
 await migratePlayers(db);
@@ -37,6 +38,10 @@ app.get('/health', (_req, res) => { res.json({ status: 'ok' }); });
 app.use('/api/players', playerApi(players,catalogStore));
 app.use('/api/portraits', portraitAssets());
 app.use('/api/music', musicAssets());
+// Server browser: the custom (unranked) Battlegrounds rooms and their host-set rules, straight from the matchmaker listing.
+app.get('/api/rooms', async (_req, res) => {
+  try { res.json(await listCustomRooms()); } catch (error) { console.error('Room listing failed', error); res.status(500).json({ error: 'listError' }); }
+});
 app.get('/api/catalog', (_req, res) => res.json(catalogStore.snapshot()));
 app.put('/api/catalog', express.json({ limit: '7mb' }), (req, res) => {
   if (!validateCard(req.body?.card) || !Number.isInteger(req.body?.version)) { res.status(400).json({ error: 'invalidCard' }); return; }
@@ -108,7 +113,7 @@ app.put('/api/auto-battler-copy', express.json({ limit: '1mb' }), (req, res) => 
 });
 const server = new Server({ transport });
 server.define('match', matchRoomWithPlayers(players));
-server.define('autoBattler', autoBattlerRoomWithPlayers(players)).filterBy(['table', 'set']);
+server.define('autoBattler', autoBattlerRoomWithPlayers(players)).filterBy(['table', 'set', 'mode']);
 server.onShutdown(() => db.close());
 const { port, host } = listenBind();
 await server.listen(port, host);

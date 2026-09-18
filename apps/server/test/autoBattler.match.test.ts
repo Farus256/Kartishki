@@ -26,7 +26,9 @@ async function harness(count:number,options:Record<string,unknown>={}){
 }
 for(const count of [2,3,4,8])test(`${count} players complete matches with conserved pool, ghost pairing and unique placements`,{timeout:40000},async()=>{
  const h=await harness(count);try{
-  let ghostSeen=false;
+  // A ranked table with an odd crowd seats one bot (see AutoBattlerRoom.beginHeroSelection).
+  const participants=count+count%2;assert.equal(h.host.state.players.size,participants);assert.equal([...h.host.state.players.values()].filter(p=>p.isBot).length,count%2);
+  let ghostSeen=false,oddAliveSeen=false;
   for(let round=0;round<100&&h.host.state.phase!=='GAME_OVER';round++){
    await until(()=>['RECRUIT_PHASE','GAME_OVER'].includes(h.host.state.phase));if(h.host.state.phase==='GAME_OVER')break;
    const hero=h.rooms[0]!;await until(()=>hero.state.phase==='RECRUIT_PHASE');
@@ -41,15 +43,15 @@ for(const count of [2,3,4,8])test(`${count} players complete matches with conser
      }
     }
    }
-   const turn=h.host.state.turn;
+   const turn=h.host.state.turn;oddAliveSeen ||= [...h.host.state.players.values()].filter(p=>!p.eliminated).length%2===1;
    for(const pair of h.host.state.pairing){assert.notEqual(pair.playerA,pair.playerB);ghostSeen ||= pair.ghost;}
    for(const r of h.rooms)if(!h.host.state.players.get(r.sessionId)!.eliminated){await until(()=>r.state.phase==='RECRUIT_PHASE'&&r.state.turn===turn);await h.send(r,MSG.endRecruit);}
    await until(()=>h.host.state.turn>turn||h.host.state.phase==='GAME_OVER');
    const remaining=(h.host as any).pool.stocks() as {baseId:string;remaining:number}[];
    for(const stock of remaining){const def=starterAutoBattlerCatalog.minions.find(m=>m.id===stock.baseId)!;const owned=[...h.host.state.players.values()].flatMap(p=>[...p.board,...p.hand,...p.tavern.offers,...p.pendingDiscover]).filter(m=>m.baseId===stock.baseId).reduce((n,m)=>n+m.poolCopies,0);assert.equal(stock.remaining+owned,def.poolCopies??[0,16,15,13,11,9,7][def.tavernTier]);}
   }
-  assert.equal(h.host.state.phase,'GAME_OVER');assert.ok(h.host.state.winnerId);assert.deepEqual([...h.host.state.players.values()].map(p=>p.placement).sort((a,b)=>a-b),Array.from({length:count},(_,i)=>i+1));
-  if(count===3)assert.ok(ghostSeen);
+  assert.equal(h.host.state.phase,'GAME_OVER');assert.ok(h.host.state.winnerId);assert.deepEqual([...h.host.state.players.values()].map(p=>p.placement).sort((a,b)=>a-b),Array.from({length:participants},(_,i)=>i+1));
+  if(oddAliveSeen)assert.ok(ghostSeen);
   assert.ok([...h.combatCounts.values()].every(n=>n===1),'A ghost must not overwrite its living source player’s own combat');
  }finally{await h.server.gracefullyShutdown(false);}
 });
@@ -89,7 +91,8 @@ test('a consented leave settles the phase the table was waiting on',{timeout:200
   await c.leave(true);
   await until(()=>h.host.state.phase!=='RECRUIT_PHASE');
   assert.ok(h.host.state.players.get(c.sessionId)!.eliminated);
-  assert.equal(h.host.state.players.get(c.sessionId)!.placement,3);
+  // Three people plus the fill-in bot: the walk-out takes last place of four.
+  assert.equal(h.host.state.players.get(c.sessionId)!.placement,4);
  }finally{await h.server.gracefullyShutdown(false);}
 });
 
