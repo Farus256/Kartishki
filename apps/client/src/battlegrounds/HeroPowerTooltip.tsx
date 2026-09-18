@@ -8,7 +8,7 @@ import { PaperTooltip } from '../ui/PaperTooltip';
 export function powerCopy(power: AbPlayer['power'], catalog: AutoBattlerCatalog, lang: string, t: (key: string, opts?: { defaultValue?: string }) => string) {
   const name = abCopyName(catalog.copy, 'powers', power.id, lang, t(`abPower_${power.id}`, { defaultValue: t('abPower') }));
   // Only the leading price of an active power follows the live cost (free-powers anomaly); payouts quoted inside hints stay as written.
-  const fallback = t(`abHint_${power.id}`, { defaultValue: '' }).replace(/^(За|Pay) \$\d+/, `$1 $${power.goldCost}`);
+  const fallback = t(`abHint_${power.id}`, { defaultValue: '' }).replace(/^(За|Pay) \$\d+/, `$1 $$${power.goldCost}`);
   return { name, description: abCopyDescription(catalog.copy, 'powers', power.id, lang, fallback) };
 }
 

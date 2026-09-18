@@ -180,7 +180,7 @@ export const playerSession = {
 };
 if (token) {
   void request<PlayerLibrary>('/me').then(library => setLibrary(library, true)).catch(error=>{
-    if (error.message === 'loginRequired') { token=''; localStorage.removeItem('playerToken'); }
+    if (error.message === 'loginRequired') { token = shared.token = ''; localStorage.removeItem('playerToken'); }
     publish({error:error.message});
   }).finally(()=>publish({loading:false}));
 }

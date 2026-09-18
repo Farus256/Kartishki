@@ -97,4 +97,3 @@ export function playSlamWindup(id: string) {
     else if (HIT_SOUNDS[id]) burst(ac, ac.currentTime + .01, { a: .12, d: .22, peak: .3 }, { type: 'bandpass', from: 400, to: 1800, q: 1.4 });
   } catch { /* audio never blocks the hit */ }
 }
-/** Impact voice of a hero slam, scheduled a few ms ahead so it lands with the flash. */
