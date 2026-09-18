@@ -34,12 +34,12 @@ const BACK_FX: Record<string, BackFx> = {
       layer.paint((ctx, W, H) => { ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(W / 2, H * .9, 2, W / 2, H * .9, W * .7); const p = .6 + .3 * noise2(t * 2, 3); g.addColorStop(0, `rgba(255,120,30,${.28 * p})`); g.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); });
     });
   },
-  /* Runes: motes orbit the emblem and pulse rings open now and then. */
+  /* Runes: motes orbit the emblem and pulse rings open now and then (rings read the live canvas size: the host is often resized after mount). */
   'back-arcane': (layer, w, h) => {
     let next = 0;
     layer.emitter((dt, t) => {
       if (Math.random() < dt * 5) { const a = rand(0, 6.3), r = Math.min(w, h) * .32; layer.spawn({ x: w / 2 + Math.cos(a) * r, y: h / 2 + Math.sin(a) * r, vx: -Math.sin(a) * 18, vy: Math.cos(a) * 18, turb: 8, life: rand(1.5, 3), size: rand(1.2, 2.4), size1: .6, color: pick(['#9bd7ff', '#e6c3ff']), alpha: rand(.5, .9), fadeIn: .3, fadeOut: .4 }); }
-      if (t >= next) { next = t + rand(1.2, 2.6); layer.spawn({ x: w / 2, y: h / 2, life: 1.3, size: Math.min(w, h) * .12, size1: Math.min(w, h) * .46, shape: 'ring', color: '#c77dff', alpha: .7, fadeIn: .05, fadeOut: .7, spin: .4 }); }
+      if (t >= next) { next = t + rand(1.2, 2.6); layer.spawn({ x: layer.w / 2, y: layer.h / 2, life: 1.3, size: Math.min(layer.w, layer.h) * .12, size1: Math.min(layer.w, layer.h) * .46, shape: 'ring', color: '#c77dff', alpha: .7, fadeIn: .05, fadeOut: .7, spin: .4 }); }
     });
   },
   /* Neon: a haze of magenta and cyan drifts, the sign flickers. */
