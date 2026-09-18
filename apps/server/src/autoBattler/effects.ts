@@ -16,9 +16,23 @@ import type { SeededRng } from './rng';
 import type { CombatContext, CombatMinion } from './combatTypes';
 import { createMinionState } from './instantiate';
 
-/** Anomaly-adjusted prices a room hands to every recruit action. */
-export type TavernRules = { buyCost: number; rerollCost: number; goldCap: number; tavernBonus: number; firstBuyDiscount: number; combatBuff: number; sellReward: number; upgradeDiscount: number; damageCap: boolean; combatKeyword?: AutoBattlerKeyword };
-export const DEFAULT_RULES: TavernRules = { buyCost: AUTO_BATTLER.BUY_COST, rerollCost: AUTO_BATTLER.REROLL_COST, goldCap: AUTO_BATTLER.GOLD_CAP, tavernBonus: 0, firstBuyDiscount: 0, combatBuff: 0, sellReward: AUTO_BATTLER.SELL_REWARD, upgradeDiscount: 0, damageCap: AUTO_BATTLER.DAMAGE_CAP_ENABLED };
+/** Anomaly-adjusted rules a room hands to every recruit action (see AB_ANOMALIES for what each twist sets). */
+export type TavernRules = {
+  buyCost: number; rerollCost: number; goldCap: number; tavernBonus: number; firstBuyDiscount: number; sellReward: number; upgradeDiscount: number; damageCap: boolean;
+  /** Keyword every minion carries into combat (plated / second wind). */
+  combatKeyword?: AutoBattlerKeyword;
+  /** Copies that merge into a golden (3, or 2 in a golden age). */
+  tripleSize: number;
+  /** Extra tavern slots that only ever hold spells, and the discount on every spell. */
+  spellSlots: number; spellDiscount: number;
+  /** +N/+N to every minion in hand at the end of each turn. */
+  handGrowth: number;
+  /** How many times end-of-turn effects fire, and how many extra times a Battlecry fires. */
+  endTurnTimes: number; battlecryEcho: number;
+  /** Wheel of fate: every recruit turn opens with a spin for one of AB_WHEEL_BONUSES. */
+  wheel: boolean;
+};
+export const DEFAULT_RULES: TavernRules = { buyCost: AUTO_BATTLER.BUY_COST, rerollCost: AUTO_BATTLER.REROLL_COST, goldCap: AUTO_BATTLER.GOLD_CAP, tavernBonus: 0, firstBuyDiscount: 0, sellReward: AUTO_BATTLER.SELL_REWARD, upgradeDiscount: 0, damageCap: AUTO_BATTLER.DAMAGE_CAP_ENABLED, tripleSize: 3, spellSlots: 0, spellDiscount: 0, handGrowth: 0, endTurnTimes: 1, battlecryEcho: 0, wheel: false };
 
 const tribeMatch = (tribes: Iterable<string>, tribe: AutoBattlerTribe | 'all' | undefined) => tribe === undefined || tribe === 'all' || hasTribe(tribes, tribe);
 
@@ -53,6 +67,16 @@ function grantKeyword(keywords: string[] | { includes(k: string): boolean; push(
   return true;
 }
 
+/** Extra times a Battlecry / Deathrattle fires thanks to echo minions on the board (a golden echo counts twice); `self` is left out. */
+export function echoCount(board: Iterable<{ id: string; baseId: string; golden: boolean; health?: number }>, self: string, what: 'battlecry' | 'deathrattle', defFor: (baseId: string) => AutoBattlerMinionDef | undefined): number {
+  let n = 0;
+  for (const m of board) {
+    if (m.id === self || (m.health !== undefined && m.health <= 0)) continue;
+    for (const e of defFor(m.baseId)?.effects ?? []) if (e.trigger === 'aura' && e.action.kind === 'echo' && e.action.echo === what) n += m.golden ? 2 : 1;
+  }
+  return n;
+}
+
 /** Permanent tavern buff: stats and the bonus ledger that survives triples. */
 export function buffTavernMinion(minion: AutoBattlerMinionState, attack: number, health: number): void {
   minion.attack = Math.max(0, minion.attack + attack);
@@ -69,6 +93,8 @@ export type RecruitEffectDeps = {
   rules: TavernRules;
   /** Ids for tokens summoned onto the tavern board. */
   nextId?: () => string;
+  /** Eaten tavern offers go back to the bag (a devour without a pool just removes them). */
+  pool?: { returnCopy(baseId: string): void };
   onDiscover?: () => void;
   /** Reports each permanent buff (owner → target) so the room can replay end-of-turn effects on the combat table. */
   onBuff?: (owner: AutoBattlerMinionState, target: AutoBattlerMinionState) => void;
@@ -96,6 +122,39 @@ function pickTargets(player: AutoBattlerPlayerState, owner: AutoBattlerMinionSta
       return pool.length ? [rng.pick(pool)] : [];
     }
   }
+}
+
+/** A guard on the board (Tier 2 demon ward) takes the blood price so the hero does not. */
+export function heroGuarded(deps: Pick<RecruitEffectDeps, 'player' | 'defFor'>): boolean {
+  return [...deps.player.board].some(m => m.kind !== 'spell' && (deps.defFor(m.baseId)?.effects ?? []).some(e => e.trigger === 'aura' && e.action.kind === 'guard'));
+}
+
+/** Chains like "devour → devour" or "selfDamage → selfDamage" stop here instead of eating the whole tavern in one click. */
+let nesting = 0;
+const nested = (fn: () => void) => { if (nesting >= 6) return; nesting++; try { fn(); } finally { nesting--; } };
+
+/** Blood price: the hero pays unless guarded (never below 1 Health); the board's selfDamage effects fire either way. */
+export function payBlood(deps: RecruitEffectDeps, amount: number, source?: AutoBattlerMinionState): void {
+  if (!heroGuarded(deps)) deps.player.hero.health = Math.max(1, deps.player.hero.health - amount);
+  nested(() => runBoardEffects(deps, 'selfDamage', source));
+}
+
+/** `eater` swallows up to `count` random tavern minions and grows by their stats; the board reacts to every meal. */
+export function devourTavern(deps: RecruitEffectDeps, eater: AutoBattlerMinionState, count: number): number {
+  let meals = 0;
+  for (let n = 0; n < count; n++) {
+    const food = [...deps.player.tavern.offers].filter(m => m.kind !== 'spell');
+    if (!food.length) break;
+    const meal = deps.rng.pick(food);
+    const at = [...deps.player.tavern.offers].findIndex(m => m.id === meal.id);
+    deps.player.tavern.offers.splice(at, 1);
+    for (let k = 0; k < meal.poolCopies; k++) deps.pool?.returnCopy(meal.baseId);
+    buffTavernMinion(eater, meal.attack, meal.health);
+    deps.onBuff?.(eater, eater);
+    meals++;
+    nested(() => runBoardEffects(deps, 'devour', eater));
+  }
+  return meals;
 }
 
 /**
@@ -132,6 +191,12 @@ export function runTavernEffects(deps: RecruitEffectDeps, trigger: AutoBattlerEf
           deps.player.board.push(born);
           hit.push(born.id);
         }
+      } else if (action.kind === 'selfDamage') {
+        payBlood(deps, action.amount * times, owner);
+        hit.push(deps.player.sessionId);
+      } else if (action.kind === 'devour') {
+        // The eater is the target (self by default; 'friendly' + tribe lets a Gargoyle feed every demon).
+        for (const target of pickTargets(deps.player, owner, part, deps.rng, subject)) if (devourTavern(deps, target, scale(action.count, owner.golden) * times)) hit.push(target.id);
       }
       deps.trace?.({ owner: owner.id, trigger, step, action, times, targets: hit });
     });
@@ -146,7 +211,7 @@ export function runBoardEffects(deps: RecruitEffectDeps, trigger: AutoBattlerEff
   }
 }
 
-export type CombatTrigger = 'startCombat' | 'deathrattle' | 'friendlyDeath' | 'shieldPop' | 'friendlyAttack';
+export type CombatTrigger = 'startCombat' | 'deathrattle' | 'friendlyDeath' | 'shieldPop' | 'friendlyAttack' | 'friendlySummon';
 
 /** Combat-time effects (start of combat, deathrattle, avenge-likes) on the owner's side. Not permanent. */
 export function runCombatEffects(ctx: CombatContext, trigger: CombatTrigger, owner: CombatMinion, subject?: CombatMinion): void {

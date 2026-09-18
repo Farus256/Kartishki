@@ -20,9 +20,11 @@ const pick = <T,>(r: R, list: readonly T[]) => list[Math.floor(r() * list.length
 const chance = (r: R, p: number) => r() < p;
 const range = (r: R, a: number, b: number) => a + r() * (b - a);
 
-type Family = 'human' | 'pirate' | 'beast' | 'mech' | 'undead' | 'dragon';
+type Family = 'human' | 'pirate' | 'beast' | 'mech' | 'undead' | 'dragon' | 'demon';
 function familyOf(id: string, tribes: readonly string[] = []): Family {
   const has = (t: string) => tribes.includes(t);
+  // Demon-dragons (the Devourer) draw as demons: the tribe list is checked before the id words.
+  if (has('demon') || /imp|fiend|gobbler|demon|soul-warden|blood-|feeder|ravenous|devourer|fel-|glutton|pain-priest|gourmand|gargoyle/.test(id)) return 'demon';
   if (has('dragon') || /drake|dragon|whelp|drakonid|razorgore|tarecgosa|aspect|glyph-guardian|bronze-warden/.test(id)) return 'dragon';
   if (has('undead') || /ghoul|skel|lich|banshee|revenant|bone|grave|crypt|wraith|shade|necro|ashes|omen|corpse|priestess|reaper|butcher|harvester/.test(id)) return 'undead';
   if (has('mech') || /ward|aegis|knight|colossus|bulwark|bot|mech|module|gear|shield|tin-|cobalt|omega|deflector|rover|junk|annoyer|magnetron|forge|welder|tinkerer|overclock|golem|titan|mite|carousel/.test(id)) return 'mech';
@@ -119,6 +121,7 @@ function prop(r: R, family: Family, hints: Hints) {
     mech: ['wrench', 'gear', 'none', 'bolt'],
     undead: ['candle', 'bone', 'none', 'scythe'],
     dragon: ['coin', 'none', 'none', 'egg'],
+    demon: ['candle', 'none', 'none', 'dagger', 'bone'],
   };
   const kind = hints.prop ?? pick(r, set[family]);
   const shapes: Record<string, string> = {
@@ -257,6 +260,46 @@ function dragon(r: R, hints: Hints) {
   return frill + head + scales + horns + eyes + snout + body;
 }
 
+const HIDES = ['#b8352a', '#8e2a6a', '#6a2bd9', '#c9552a', '#4a2a5a', '#a63a3a', '#7a3a8a'];
+/** Demons: horned heads on a hot hide, ember eyes, a fanged grin and, often, bat wings behind the shoulders. The Devourer's jaws are the gluttons' look. */
+function demon(r: R, hints: Hints) {
+  const hide = pick(r, HIDES), hide2 = pick(r, HIDES), ember = pick(r, ['#ffd66b', '#ff9a1f', '#7ed321', '#62d8ff', '#ff5b47']), horn = pick(r, ['#e7e2d3', '#3a2a2a', '#c9b58a']);
+  const wings = chance(r, .55) ? `<path d="M64 132 L20 84 L44 130 L12 118 L50 158 L28 164 L70 176 Z" fill="${hide2}"/><path d="M192 132 L236 84 L212 130 L244 118 L206 158 L228 164 L186 176 Z" fill="${hide2}"/>` : '';
+  const head = pick(r, [
+    `<path d="M76 106 Q80 54 128 54 Q176 54 180 106 L184 168 Q170 206 128 208 Q86 206 72 168 Z" fill="${hide}"/>`,
+    `<path d="M70 96 L186 96 L196 160 Q176 200 128 204 Q80 200 60 160 Z" fill="${hide}"/>`,
+    `<path d="M82 112 Q78 56 128 56 Q178 56 174 112 L192 150 Q176 196 128 200 Q80 196 64 150 Z" fill="${hide}"/>`,
+    `<path d="M78 100 Q84 52 128 52 Q172 52 178 100 L176 176 Q156 208 128 210 Q100 208 80 176 Z" fill="${hide}"/><path d="M96 84 L160 84 L152 100 L104 100 Z" fill="${hide2}"/>`,
+  ]);
+  const horns = pick(r, [
+    `<path d="M92 68 Q60 50 62 14 Q90 30 108 62 Z M164 68 Q196 50 194 14 Q166 30 148 62 Z" fill="${horn}"/>`,
+    `<path d="M96 66 L82 20 L114 58 Z M160 66 L174 20 L142 58 Z" fill="${horn}"/>`,
+    `<path d="M88 74 Q56 74 50 36 Q76 48 100 66 Z M168 74 Q200 74 206 36 Q180 48 156 66 Z" fill="${horn}"/><path d="M60 46 L72 56 M196 46 L184 56" stroke-width="3"/>`,
+    `<path d="M104 60 L96 22 L120 54 Z M152 60 L160 22 L136 54 Z M120 52 L128 18 L136 52 Z" fill="${horn}"/>`,
+  ]);
+  const eyes = pick(r, [
+    `<path d="M86 106 L120 116 L88 128 Z M170 106 L136 116 L168 128 Z" fill="${ember}"/><circle cx="100" cy="117" r="3" fill="${INK}"/><circle cx="156" cy="117" r="3" fill="${INK}"/>`,
+    `<ellipse cx="102" cy="116" rx="13" ry="9" fill="${ember}"/><ellipse cx="154" cy="116" rx="13" ry="9" fill="${ember}"/><path d="M102 108 L102 124 M154 108 L154 124" stroke-width="4"/><path d="M86 100 L118 108 M138 108 L170 100"/>`,
+    `<circle cx="102" cy="116" r="10" fill="${ember}"/><circle cx="154" cy="116" r="10" fill="${ember}"/><circle cx="102" cy="116" r="4" fill="${INK}"/><circle cx="154" cy="116" r="4" fill="${INK}"/><path d="M88 102 L116 110 M140 110 L168 102"/>`,
+    `<circle cx="128" cy="112" r="16" fill="${ember}"/><circle cx="128" cy="112" r="6" fill="${INK}"/><path d="M96 104 L112 112 M160 104 L144 112"/>`,
+  ]);
+  const grin = pick(r, [
+    `<path d="M98 156 Q128 176 158 156 L156 172 Q128 190 100 172 Z" fill="${INK}"/><path d="M106 160 L110 174 M122 166 L124 180 M134 166 L132 180 M150 160 L146 174" stroke="${PAPER}" stroke-width="4"/>`,
+    `<path d="M92 150 Q128 140 164 150 L160 180 Q128 196 96 180 Z" fill="${INK}"/><path d="M100 154 L106 176 M116 152 L120 182 M140 152 L136 182 M156 154 L150 176" stroke="${PAPER}" stroke-width="4"/><path d="M104 176 Q128 186 152 176" stroke="#d92525" stroke-width="3"/>`,
+    `<path d="M104 158 Q128 170 152 158"/><path d="M108 160 L112 174 M148 160 L144 174" stroke="${PAPER}" stroke-width="5"/><path d="M108 160 L112 174 M148 160 L144 174" stroke-width="2"/>`,
+    `<path d="M100 160 L156 160 L148 184 L108 184 Z" fill="${INK}"/><path d="M106 160 L110 172 M118 160 L122 176 M138 160 L134 176 M150 160 L146 172 M112 184 L116 174 M144 184 L140 174" stroke="${PAPER}" stroke-width="4"/>`,
+  ]);
+  const marks = chance(r, .5) ? pick(r, [`<path d="M92 92 L100 100 M164 92 L156 100 M128 140 L128 146" stroke-width="3"/>`, `<path d="M84 136 Q92 130 100 136 M156 136 Q164 130 172 136" stroke="${ember}" stroke-width="3"/>`, `<circle cx="88" cy="140" r="3" fill="${INK}"/><circle cx="168" cy="140" r="3" fill="${INK}"/><circle cx="96" cy="150" r="2" fill="${INK}"/><circle cx="160" cy="150" r="2" fill="${INK}"/>`]) : '';
+  const ears = chance(r, .6) ? `<path d="M74 116 L40 96 L70 136 Z M182 116 L216 96 L186 136 Z" fill="${hide}"/>` : '';
+  const body = pick(r, [
+    `<path d="M62 240 L80 198 L176 198 L194 240 Z" fill="${hide2}"/><path d="M96 198 L128 224 L160 198"/><path d="M118 226 L138 226" stroke="${ember}" stroke-width="4"/>`,
+    `<path d="M66 240 Q66 196 128 196 Q190 196 190 240 Z" fill="#2b1a3a"/><path d="M108 210 L128 232 L148 210 Z" fill="${ember}"/>`,
+    `<path d="M70 240 L82 200 L174 200 L186 240 Z" fill="${hide}"/><path d="M90 206 L96 240 M166 206 L160 240 M104 214 L152 214 M100 226 L156 226" stroke-width="3" opacity=".5"/>`,
+  ]);
+  const crown = hints.crown ? `<path d="M84 60 L88 26 L106 46 L128 18 L150 46 L168 26 L172 60 Z" fill="#e0a32a"/><circle cx="128" cy="34" r="5" fill="#d92525"/>` : '';
+  return wings + ears + head + marks + horns + eyes + grin + crown + body;
+}
+
 /** Word hints from the id: the obvious trappings a name promises. */
 type Hints = { crown?: boolean; glasses?: boolean; patch?: boolean; beard?: boolean; hood?: boolean; species?: 'cat' | 'dog' | 'boar' | 'bird' | 'snake' | 'rat' | 'bear' | 'frog'; prop?: string };
 function hintsOf(id: string, r: R, family: Family): Hints {
@@ -268,11 +311,12 @@ function hintsOf(id: string, r: R, family: Family): Hints {
   if (/priestess|necro|wraith|shade|assassin|omen|dark/.test(id)) h.hood = true;
   if (/cat|lightfang|fang/.test(id)) h.species = 'cat';
   else if (/hound|kennel|dog|hyena|howler|alpha|goldrinn|hunter/.test(id)) h.species = 'dog';
-  else if (/boar|hoggarr|cub|primal|token-cub/.test(id)) h.species = 'boar';
-  else if (/parrot|magpie|bird|raptor|brood/.test(id)) h.species = 'bird';
+  // Order matters: the Boar Brute token and Boar Raptor are boars, but a plain "cub" is the bear cub.
+  else if (/boar|hoggarr|token-cub|primal|raptor|many-heads/.test(id)) h.species = 'boar';
+  else if (/parrot|magpie|bird|brood|nest/.test(id)) h.species = 'bird';
   else if (/viper|snake|hydra|many-heads|leviathan|whelp|poison-master/.test(id)) h.species = 'snake';
   else if (/rat|bilge|scavenger|breeder/.test(id)) h.species = 'rat';
-  else if (/bear|mama|den-mother|bruiser/.test(id)) h.species = 'bear';
+  else if (/bear|mama|den-mother|bruiser|cub/.test(id)) h.species = 'bear';
   else if (/frog/.test(id)) h.species = 'frog';
   if (/coin|broker|trader|looter|pickpocket|gold|mogul/.test(id)) h.prop = 'coin';
   else if (/drunk|bottler|tavern|swab/.test(id)) h.prop = 'bottle';
@@ -296,7 +340,7 @@ export function illustrationUrl(id: string, tribes?: readonly string[]): string 
   const backdrop = pick(r, BACKDROPS);
   // Backdrop treatment: plain card, stripes, halftone, sunburst — the room the character is in.
   const pattern = pick(r, ['', `<path d="M0 0 L256 256 M40 0 L256 216 M0 40 L216 256 M80 0 L256 176 M0 80 L176 256" stroke="${INK}" stroke-width="2" opacity=".07"/>`, `<circle cx="128" cy="140" r="96" fill="${INK}" opacity=".06"/>`, `<g stroke="${INK}" stroke-width="2" opacity=".08">${Array.from({ length: 12 }, (_, i) => { const a = i / 12 * Math.PI * 2; return `<path d="M128 130 L${(128 + Math.cos(a) * 240).toFixed(0)} ${(130 + Math.sin(a) * 240).toFixed(0)}"/>`; }).join('')}</g>`, `<path d="M0 200 L256 200 L256 256 L0 256 Z" fill="${INK}" opacity=".08"/>`]);
-  const figure = family === 'beast' ? beast(r, hints) : family === 'mech' ? mech(r, hints) : family === 'undead' ? undead(r, hints) : family === 'dragon' ? dragon(r, hints) : human(r, hints, family);
+  const figure = family === 'beast' ? beast(r, hints) : family === 'mech' ? mech(r, hints) : family === 'undead' ? undead(r, hints) : family === 'dragon' ? dragon(r, hints) : family === 'demon' ? demon(r, hints) : human(r, hints, family);
   const held = prop(r, family, hints);
   // Pose: a slight tilt and offset so the cards on a row don't all stand to attention; scale keeps big heads inside the frame.
   const tilt = range(r, -7, 7).toFixed(1), dx = range(r, -10, 10).toFixed(0), dy = range(r, -6, 8).toFixed(0), s = range(r, .9, 1.02).toFixed(3);

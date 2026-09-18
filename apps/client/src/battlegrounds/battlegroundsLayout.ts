@@ -29,17 +29,16 @@ export const AB_LAYOUT = {
   FLY_MS: 320,
 } as const;
 
-export function lineGap(count: number): number {
-  if (count <= 3) return 50;
-  if (count <= 5) return 36;
-  return 24;
-}
-
+/**
+ * Gap between cards in a row, by population. One rule for the recruit board, the tavern counter and the combat rows:
+ * combat overlays the board band, so a different gap there made every card slide sideways when the bell rang.
+ */
 export function tavernGap(count: number): number {
   if (count <= 3) return 16;
   if (count <= 5) return 12;
   return 8;
 }
+export const lineGap = tavernGap;
 
 /** Cards overlap just enough to keep the centred hand within HAND_MAX_W, clear of the hero dock parked at the left edge. */
 export function handOverlap(count: number): number {

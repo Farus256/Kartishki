@@ -44,9 +44,9 @@ test('even counts split evenly around center', () => {
 });
 
 test('spacing tightens with population but never overlaps', () => {
-  assert.equal(lineGap(1), 50);
-  assert.equal(lineGap(4), 36);
-  assert.equal(lineGap(7), 24);
+  assert.equal(lineGap(1), 16);
+  assert.equal(lineGap(4), 12);
+  assert.equal(lineGap(7), 8);
   const xs = lineStarts(7, AB_LAYOUT.MINION_W, CENTER, MAX);
   for (let i = 1; i < xs.length; i++) {
     assert.ok(xs[i]! - xs[i - 1]! >= AB_LAYOUT.MINION_W + 4);
@@ -68,4 +68,15 @@ test('preview line is compact and recenters around a gap, not seven empty slots'
   assert.deepEqual(insert.map(item => item?.id), ['m0', 'm1', undefined, 'm2', 'm3']);
   const reorder = previewSlots([0, 1, 2, 3, 4, 5, 6].map(n => ({ id: `m${n}` })), 'm0', 3);
   assert.deepEqual(reorder.map(item => item?.id), ['m1', 'm2', 'm3', undefined, 'm4', 'm5', 'm6']);
+});
+
+test('combat rows sit exactly where the recruit board drew the same cards', () => {
+  // The recruit board is a centred flex row (card + tavernGap); combat places tiles by combatRowXs on the same band.
+  for (let n = 1; n <= 7; n++) {
+    const gap = lineGap(n);
+    const width = n * AB_LAYOUT.MINION_W + (n - 1) * gap;
+    const flexLeft = AB_LAYOUT.COMBAT_W / 2 - width / 2;
+    const xs = combatRowXs(n);
+    for (let i = 0; i < n; i++) assert.ok(Math.abs(xs[i]! - (flexLeft + i * (AB_LAYOUT.MINION_W + gap))) < 0.5, `n=${n} i=${i}`);
+  }
 });

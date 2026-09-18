@@ -447,10 +447,6 @@
 .cosmetic-stage.is-lg .back-pair .card-back.is-oval .card-back-emblem { font-size: 72px; }
 
 /* Enemy hand: the opponent's card backs fan out from behind the left edge; only the count is public. */
-.enemy-hand { position: absolute; left: -62px; top: 46%; width: 140px; height: 200px; pointer-events: none; z-index: 6; perspective: 900px; }
-.enemy-hand-card { position: absolute; left: 0; top: 0; width: 96px; height: 134px; transform-origin: 20% 120%; filter: drop-shadow(4px 5px 0 #1a1a1a66); }
-.enemy-hand-card .card-back { position: absolute; inset: 0; border: 3px solid #1a1a1a; border-radius: 8px; }
-.enemy-hand-count { position: absolute; left: 70px; bottom: -8px; padding: 2px 10px; border: 2px solid var(--ink); border-radius: 10px; background: #efe6c9; font: 16px/20px var(--font-hand); color: var(--ink); box-shadow: 2px 2px 0 #1a1a1a66; }
 
 /* Combat reveal: face-down tokens hold, lift with anticipation, turn, catch a sheen, and settle — staggered across the row. */
 .ab-combat-card .ab-combat-back .card-back { border: 4px solid #6e5740; box-shadow: 0 3px 0 #261b18, 0 7px 12px #24120f88; }

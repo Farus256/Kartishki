@@ -43,7 +43,7 @@ test('hero power tooltips and roster clear the frame without blinking or overlap
   await expect(power).toHaveCSS('animation-name', 'none');
   await expect(power).toHaveCSS('outline-color', 'rgb(98, 223, 133)');
   await power.hover();
-  await expect(page.getByRole('tooltip')).toContainText('восстановите 3 здоровья');
+  await expect(page.getByRole('tooltip')).toContainText('+2 здоровья');
   state.players[0]!.power.isExhausted = true;
   await setFixture(page, state);
   await page.mouse.move(2, 2);

@@ -46,7 +46,7 @@ import '../../client/src/battlegrounds/fx-polish.css';
 const endpoint = import.meta.env.VITE_SERVER_URL ?? 'http://127.0.0.1:2567';
 const blankArt = () => structuredClone(starterAutoBattlerMinions[0]!.art) ?? { url: '', crop: { x: .5, y: .5, size: 1 }, threshold: .5, contrast: 1, preset: 'none' as const };
 const powerIds = Object.keys(autoBattlerHeroPowerPresets) as AutoBattlerHeroPowerId[];
-const SPELL: Record<AutoBattlerSpellKind, [string, string]> = { discover: ['Открытие', 'Discover'], coin: ['Золото', 'Coin'], freeReroll: ['Бесплатное обновление', 'Free refresh'], tonic: ['Настойка (+N/+N)', 'Tonic (+N/+N)'] };
+const SPELL: Record<AutoBattlerSpellKind, [string, string]> = { discover: ['Открытие', 'Discover'], coin: ['Золото', 'Coin'], freeReroll: ['Бесплатное обновление', 'Free refresh'], tonic: ['Настойка (+N/+N)', 'Tonic (+N/+N)'], bank: ['Доллары на следующий ход', 'Dollars next turn'], refresh: ['Обновление с баффом', 'Refresh with a buff'], temp: ['Бафф до конца хода', 'Buff until end of turn'], keyword: ['Даёт свойство', 'Grants a keyword'], tribeBuff: ['Бафф расе', 'Buff a tribe'], handBuff: ['Бафф руке', 'Buff the hand'], tavernBuff: ['Бафф лавке', 'Buff the tavern'], upgrade: ['Скидка на улучшение', 'Upgrade discount'], summon: ['Призыв жетона', 'Summon a token'], selfDamage: ['Урон герою, +A/+H расе', 'Hero damage, +A/+H to a tribe'], devour: ['Существо пожирает N из лавки', 'A minion devours N from the tavern'] };
 const idRe = /^[a-z0-9][a-z0-9-]{0,59}$/;
 const int = (n: unknown, min: number, max: number) => Number.isInteger(n) && (n as number) >= min && (n as number) <= max;
 

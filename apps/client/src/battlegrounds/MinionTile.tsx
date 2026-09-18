@@ -8,6 +8,7 @@ import { emphasizeKeywords, isSpell, KEYWORD_MARK, keywordTitles, minionDossierL
 import { useCardArt } from '../ui/cardArt';
 import { PaperTooltip } from '../ui/PaperTooltip';
 import { illustrationUrl } from './illustrations';
+import { SpellGlyph } from './SpellGlyph';
 import { useAbDnd } from './abDndContext';
 import { AnimatedNumber } from './AnimatedNumber';
 import { idlePhase, KeywordIcon, RebornSash, SIGNAL_KEYWORDS, TauntFrame } from './cardBadges';
@@ -82,7 +83,7 @@ function MinionDossier({ minion, catalog, inline = false }: { minion: AbMinion; 
   return (
     <article className={`ab-dossier ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''}`} data-testid={inline ? undefined : 'ab-dossier'}>
       <span className="ab-dossier-stars">{'★'.repeat(minion.tavernTier)}</span>
-      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" />}</div>
+      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark" data-spell={def?.spell?.kind ?? 'discover'}><SpellGlyph kind={minion.cardId === 'ab-discover' ? 'discover' : def?.spell?.kind ?? 'discover'} /><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" />}</div>
       <h3 className="ab-dossier-name">{name}</h3>
       <div className="ab-dossier-text">
         {lines.map(line => <p key={line}><CardText line={line} titles={titles} /></p>)}
@@ -113,10 +114,12 @@ type Props = {
   fan?: number;
   /** Full-card hover; off inside the discover window where the cards are already full size. */
   dossier?: boolean;
+  /** Price tag on a tavern offer whose cost differs from the table price (spells). */
+  price?: number;
   onClick?: () => void;
 };
 
-export function MinionTile({ minion, catalog, actionLabel, disabled, selected, dragKind, dragIndex, targetDomain, ghost, arrive = true, arriveDelay = 0, fullCard = false, fan = 0, dossier = true, onClick }: Props) {
+export function MinionTile({ minion, catalog, actionLabel, disabled, selected, dragKind, dragIndex, targetDomain, ghost, arrive = true, arriveDelay = 0, fullCard = false, fan = 0, dossier = true, price, onClick }: Props) {
   const { i18n, t } = useTranslation();
   const dnd = useAbDnd();
   const flash = useContext(BuffFlashContext).get(minion.id);
@@ -157,8 +160,9 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
           {actionLabel && <span className="ab-minion-act">{actionLabel}</span>}
         </> : <>
         {!fullCard && !ghost && <i className="ab-token-shadow" aria-hidden />}
-        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark"><b>{minion.cardId === 'ab-discover' ? '★' : '✦'}</b><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" draggable={false} />}</span>
+        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark" data-spell={def?.spell?.kind ?? 'discover'}><SpellGlyph kind={minion.cardId === 'ab-discover' ? 'discover' : def?.spell?.kind ?? 'discover'} /><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" draggable={false} />}</span>
         <span className="ab-minion-tier">{spell ? '★' : minion.tavernTier}</span>
+        {price !== undefined && <span className="ab-minion-price" data-testid="ab-offer-price">${price}</span>}
         {minion.keywords.includes('taunt') && <TauntFrame />}
         {minion.keywords.includes('divineShield') && <span className="ab-shield-bubble" aria-hidden="true" />}
         {minion.keywords.includes('reborn') && <RebornSash />}

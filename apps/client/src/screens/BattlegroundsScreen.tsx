@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { PlayerName } from '../cosmetics/PlayerName';
 import { BoardAmbience } from '../cosmetics/Aura';
-import { EnemyHand } from '../cosmetics/EnemyHand';
 import { useTranslation } from 'react-i18next';
 import { AUTO_BATTLER, goldForTurn } from '@kartishki/shared';
 import { autoBattlerSession, type AbMinion, type AbPlayer } from '../autoBattlerSession';
@@ -16,6 +15,7 @@ import { useCardSets, useCatalog } from '../ui/useCatalog';
 import { playMinionVoice, setLinkedCards } from '../battlegrounds/voiceLines';
 import { NewbieHints } from '../battlegrounds/NewbieHints';
 import { AnomalyBadge } from '../battlegrounds/AnomalyBadge';
+import { WheelOfFate } from '../battlegrounds/WheelOfFate';
 import { GameOverCard } from '../battlegrounds/GameOverCard';
 import { playerSession } from '../playerSession';
 import { GameCursor } from '../ui/GameCursor';
@@ -259,7 +259,6 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
           <Leaderboard players={leaderboardPlayers} meId={state.sessionId} catalog={state.catalog} turn={combatTable ? lastCombat.current?.combat.turn ?? state.turn : state.turn} />
           <div className="ab-stage">
             <BoardAmbience id={equippedBoard().id} />
-            {inRecruit && opponent && <EnemyHand count={opponent.handCount ?? 0} back={opponent.cardBack} name={opponent.displayName} />}
             <FuseRope deadline={deadline} active={clockActive && state.phase === 'RECRUIT_PHASE'} />
             <section className="ab-zone-tavern" data-testid="ab-zone-tavern">
               {me && (
@@ -290,6 +289,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
             </section>
             {combatTable && lastCombat.current && <CombatPlayback combat={lastCombat.current.combat} boards={lastCombat.current.boards} waiting={!playing} phaseReady={state.phase !== 'COMBAT_PHASE'} recruitAfter={state.phase === 'RECRUIT_PHASE' && !me?.eliminated} meId={state.sessionId} catalog={state.catalog} players={state.players} pairing={state.pairing} initialHeroes={recruitHeroes.current} onDone={() => { setPlaying(false); setStruck({}); autoBattlerSession.clearCombat(); }} onHeroHealth={(id, health) => setStruck(current => ({ ...current, [id]: health }))} />}
             <AnomalyBadge id={state.anomalyId} />
+            {inRecruit && <WheelOfFate bonus={me!.wheelBonus} turn={state.turn} />}
             <aside className="ab-rail" data-testid="ab-rail">
               <SandClock deadline={deadline} active={clockActive} urgent={state.phase === 'RECRUIT_PHASE'} />
               {me && !combatTable && <GoldPurse gold={me.gold} income={goldForTurn(state.turn)} turn={state.turn} />}

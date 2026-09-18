@@ -5,7 +5,8 @@ import { AB_LAYOUT, tavernGap } from './battlegroundsLayout';
 import { AUTO_BATTLER, type AutoBattlerCatalog } from '@kartishki/shared';
 import { Bartender, type BartenderMood } from './Bartender';
 import { PaperTooltip } from '../ui/PaperTooltip';
-import type { AbPlayer } from '../autoBattlerSession';
+import type { AbMinion, AbPlayer } from '../autoBattlerSession';
+import { offerCost } from './abOptimistic';
 import { MinionTile } from './MinionTile';
 import { useTavernReaction } from './useTavernReaction';
 import { useAbDnd } from './abDndContext';
@@ -60,7 +61,7 @@ export function TavernRow({ me, catalog, tribes = [], recruit, aimingTavern, onB
     : sellHot || reaction === 'BUY' || reaction === 'SELL' || reaction === 'REROLL' ? 'greedy'
     : reaction === 'TRIPLE' || reaction === 'UPGRADE' || reaction === 'PLAYER_WIN' ? 'pleased'
     : reaction === 'NO_GOLD' || reaction === 'PLAYER_LOSS' ? 'sad' : 'neutral';
-  const canBuy = recruit && me.gold >= me.buyCost && me.hand.length < AUTO_BATTLER.HAND_LIMIT;
+  const affordable = (offer: AbMinion) => recruit && me.gold >= offerCost(me, offer) && me.hand.length < AUTO_BATTLER.HAND_LIMIT;
   const canRoll = recruit && me.gold >= me.rerollCost;
   const canUpgrade = recruit && me.tavernTier < AUTO_BATTLER.MAX_TIER && me.gold >= me.upgradeCost;
 
@@ -111,11 +112,12 @@ export function TavernRow({ me, catalog, tribes = [], recruit, aimingTavern, onB
       <div className="ab-tavern-row">
         {me.tavern.offers.map((minion, index) => (
           <MinionTile key={minion.id} minion={minion} catalog={catalog}
-            actionLabel={aimingTavern ? t('abPowerTarget') : undefined}
-            disabled={!recruit || (!aimingTavern && !canBuy)}
-            selected={aimingTavern}
+            actionLabel={aimingTavern && minion.kind !== 'spell' ? t('abPowerTarget') : undefined}
+            disabled={!recruit || (!aimingTavern && !affordable(minion))}
+            selected={aimingTavern && minion.kind !== 'spell'}
             targetDomain="tavern"
-            dragKind={recruit && !aimingTavern && canBuy ? 'shop' : undefined}
+            price={minion.kind === 'spell' ? offerCost(me, minion) : undefined}
+            dragKind={recruit && !aimingTavern && affordable(minion) ? 'shop' : undefined}
             dragIndex={index}
             arriveDelay={index * 55}
             onClick={() => onBuy(minion.id)} />

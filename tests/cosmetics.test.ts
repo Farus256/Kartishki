@@ -19,6 +19,7 @@ test('cosmetic ids are unique across kinds and tiers follow price', () => {
   assert.equal(cosmeticTier(1500), 'rare');
   assert.equal(cosmeticTier(4500), 'epic');
   assert.equal(cosmeticTier(8000), 'legendary');
+  assert.equal(cosmeticTier(80000), 'ultimate');
 });
 
 test('portrait auras persist through settings and need their unlock', () => {

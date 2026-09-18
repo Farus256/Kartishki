@@ -3,6 +3,7 @@ import type { AutoBattlerMinionState, AutoBattlerPlayerState } from '@kartishki/
 import type { CombatContext, CombatMinion } from './combatTypes';
 import { hasTribe } from '@kartishki/shared';
 import { auraBonus, buffTavernMinion, runCombatEffects } from './effects';
+import { createMinionState } from './instantiate';
 import type { SeededRng } from './rng';
 
 export type RecruitContext = {
@@ -42,6 +43,8 @@ export type HeroPowerHooks = {
   onBuy?(ctx: RecruitContext, minion: AutoBattlerMinionState): void;
   onTriple?(ctx: RecruitContext, golden: AutoBattlerMinionState): void;
   onTurnEnd?(ctx: RecruitContext): void;
+  /** After this player's fight resolved (`won` is false on a loss or a tie). */
+  onCombatEnd?(player: AutoBattlerPlayerState, won: boolean): void;
 };
 
 /**
@@ -154,10 +157,13 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
     },
   });
 
+  // Captain: free, once a turn — +2 Health; at full health the rest is a coin for next turn, so it is never a dead click.
   registry.registerHeroPower({
     id: 'ab-power-heal',
     activate(ctx) {
-      ctx.player.hero.health = Math.min(ctx.player.hero.maxHealth, ctx.player.hero.health + 3);
+      const hero = ctx.player.hero;
+      if (hero.health >= hero.maxHealth) { ctx.player.bankedGold += 1; return; }
+      hero.health = Math.min(hero.maxHealth, hero.health + 2);
     },
   });
 
@@ -165,7 +171,7 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
     id: 'ab-power-buff-tavern',
     activate(ctx, targetId) {
       const offer = [...ctx.player.tavern.offers].find(m => m.id === targetId);
-      if (!offer) return;
+      if (!offer || offer.kind === 'spell') return;
       buffTavernMinion(offer, 2, 2);
     },
   });
@@ -206,7 +212,16 @@ export function createDefaultRegistry(defs: AutoBattlerMinionDef[]): EffectRegis
   registry.registerHeroPower({ id: 'ab-power-rich', onRecruitStart(ctx) { ctx.player.gold += 1; } });
   // Collector: golden minions from triples get +2/+2.
   registry.registerHeroPower({ id: 'ab-power-triple-buff', onTriple(ctx, golden) { buffTavernMinion(golden, 3, 3); ctx.player.gold += 1; } });
-  // Alchemist: swap a friendly minion's attack and health.
+  // Mystic: tavern spells cost $1 less (see syncPrices) — the spell-synergy hero.
+  registry.registerHeroPower({ id: 'ab-power-spell-thrift' });
+  // Foreman: a 1/1 Factory Petrovich in hand at the start of every turn — sell it for a coin, or feed it to hand buffs.
+  registry.registerHeroPower({ id: 'ab-power-hand-token', onRecruitStart(ctx) {
+    const token = ctx.defFor('ab-token-1-1');
+    if (token && ctx.player.hand.length < AUTO_BATTLER.HAND_LIMIT) ctx.player.hand.push(createMinionState(token, ctx.nextId(), ctx.player.sessionId));
+  } });
+  // Bounty Hunter: every won fight pays $2 next turn (36 Health) — the tempo hero.
+  registry.registerHeroPower({ id: 'ab-power-bounty', onCombatEnd(player, won) { if (won) player.bankedGold += 2; } });
+  // Alchemist: swap a friendly minion's attack and health (free, once a turn).
   registry.registerHeroPower({ id: 'ab-power-swap', activate(ctx, targetId) {
     const minion = [...ctx.player.board].find(m => m.id === targetId);
     if (!minion) return;

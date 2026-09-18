@@ -7,6 +7,7 @@ import { canPlayToBoard, passedDragThreshold } from './pointerMath';
 import { type AbDndApi, type AbDndView } from './abDndContext';
 import { MinionTile } from './MinionTile';
 import { isSpell } from './minionView';
+import { offerCost } from './abOptimistic';
 import { audioManager } from '../AudioManager';
 import {
   AB_DND,
@@ -60,6 +61,8 @@ type Run = {
   host: HTMLElement;
   session: ReturnType<typeof createDragSession>;
   powerOrigin: { x: number; y: number };
+  /** How much bigger the card was drawn than its resting box when grabbed (a hovered hand card is zoomed): the ghost eases down from it. */
+  pickScale: number;
 };
 
 type Park = { run: Run; mode: 'land' | 'sell' | 'return'; aimed: boolean };
@@ -203,7 +206,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       previewIndex: preview,
       targetId: null,
       boardLength: player?.board.length ?? 0,
-      canBuy: !!player && player.gold >= player.buyCost && player.hand.length < AUTO_BATTLER.HAND_LIMIT,
+      canBuy: !!player && player.gold >= offerCost(player, run.payload.kind === 'shop' ? player.tavern.offers.find(o => o.id === run.payload.id) : undefined) && player.hand.length < AUTO_BATTLER.HAND_LIMIT,
       canPlay: !!player && (canPlayToBoard(player.board.length) || (!!run.minion && isSpell(run.minion))),
       validTarget: false,
     });
@@ -216,6 +219,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       ghostEl.style.transition = '';
       ghostEl.style.opacity = '';
       ghostEl.style.visibility = 'hidden';
+      ghostEl.classList.remove('is-picking');
     }
     setGhost(null);
   }, []);
@@ -345,6 +349,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       run.armed = true;
       try { run.host.setPointerCapture(run.pointerId); } catch { /* synthetic pointers */ }
       suppressRef.current = run.source;
+      run.source.classList.add('is-grabbed');
       if (run.minion) { setGhost({ minion: run.minion, full: run.payload.kind === 'hand' }); audioManager.play('ab_pickup'); }
       setView({
         kind: run.payload.kind,
@@ -402,6 +407,9 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     el.classList.add('is-grabbed');
     void el.offsetWidth;
     const grabbed = rectToLocal(el.getBoundingClientRect(), root, STAGE_W, STAGE_H);
+    // The resting box is measured; the card keeps its hovered look until the drag actually arms (a press must not snap it).
+    el.classList.remove('is-grabbed');
+    void el.offsetWidth;
     el.style.transition = prevTransition;
     // A pickup while the previous ghost is still landing ends that landing now, so
     // every tile under this gesture is where it looks.
@@ -411,13 +419,12 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     // Finish the previous reorder before measuring this gesture's targets.
     settleBoardAnimations(screen);
     const pointer = clientToStage(event.clientX, event.clientY, root);
-    const card = rectToLocal(event.currentTarget.getBoundingClientRect(), root, STAGE_W, STAGE_H);
     const power = localOf(screen.querySelector('[data-testid="ab-hero-power"]'), root, STAGE_W, STAGE_H);
     const run: Run = {
       pointerId: event.pointerId,
       payload,
       grab: (() => { const g = grabOffset(pointer, { x: shown.x, y: shown.y }); const fx = shown.w ? g.x / shown.w : .5, fy = shown.h ? g.y / shown.h : .5; return { x: Math.max(8, Math.min(grabbed.w - 8, fx * grabbed.w)), y: Math.max(8, Math.min(grabbed.h - 8, fy * grabbed.h)) }; })(),
-      origin: card,
+      origin: grabbed,
       startClient: { x: event.clientX, y: event.clientY },
       lastClient: { x: event.clientX, y: event.clientY },
       pointer,
@@ -428,6 +435,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       host: screen,
       session: createDragSession(),
       powerOrigin: power ? { x: power.x + power.w / 2, y: power.y + power.h / 2 } : pointer,
+      pickScale: grabbed.w ? Math.max(1, shown.w / grabbed.w) : 1,
     };
     runRef.current = run;
     // Capture after pickup: capturing on pointerdown retargets ordinary clicks
@@ -470,7 +478,10 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       ghostEl.style.visibility = 'visible';
       ghostEl.style.width = `${run.origin.w}px`;
       ghostEl.style.height = `${run.origin.h}px`;
-      applyGhost(run, 2);
+      // Start at the size the player saw, settle into the carry scale: no pop at pickup. The tilt follows the first move.
+      ghostEl.style.setProperty('--ab-pick-from', (run.pickScale / AB_DND.PICKUP_SCALE).toFixed(3));
+      ghostEl.classList.add('is-picking');
+      applyGhost(run, 0);
     }
   }, [ghost?.minion.id, applyGhost]);
 

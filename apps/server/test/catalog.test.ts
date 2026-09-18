@@ -88,18 +88,18 @@ test('auto-battler minions validate, persist and reach new rooms', () => {
   const dir=mkdtempSync(join(tmpdir(),'kartishki-ab-')), file=join(dir,'catalog.json');
   try {
     const store=new CatalogStore(file), pinned=store.snapshot(), minion=structuredClone(starterAutoBattlerMinions.find(m=>m.id==='ab-whelp')!);
-    minion.attack=7; minion.health=4;
+    minion.attack=9; minion.health=4;
     assert.ok(validateAutoBattlerMinion(minion));
     const next=store.publishAutoBattlerMinion(minion,pinned.version);
     assert.equal(next.version,pinned.version+1);
-    assert.equal(next.autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,7);
-    assert.equal(pinned.autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,2);
-    assert.equal(new CatalogStore(file).snapshot().autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,7);
+    assert.equal(next.autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,9);
+    assert.equal(pinned.autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,7);
+    assert.equal(new CatalogStore(file).snapshot().autoBattlerMinions!.find(m=>m.id==='ab-whelp')!.attack,9);
     assert.throws(()=>store.publishAutoBattlerMinion(minion,pinned.version),/catalogConflict/);
     assert.equal(validateAutoBattlerMinion({...minion,tavernTier:8}),false);
     assert.throws(()=>store.publishAutoBattlerMinion({...minion,deathrattle:{summonId:'missing',count:1}},next.version),/invalidCard/);
     const resolved=resolveAutoBattlerCatalog(next);
-    assert.equal(resolved.minions.find(m=>m.id==='ab-whelp')!.attack,7);
+    assert.equal(resolved.minions.find(m=>m.id==='ab-whelp')!.attack,9);
     assert.equal(resolved.minions.find(m=>m.id==='ab-whelp')!.health,4);
   } finally { rmSync(file,{force:true}); rmdirSync(dir); }
 });
@@ -219,7 +219,7 @@ test('the scenario simulator replays a trigger step by step on a sample board', 
   assert.equal(step.targets.length,1);
   const buffed=step.board.find(b=>step.targets.includes(b.id))!;
   assert.equal(buffed.cardId,'ab-whelp','the only friendly pig gets the +2/+2');
-  assert.equal(buffed.attack,4);
+  assert.equal(buffed.attack,9);
   assert.equal(simulateEffect(store.snapshot(),{ minion: houndmaster, board: ['ab-ward'], trigger: 'endTurn' }).fired,false,'a trigger the card lacks does nothing');
   assert.throws(()=>simulateEffect(store.snapshot(),{ minion: { ...houndmaster, attack: -1 }, trigger: 'battlecry' }),/invalidCard/);
 });

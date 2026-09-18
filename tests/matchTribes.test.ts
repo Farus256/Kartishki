@@ -5,16 +5,16 @@ import { abTribes, pickMatchTribes, restrictCatalogToTribes, starterAutoBattlerM
 const minion = (id: string, tribes?: string[], extra: Record<string, unknown> = {}) => ({ id, name: { ru: id, en: id }, tavernTier: 1 as const, attack: 1, health: 1, keywords: [], tribes, ...extra });
 
 test('custom tribes come from the copy block and neutral stays last', () => {
-  assert.deepEqual(abTribes(), ['beast', 'mech', 'pirate', 'undead', 'dragon', 'neutral']);
+  assert.deepEqual(abTribes(), ['beast', 'mech', 'pirate', 'undead', 'dragon', 'demon', 'neutral']);
   assert.deepEqual(abTribes({ tribes: { elf: { name: { ru: 'Эльф', en: 'Elf' } }, beast: { name: { ru: 'Зверь', en: 'Beast' } } } }).slice(-2), ['elf', 'neutral']);
 });
 
-test('a table picks five of the tribes in play; the starter tavern has exactly five', () => {
+test('a table picks five of the tribes in play; the starter tavern has six', () => {
   const starter = { minions: starterAutoBattlerMinions };
-  assert.equal(tavernTribes(starter).length, 5);
-  assert.deepEqual(pickMatchTribes(starter, () => 0), ['beast', 'dragon', 'mech', 'pirate', 'undead']);
+  assert.equal(tavernTribes(starter).length, 6);
+  assert.deepEqual(pickMatchTribes(starter, () => 0), ['demon', 'dragon', 'mech', 'pirate', 'undead']);
   const catalog = { minions: [...starterAutoBattlerMinions, minion('elf-1', ['elf']), minion('ghost-token', ['ghost'], { token: true })], copy: { tribes: { elf: { name: { ru: 'Эльф', en: 'Elf' } } } } };
-  assert.deepEqual(tavernTribes(catalog), ['beast', 'mech', 'pirate', 'undead', 'dragon', 'elf']);
+  assert.deepEqual(tavernTribes(catalog), ['beast', 'mech', 'pirate', 'undead', 'dragon', 'demon', 'elf']);
   const picked = pickMatchTribes(catalog, n => n - 1);
   assert.equal(picked.length, 5);
   assert.equal(new Set(picked).size, 5);

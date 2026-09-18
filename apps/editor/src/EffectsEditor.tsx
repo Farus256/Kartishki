@@ -36,12 +36,16 @@ const TRIGGER: Record<AutoBattlerEffectTrigger, [string, string]> = {
   friendlyDeath: ['Когда гибнет союзник', 'When a friendly minion dies'],
   shieldPop: ['Когда союзник теряет щит', 'When a friendly minion loses Divine Shield'],
   friendlyAttack: ['После атаки союзника', 'After a friendly minion attacks'],
+  spell: ['После заклинания таверны', 'After you play a tavern spell'],
+  friendlySummon: ['Когда призван союзник', 'When a friendly minion is summoned'],
+  selfDamage: ['Когда герой получил урон от своих демонов', 'After your hero takes damage from your demons'],
+  devour: ['Когда союзник пожрал существо из лавки', 'After a friendly minion devours'],
 };
 const TARGET: Record<AutoBattlerEffectTarget, [string, string]> = {
   self: ['себе', 'self'], adjacent: ['соседям', 'adjacent minions'], friendly: ['всем своим', 'all friendly minions'], random: ['случайному своему', 'a random friendly minion'],
   bought: ['купленному', 'the bought minion'], hand: ['существам в руке', 'minions in hand'], tavern: ['существам в лавке', 'tavern minions'], subject: ['виновнику', 'the subject minion'],
 };
-const KIND: Record<Kind, [string, string]> = { buff: ['Бафф', 'Buff'], gold: ['Золото', 'Gold'], aura: ['Аура', 'Aura'], keyword: ['Свойство', 'Keyword'], summon: ['Призыв', 'Summon'] };
+const KIND: Record<Kind, [string, string]> = { buff: ['Бафф', 'Buff'], gold: ['Золото', 'Gold'], aura: ['Аура', 'Aura'], keyword: ['Свойство', 'Keyword'], summon: ['Призыв', 'Summon'], echo: ['Эхо (клич/хрип дважды)', 'Echo (battlecry/deathrattle twice)'], selfDamage: ['Урон своему герою', 'Damage your hero'], devour: ['Пожрать существо из лавки', 'Devour a tavern minion'], guard: ['Защита героя от своих демонов', 'Guard the hero from its demons'] };
 const SCALE = { tribes: ['за каждую расу на поле', 'per tribe on board'], minions: ['за каждое своё существо', 'per friendly minion'] } as const;
 
 const signed = (n: number) => `${n >= 0 ? '+' : ''}${n}`;
@@ -56,6 +60,10 @@ export function stepSummary(e: AutoBattlerEffect, step: AutoBattlerEffectStep, r
     : a.kind === 'gold' ? (ru ? `+${a.amount} золота` : `+${a.amount} gold`)
     : a.kind === 'aura' ? (ru ? `+${a.attack} к атаке` : `+${a.attack} attack`)
     : a.kind === 'keyword' ? (ru ? `даёт «${kw(a.keyword)}»` : `grants ${kw(a.keyword)}`)
+    : a.kind === 'echo' ? (ru ? `ваши ${a.echo === 'battlecry' ? 'боевые кличи' : 'предсмертные хрипы'} срабатывают дважды` : `your ${a.echo === 'battlecry' ? 'Battlecries' : 'Deathrattles'} trigger twice`)
+    : a.kind === 'selfDamage' ? (ru ? `герой получает ${a.amount} урона` : `your hero takes ${a.amount} damage`)
+    : a.kind === 'devour' ? (ru ? `пожирает ${a.count} из лавки` : `devours ${a.count} from the tavern`)
+    : a.kind === 'guard' ? (ru ? 'герой защищён от своих демонов' : 'your hero is guarded from its demons')
     : (ru ? `призывает ${a.count}× ${minionName(a.summonId)}` : `summons ${a.count}× ${minionName(a.summonId)}`);
   const parts = [action];
   if (a.kind === 'buff' || a.kind === 'keyword' || a.kind === 'aura') parts.push(`→ ${(a.kind === 'aura' ? TARGET.friendly : TARGET[step.target ?? 'self'])[i]}${step.tribe ? ` ${tribe(step.tribe)}` : ''}`);
@@ -74,6 +82,10 @@ export function effectSummary(e: AutoBattlerEffect, ru: boolean, name: NameFn, m
     : a.kind === 'gold' ? (ru ? `+${a.amount} золота` : `+${a.amount} gold`)
     : a.kind === 'aura' ? (ru ? `+${a.attack} к атаке` : `+${a.attack} attack`)
     : a.kind === 'keyword' ? (ru ? `даёт «${kw(a.keyword)}»` : `grants ${kw(a.keyword)}`)
+    : a.kind === 'echo' ? (ru ? `ваши ${a.echo === 'battlecry' ? 'боевые кличи' : 'предсмертные хрипы'} срабатывают дважды` : `your ${a.echo === 'battlecry' ? 'Battlecries' : 'Deathrattles'} trigger twice`)
+    : a.kind === 'selfDamage' ? (ru ? `герой получает ${a.amount} урона` : `your hero takes ${a.amount} damage`)
+    : a.kind === 'devour' ? (ru ? `пожирает ${a.count} из лавки` : `devours ${a.count} from the tavern`)
+    : a.kind === 'guard' ? (ru ? 'герой защищён от своих демонов' : 'your hero is guarded from its demons')
     : (ru ? `призывает ${a.count}× ${minionName(a.summonId)}` : `summons ${a.count}× ${minionName(a.summonId)}`);
   const trigger = e.trigger === 'battlecry' || e.trigger === 'deathrattle' ? kw(e.trigger) : TRIGGER[e.trigger][i];
   const cond = [e.onTribe && tribe(e.onTribe), e.onKeyword && kw(e.onKeyword)].filter(Boolean).join(', ');
@@ -86,7 +98,7 @@ export function effectSummary(e: AutoBattlerEffect, ru: boolean, name: NameFn, m
 }
 
 const blankAction = (kind: Kind, summonId: string): AutoBattlerEffectAction =>
-  kind === 'buff' ? { kind, attack: 1, health: 1 } : kind === 'gold' ? { kind, amount: 1 } : kind === 'aura' ? { kind, attack: 1 } : kind === 'keyword' ? { kind, keyword: 'taunt' } : { kind, summonId, count: 1 };
+  kind === 'buff' ? { kind, attack: 1, health: 1 } : kind === 'gold' ? { kind, amount: 1 } : kind === 'aura' ? { kind, attack: 1 } : kind === 'keyword' ? { kind, keyword: 'taunt' } : kind === 'echo' ? { kind, echo: 'battlecry' } : kind === 'selfDamage' ? { kind, amount: 1 } : kind === 'devour' ? { kind, count: 1 } : kind === 'guard' ? { kind } : { kind, summonId, count: 1 };
 
 type Props = {
   effects: AutoBattlerEffect[];

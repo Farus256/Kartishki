@@ -3,7 +3,7 @@ import { createRng } from './rng';
 import { TriggerQueue } from './TriggerQueue';
 import type { EffectRegistry } from './keywords';
 import type { CombatContext, CombatMinion, CombatResult, CombatantSnapshot } from './combatTypes';
-import { runCombatEffects, runSideEffects } from './effects';
+import { echoCount, runCombatEffects, runSideEffects } from './effects';
 
 export type { CombatContext, CombatMinion, CombatResult, CombatantSnapshot } from './combatTypes';
 
@@ -154,7 +154,9 @@ function resolveDeath(ctx: CombatContext, minion: CombatMinion, index: number): 
   if (side < 0) return;
   ctx.currentSourceId = minion.id;
   if (minion.keywords.includes('deathrattle')) {
-    ctx.registry.keywords.get('deathrattle')?.onDeath?.(ctx, minion, index);
+    // Echo minions (Grave Echo and kin) still standing make the rattle ring again.
+    const times = 1 + echoCount(ctx.boards[side], minion.id, 'deathrattle', ctx.definition);
+    for (let n = 0; n < times; n++) ctx.registry.keywords.get('deathrattle')?.onDeath?.(ctx, minion, index);
   }
   if (minion.keywords.includes('reborn')) {
     const def = ctx.definition(minion.baseId);
@@ -241,6 +243,8 @@ export function resolveCombat(
       });
       for (const keyword of minion.keywords) ctx.triggers.push(() => registry.keywords.get(keyword)?.onSummon?.(ctx, minion));
       refreshAuras(ctx);
+      // Token engines: the rest of the side reacts to the newcomer (never to itself).
+      runSideEffects(ctx, 'friendlySummon', side, minion);
       return true;
     },
   };

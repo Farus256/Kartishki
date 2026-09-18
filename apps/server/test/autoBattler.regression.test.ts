@@ -39,7 +39,7 @@ for(const boardCount of [0,1,2,3]) test(`Triple ${boardCount} board / ${3-boardC
  const copies=Array.from({length:3},()=>own('ab-whelp')); copies[0]!.attack+=2;copies[0]!.maxHealth+=3;copies[0]!.health+=3;
  p.board.push(...copies.slice(0,boardCount));p.hand.push(...copies.slice(boardCount));
  assert.ok(resolveTriples(p,d.nextId,d.defFor));assert.equal(p.hand.length,1);
- const g=p.hand[0]!; assert.equal(g.poolCopies,3);assert.equal(g.attack,6);assert.equal(g.health,5);
+ const g=p.hand[0]!; assert.equal(g.poolCopies,3);assert.equal(g.attack,16);assert.equal(g.health,15);
  assert.ok(tryPlayCard(d,g.id).ok);assert.equal(p.hand[0]?.cardId,AUTO_BATTLER.DISCOVER_SPELL_ID);
  assert.ok(trySell(d,g.id).ok);assert.equal(pool.count('ab-whelp'),initial);
 });

@@ -21,7 +21,7 @@ import { validateSetLeveling, type PlayerLeveling } from './leveling';
  */
 export const CARD_SET_FORMAT = 1;
 export const CARD_SET_MIN_TAVERN = 8;
-export const CARD_SET_MAX_MINIONS = 200;
+export const CARD_SET_MAX_MINIONS = 260;
 export const CARD_SET_MAX_WALLPAPER = 40;
 const WALLPAPER_URL = /^\/api\/portraits\/[a-f0-9]{64}\.(png|jpeg|webp)$/;
 

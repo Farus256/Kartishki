@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { abTribes, starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, coercePlayerLeveling, validateMenuMusic, emptyMenuMusic, defaultShop, resolveShop, validateShopConfig, validateCardSet, setFairness, cardSetSummary, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic, type ShopConfig, type CardSet, type CardSetSummary } from '@kartishki/shared';
+import { CARD_SET_MAX_MINIONS, abTribes, starterCards, validateCard, starterHeroes, validateHero, starterAutoBattlerMinions, starterAutoBattlerHeroes, starterLeveling, validateAutoBattlerMinion, validateAutoBattlerHero, validateAutoBattlerCopy, validatePlayerLeveling, coercePlayerLeveling, validateMenuMusic, emptyMenuMusic, defaultShop, resolveShop, validateShopConfig, validateCardSet, setFairness, cardSetSummary, type HeroDefinition, type Catalog, type CardDefinition, type AutoBattlerMinionDef, type AutoBattlerHeroDef, type AutoBattlerCopy, type PlayerLeveling, type MenuMusic, type ShopConfig, type CardSet, type CardSetSummary } from '@kartishki/shared';
 import { catalogFile } from './catalogFile';
 
 /** A published shop keeps its tuning, but products added to the defaults since (e.g. the wardrobe loot) still roll out. */
@@ -58,7 +58,7 @@ export class CatalogStore {
     if (version !== this.catalog.version) throw new Error('catalogConflict');
     const current = this.catalog.autoBattlerMinions ?? starterAutoBattlerMinions;
     const minions = current.filter(m => m.id !== minion.id);
-    if (minions.length >= 200) throw new Error('catalogFull');
+    if (minions.length >= CARD_SET_MAX_MINIONS) throw new Error('catalogFull');
     const nextList = [...minions, structuredClone(minion)];
     if (minion.deathrattle && !nextList.some(m => m.id === minion.deathrattle!.summonId)) throw new Error('invalidCard');
     // A tribe must be declared (built-in or in the copy block) before minions can carry it.
@@ -152,7 +152,7 @@ function mergeById<T extends { id: string }>(starters: T[], published: T[] | und
 }
 
 function validAutoBattlerMinions(list: AutoBattlerMinionDef[]) {
-  if (list.length < 1 || list.length > 200 || !list.every(validateAutoBattlerMinion) || new Set(list.map(m => m.id)).size !== list.length) return false;
+  if (list.length < 1 || list.length > CARD_SET_MAX_MINIONS || !list.every(validateAutoBattlerMinion) || new Set(list.map(m => m.id)).size !== list.length) return false;
   const ids = new Set(list.map(m => m.id));
   return list.every(m => !m.deathrattle || ids.has(m.deathrattle.summonId));
 }

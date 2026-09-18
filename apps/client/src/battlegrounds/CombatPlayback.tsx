@@ -6,7 +6,7 @@ import { HIT_EFFECTS, playHitEffect } from '../cosmetics/hitEffects';
 import { playProjectile } from '../cosmetics/projectiles';
 import { STRIKES } from '../cosmetics/strikeMotion';
 import { playBuffFx } from '../cosmetics/buffFx';
-import { playSlamSound } from '../cosmetics/vfxAudio';
+import { playSlamSound, playSlamWindup } from '../cosmetics/vfxAudio';
 import { VfxLayer, pick, rand } from '../cosmetics/vfx';
 import { useTranslation } from 'react-i18next';
 import { AUTO_BATTLER, abCopyName, type AutoBattlerCatalog, type CombatEvent, type CombatEventsMessage } from '@kartishki/shared';
@@ -23,7 +23,7 @@ import { idlePhase } from './cardBadges';
 type Props = { combat: CombatEventsMessage; boards: AbCombatBoards; meId: string; catalog: AutoBattlerCatalog; players: AbPlayer[]; pairing?: { playerA: string; playerB: string }[]; initialHeroes?: AbPlayer[]; waiting?: boolean; recruitAfter?: boolean; phaseReady?: boolean; onDone: () => void; /** Fires when a hero hit lands on screen, so standings drop in sync with the stamp. */ onHeroHealth?: (sessionId: string, health: number) => void };
 type Piece = { minion: AbMinion; side: 0 | 1 };
 const W=AB_LAYOUT.COMBAT_W,H=AB_LAYOUT.COMBAT_H,CW=AB_LAYOUT.MINION_W,CH=AB_LAYOUT.MINION_H;
-const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?3200:e.kind==='DEATH'?500:e.kind==='SUMMON'?580:['DEATHRATTLE','REBORN'].includes(e.kind)?660:e.kind==='PLAYER_DAMAGE'?4000:e.kind==='STATS'?460:200;
+const weight=(e:CombatEvent)=>['ATTACK','HUMILIATE','BAIT'].includes(e.kind)?3200:e.kind==='DEATH'?500:e.kind==='SUMMON'?580:e.kind==='DEATHRATTLE'?280:e.kind==='REBORN'?660:e.kind==='PLAYER_DAMAGE'?4000:e.kind==='STATS'?460:200;
 
 /** HTML cards match the tavern tile. Pixi is not used for combat minions. */
 export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pairing=[],initialHeroes,waiting=false,recruitAfter=true,phaseReady=true,onDone,onHeroHealth}:Props){
@@ -49,6 +49,8 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
  const {t,i18n}=useTranslation();
  const mineA=combat.playerA===meId;const topOwner=mineA?combat.playerB:combat.playerA;
  const foe=players.find(p=>p.sessionId===topOwner);const mine=players.find(p=>p.sessionId===meId);
+ /** Cards the opponent still held when the bell rang: drawn face down by the portrait, never identified. A ghost holds nothing. */
+ const foeHand=combat.ghost?0:Math.max(0,Math.min(10,combat.handCounts?.[topOwner]??foe?.handCount??0));
 
  useEffect(()=>{
   let cancelled=false;
@@ -203,16 +205,20 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
   const graves=new Map<string,{x:number;y:number}>();
   const SKULL='<svg viewBox="0 0 64 64" aria-hidden><g stroke="#1a1a1a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M8 46l48-24M8 22l48 24" stroke="#e9dfc4" stroke-width="7"/><path d="M8 46l48-24M8 22l48 24" stroke="#1a1a1a" stroke-width="2"/><path d="M32 8c-12 0-20 8-20 19 0 6 3 10 7 13v8h26v-8c4-3 7-7 7-13 0-11-8-19-20-19z" fill="#f4ecd6"/><circle cx="24" cy="29" r="5" fill="#1a1a1a"/><circle cx="40" cy="29" r="5" fill="#1a1a1a"/><path d="M32 34l-3 6h6z" fill="#1a1a1a"/><path d="M25 48v-6M32 48v-6M39 48v-6"/></g></svg>';
   const rattled=new Set<string>();
-  const deathrattleBurst=(at:{x:number;y:number})=>{
+  /** Skull+bones burst; resolves once the skull has peaked so the next summon/buff can follow immediately. */
+  const deathrattleBurst=async(at:{x:number;y:number})=>{
    const host=field.current;if(!host||reduced||rate.current>=100)return;
    const skull=document.createElement('i');skull.className='ab-combat-skull';skull.innerHTML=SKULL;
    skull.style.left=`${(at.x/W)*100}%`;skull.style.top=`${(at.y/H)*100}%`;host.appendChild(skull);
-   animate(skull,[{transform:'translate(-50%,-50%) scale(.2) rotate(-20deg)',opacity:0},{transform:'translate(-50%,-90%) scale(1.25) rotate(8deg)',opacity:1,offset:.3},{transform:'translate(-50%,-120%) scale(1) rotate(-5deg)',opacity:1,offset:.7},{transform:'translate(-50%,-190%) scale(.8) rotate(4deg)',opacity:0}],900,{easing:'cubic-bezier(.2,.8,.3,1)'}).onfinish=()=>skull.remove();
+   const skullAnim=animate(skull,[{transform:'translate(-50%,-50%) scale(.2) rotate(-20deg)',opacity:0},{transform:'translate(-50%,-90%) scale(1.25) rotate(8deg)',opacity:1,offset:.35},{transform:'translate(-50%,-130%) scale(1) rotate(-5deg)',opacity:1,offset:.75},{transform:'translate(-50%,-190%) scale(.8) rotate(4deg)',opacity:0}],620,{easing:'cubic-bezier(.2,.8,.3,1)'});
+   skullAnim.onfinish=()=>skull.remove();
    for(let i=0;i<6;i++){
     const bone=document.createElement('i');bone.className='ab-combat-bone';bone.style.left=`${(at.x/W)*100}%`;bone.style.top=`${(at.y/H)*100}%`;host.appendChild(bone);
     const a=-Math.PI/2+(i-2.5)*.55+(Math.random()-.5)*.3,d=70+Math.random()*70;
-    animate(bone,[{transform:'translate(-50%,-50%) rotate(0deg) scale(.5)',opacity:0},{transform:`translate(calc(-50% + ${Math.cos(a)*d*.5}px),calc(-50% + ${Math.sin(a)*d*.5}px)) rotate(${(i%2?1:-1)*140}deg) scale(1)`,opacity:1,offset:.35},{transform:`translate(calc(-50% + ${Math.cos(a)*d}px),calc(-50% + ${Math.sin(a)*d+60}px)) rotate(${(i%2?1:-1)*320}deg) scale(.6)`,opacity:0}],760+i*40,{delay:60}).onfinish=()=>bone.remove();
+    animate(bone,[{transform:'translate(-50%,-50%) rotate(0deg) scale(.5)',opacity:0},{transform:`translate(calc(-50% + ${Math.cos(a)*d*.5}px),calc(-50% + ${Math.sin(a)*d*.5}px)) rotate(${(i%2?1:-1)*140}deg) scale(1)`,opacity:1,offset:.35},{transform:`translate(calc(-50% + ${Math.cos(a)*d}px),calc(-50% + ${Math.sin(a)*d+60}px)) rotate(${(i%2?1:-1)*320}deg) scale(.6)`,opacity:0}],520+i*30,{delay:40}).onfinish=()=>bone.remove();
    }
+   // Peak ~35% of 620ms; after that the follow-up action can land while bones still scatter.
+   await pause(reduced?1:240);
   };
   // A survivor's tier flies from its tile into the damage tally.
   const flyTier=async(id:string,tier:number,ms:number)=>{
@@ -348,7 +354,8 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
      const list=piecesRef.current;
      const src=event.sourceId?home(list,event.sourceId):null;const dst=event.targetId?home(list,event.targetId):null;
      if(event.kind==='ATTACK'&&event.sourceId&&event.targetId&&src&&dst){
-      if(struck)await pause(reduced?8:950);
+      // Beat between attacks (the attacker "picks" its target here): 750ms reads clearly and keeps fights moving.
+      if(struck)await pause(reduced?8:750);
       struck=true;
       attacker=event.sourceId;strikerId=attacker;
       const el=tiles.current.get(attacker);el?.classList.add('is-attacking');
@@ -424,8 +431,6 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
         if(heroEl&&!reduced&&rate.current<100)animate(heroEl,[{translate:'0 0',rotate:'0deg'},{translate:'-4px 2px',rotate:'-2deg',offset:.3},{translate:'3px 0',rotate:'1.5deg',offset:.65},{translate:'0 0',rotate:'0deg'}],300);
        }
        await Promise.all(batch.map(e=>{const el=e.targetId?tiles.current.get(e.targetId):undefined;return el?rip(el,e.id):Promise.resolve();}));
-       // Rattles fire the moment the card is gone, before the row closes up; the DEATHRATTLE event itself then only waits.
-       for(let j=i+1;combat.events[j]?.kind==='DEATHRATTLE';j++){const src=combat.events[j]!.sourceId;if(src&&ids.includes(src)&&!rattled.has(src)){rattled.add(src);audioManager.play('ab_deathrattle');deathrattleBurst(graves.get(src)!);}}
        const next=list.filter(p=>!ids.includes(p.minion.id));
        await commit(next);restack(next);await pause(reduced?0:80*budget);
       }
@@ -471,6 +476,9 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
        const striker=field.current?.querySelector<HTMLElement>(winnerId===meId?'.ab-combat-me .ab-hero-face':'.ab-combat-foe .ab-hero-face');
        const victim=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me .ab-hero-face':'.ab-combat-foe .ab-hero-face');
        const amount=event.amount??0;
+       // Free punch shares the same wind→hit→recoil beats as a bought slam (see HitEffectPreview).
+       const slam=(winnerId&&amount>0?players.find(p=>p.sessionId===winnerId)?.slam:'')??'';
+       const strike=HIT_EFFECTS[slam]?STRIKES[HIT_EFFECTS[slam]!.motion]:STRIKES.punch;
        if(winnerId&&amount>0){
          await pause(reduced?8:560*budget);
         // Hearthstone maths on screen: the tally opens at the winner's tavern tier, then each survivor's tier flies in.
@@ -493,53 +501,42 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
          const a=striker.getBoundingClientRect(),b=victim.getBoundingClientRect();
          const scale=field.current!.getBoundingClientRect().height/field.current!.offsetHeight;
          const dy=(b.y+b.height/2-a.y-a.height/2)/scale;
-         // Three tempers keyed on the event: a straight slam, a wide hook, a spinning charge. Each winds up for the
-         // first third and snaps across in the last stretch — longer than before, sharper on the landing.
-         const variant=event.id%3,sign=combat.turn%2?1:-1;
-         const slam=players.find(p=>p.sessionId===winnerId)?.slam??'';
-         if(slam)striker.dataset.slamLive=slam;
+         const sign=combat.turn%2?1:-1;
+         if(slam){striker.dataset.slamLive=slam;playSlamWindup(slam);}
          striker.style.zIndex='20';
-         const strike=HIT_EFFECTS[slam]?STRIKES[HIT_EFFECTS[slam]!.motion]:undefined;
          // Portraits face each other vertically here, so a hop's height becomes a sideways arc — damp it.
          const sideK=HIT_EFFECTS[slam]&&['crush','bounce'].includes(HIT_EFFECTS[slam]!.motion)?.45:1;
-         // A bought hit brings its own approach; the free hit keeps the three tempers below.
-         if(strike)await pause(strike.approachMs*budget,u=>{const q=strike.pose(u,sign);striker.style.translate=`${q.side*sideK}px ${dy*q.ax}px`;striker.style.rotate=`${q.r}deg`;striker.style.scale=String(q.s);striker.style.opacity=q.alpha==null?'':String(q.alpha);});
-         // Ranged styles: the striker stays home; the shot crosses the field and the impact waits for it to land.
+         // Wind-up + strike (contact on the last frame).
+         await pause(strike.approachMs*budget,u=>{const q=strike.pose(u,sign);striker.style.translate=`${q.side*sideK}px ${dy*q.ax}px`;striker.style.rotate=`${q.r}deg`;striker.style.scale=String(q.s);striker.style.opacity=q.alpha==null?'':String(q.alpha);});
+         // Ranged styles: the shot crosses the field and the impact waits for it to land.
          const range=HIT_EFFECTS[slam]?.range;
          if(range&&field.current&&rate.current<100&&!cancelled){const shot=playProjectile(field.current,striker,victim,range,{rate:rate.current});shotRef.current=shot;await shot;shotRef.current=undefined;}
-         else await pause(760*budget,u=>{
-          const wind=Math.min(1,u/.34),dash=Math.max(0,(u-.34)/.66);
-          const k=u<.34?-.12*(1-(1-wind)**2):-.12+1.12*dash**4;
-          const x=variant===1?(k<0?-sign*46*wind:-sign*46*(1-dash)+Math.sin(Math.PI*dash)*sign*130):0;
-          const r=variant===2?(k<0?-22*wind:-22+dash**2*382):variant===1?sign*18*Math.sin(Math.PI*dash):-5*wind*(1-dash);
-          const s=1+(variant===0?.14:.08)*Math.max(0,dash-.7)/.3;
-          striker.style.translate=`${x}px ${dy*k}px`;striker.style.rotate=`${r}deg`;striker.style.scale=String(s);
-         });
         }
        }
        if(cancelled)return;
+       // Hit: stamp + HP drop as contact lands — before recoil — so the number is already up in the recoil phase.
        setHeroVitals(prev=>({...prev,[id]:{health:event.remainingHealth??prev[id]?.health??0,damage:event.amount??0}}));
        if(event.remainingHealth!==undefined)heroHealth.current?.(id,event.remainingHealth);
+       await paint();
        const heroEl=field.current?.querySelector<HTMLElement>(id===meId?'.ab-combat-me':'.ab-combat-foe');
-       // A bought hit effect owns the victim's punch and recoil; the plain shake is the free version.
-       const slamId=(winnerId&&amount>0?players.find(p=>p.sessionId===winnerId)?.slam:'')??'';
-       const slamFx=slamId&&victim&&!reduced&&rate.current<100?playHitEffect(victim,slamId,{rate:rate.current,dir:{x:(combat.turn%2?1:-1)*.35,y:winnerId===meId?-1:1}}):undefined;
-       slamRef.current=slamFx;if(slamFx)playSlamSound(slamId);
+       const slamFx=slam&&victim&&!reduced&&rate.current<100?playHitEffect(victim,slam,{rate:rate.current,dir:{x:(combat.turn%2?1:-1)*.35,y:winnerId===meId?-1:1}}):undefined;
+       slamRef.current=slamFx;if(slamFx)playSlamSound(slam);
        if(heroEl&&!reduced&&rate.current<100&&!slamFx){
         const k=Math.min(1,amount/12);
         animate(victim??heroEl,[{translate:'0 0',rotate:'0deg'},{translate:`${-6-10*k}px ${8+10*k}px`,rotate:`${-3-3*k}deg`,offset:.2},{translate:`${6+10*k}px ${-4*k}px`,rotate:`${3+2*k}deg`,offset:.45},{translate:`${-3-4*k}px ${3*k}px`,rotate:'-1deg',offset:.7},{translate:'0 0',rotate:'0deg'}],320+200*k);
        }
        audioManager.play('ab_hit_hero');if(heroEl)burst(heroEl,amount,undefined,undefined,true);
-       await pause(reduced?8:combatImpact(amount).duration*budget);
+       // Same beat as HitEffectPreview: impact reads, then recoil retreats home.
+       await pause(reduced?8:120*budget);
        if(striker){
         const [x=0,y=0]=striker.style.translate.split(' ').map(v=>parseFloat(v)||0);
         let r=(parseFloat(striker.style.rotate)||0)%360;if(r>180)r-=360;
         const s=(parseFloat(striker.style.scale)||1)-1;
-        await pause(reduced?8:420*budget,u=>{const e=1-(1-u)**3;striker.style.translate=`${x*(1-e)}px ${y*(1-e)}px`;striker.style.rotate=`${r*(1-e)}deg`;striker.style.scale=String(1+s*(1-e));});
+        await pause(reduced?8:strike.retreatMs*budget,u=>{const e=1-(1-u)**3;striker.style.translate=`${x*(1-e)}px ${y*(1-e)}px`;striker.style.rotate=`${r*(1-e)}deg`;striker.style.scale=String(1+s*(1-e));});
         striker.style.translate='';striker.style.rotate='';striker.style.scale='';striker.style.zIndex='';striker.style.opacity='';delete striker.dataset.slamLive;
        }
-       // Beat after the slam settles; lethal shatter only then, and results wait for the shards to finish.
-       await pause(reduced?8:1200*budget);
+       // Stance: hold the stamp readable; lethal shatter only then.
+       await pause(reduced?8:720*budget);
        if(heroEl&&(event.remainingHealth??1)<=0&&!reduced&&rate.current<100){
         const img=heroEl.querySelector<HTMLElement>('.ab-combat-hero-image');
         if(img){
@@ -559,8 +556,11 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
      }else if(event.kind==='DEATHRATTLE'||event.kind==='REBORN'){
       if(event.kind==='REBORN')rebornOwner=event.owner??'';
       if(event.kind==='DEATHRATTLE'){
-       if(!(event.sourceId&&rattled.has(event.sourceId))){audioManager.play('ab_deathrattle');deathrattleBurst((event.sourceId&&graves.get(event.sourceId))||{x:W/2,y:H/2});}
-       await pause(ms);
+       if(!(event.sourceId&&rattled.has(event.sourceId))){
+        if(event.sourceId)rattled.add(event.sourceId);
+        audioManager.play('ab_deathrattle');
+        await deathrattleBurst((event.sourceId&&graves.get(event.sourceId))||{x:W/2,y:H/2});
+       }
       }
       else{setBanner(t('abReborn',{defaultValue:i18n.language.startsWith('ru')?'Возрождение':'Reborn'}));await pause(ms);setBanner('');}
      }
@@ -619,6 +619,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
     </div>
     </HeroPowerTooltip>
     {!!heroVitals[player.sessionId]?.damage&&<b className="ab-combat-hero-damage">-{heroVitals[player.sessionId]?.damage}</b>}
+    {player===foe&&foeHand>0&&<div className="ab-combat-hand" data-testid="ab-combat-hand" data-count={foeHand} aria-label={`${t('handLabel')} ${foeHand}`}>{Array.from({length:foeHand},(_,i)=><i key={i} className="ab-combat-hand-card" style={{'--i':i,'--k':i-(foeHand-1)/2,zIndex:i} as CSSProperties}><CardBackFace id={foe?.cardBack} shape="card" live={false} /></i>)}</div>}
    </div>)}
    {tally&&<b className={`ab-hero-tally ${tally.id===meId?'is-mine':'is-foe'}`} data-testid="ab-hero-tally">⚔ {tally.amount}</b>}
    {banner&&<p className="ab-combat-banner">{banner}</p>}

@@ -87,3 +87,12 @@
   .ab-combat-card .ab-combat-face { animation:none; transition:none; }
   .ab-combat-card.is-dashing::before,.ab-combat-dust-puff { display:none; }
 }
+
+/* Opponent's unplayed hand during combat: a fan of their card backs tucked at the top-left of the portrait, its far ends
+   running past the top edge of the table (the container clips them). Only the count is known; the cards never are. */
+.ab-combat-hand { position:absolute; left:calc(50% - 64px - 128px); top:-2px; width:190px; height:78px; overflow:hidden; pointer-events:none; z-index:0; }
+.ab-combat-hand-card { position:absolute; left:calc(64px + var(--k,0) * 16px); top:-40px; width:62px; height:86px; transform-origin:50% 170%; transform:rotate(calc(var(--k,0) * 6deg - 6deg)); filter:drop-shadow(3px 3px 0 #1a1a1a66); animation:ab-combat-hand-in .5s cubic-bezier(.2,.8,.3,1) both; animation-delay:calc(.25s + var(--i,0) * 55ms); }
+.ab-combat-hand-card .card-back { border:2px solid #1a1a1a; border-radius:5px; }
+.ab-combat-hand[data-count="1"] .ab-combat-hand-card { transform:rotate(-8deg); }
+@keyframes ab-combat-hand-in { from { opacity:0; translate:0 -40px; } to { opacity:1; translate:0 0; } }
+@media (prefers-reduced-motion:reduce) { .ab-combat-hand-card { animation:none; } }

@@ -81,3 +81,12 @@ export function playBoughtSound() {
   [523, 659, 784].forEach((f, i) => tone(ac, t + i * .07, { d: .32, peak: .3 }, { type: 'triangle', from: f }));
   burst(ac, t + .2, { d: .25, peak: .15 }, { type: 'highpass', from: 5000 });
 }
+/**
+ * Wind-up voice heard while a hero rears back for a slam: a short rising sweep that hands over to the impact.
+ * ponytail: recovery note — the pre-loss version keyed this per style; the generic sweep below stands in for it.
+ */
+export function playSlamWindup(id: string) {
+  const ac = context();
+  if (!ac || !HIT_SOUNDS[id]) return;
+  try { burst(ac, ac.currentTime + .01, { a: .12, d: .22, peak: .3 }, { type: 'bandpass', from: 400, to: 1800, q: 1.4 }); } catch { /* audio never blocks the hit */ }
+}

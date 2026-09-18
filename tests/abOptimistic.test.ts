@@ -11,7 +11,7 @@ const player = (): AbPlayer => ({
   board: [unit('b0'), unit('b1'), unit('b2')], hand: [unit('h0'), unit('spell', 'spell')],
   tavern: { offers: [unit('t0'), unit('t1')], frozen: false, size: 3 },
   nextOpponentId: '', swords: false, eliminated: false, placement: 0, recruitReady: false,
-  lastCombatResult: '', lastCombatDamage: 0, lastCombatOpponentId: '', tripleSerial: 0, lastActionId: 0, buyCost: 3, rerollCost: 1, sellReward: 1, freeRerolls: 0, lastCombatSummary: '', discoverOpen: false, pendingDiscover: [],
+  lastCombatResult: '', lastCombatDamage: 0, lastCombatOpponentId: '', tripleSerial: 0, lastActionId: 0, buyCost: 3, rerollCost: 1, sellReward: 1, freeRerolls: 0, lastCombatSummary: '', discoverOpen: false, pendingDiscover: [], wheelBonus: '',
 });
 const ids = (list: AbMinion[]) => list.map(m => m.id);
 

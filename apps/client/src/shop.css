@@ -202,3 +202,43 @@
   .pack-holo, .case-dial, .case-obj.is-rattle { animation: none; }
   .pack-obj.is-torn .pack-lid, .pack-obj.is-torn .pack-body, .case-obj.is-open .case-lid, .case-obj.is-open { animation-duration: .01s; }
 }
+
+/* ---------------------------------------------------------------------------------------------------------
+   Chest polish. Every case stands on a contact shadow, catches one top-left light (gloss on the body, a highlight
+   strip on the lid, a darker foot), wears metal corner brackets where the material calls for them, and — once open —
+   throws slow rays and rising motes out of the mouth. All of it is pseudo-elements: the markup stays as it was.
+   --------------------------------------------------------------------------------------------------------- */
+.case-obj { isolation: isolate; }
+.case-obj::after { content: ''; position: absolute; left: 6%; right: 6%; bottom: -16px; height: 26px; z-index: -1; border-radius: 50%; background: radial-gradient(ellipse at 50% 50%, #000a, #0000 70%); transition: transform .35s, opacity .35s; }
+.product-choice:hover .case-obj::after { transform: translateY(6px) scale(1.06, 1.1); opacity: .8; }
+.case-box::before { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(118deg, #ffffff4d 0%, #ffffff1a 24%, #fff0 42%, #fff0 68%, #0000002e 100%); }
+.case-box::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; box-shadow: inset 0 -10px 18px -8px #0007, inset 0 6px 10px -6px #fff3; }
+.case-lid::after { content: ''; position: absolute; left: 5%; right: 5%; top: 5px; height: 6px; border-radius: 4px; background: linear-gradient(90deg, #fff0, #ffffff55 30%, #ffffff88 50%, #ffffff55 70%, #fff0); pointer-events: none; }
+/* Corner brackets: an L of brushed metal in each corner of the crate and the ammo box. */
+.case-obj.is-crate .case-box::after, .case-obj.is-ammo .case-box::after {
+  background:
+    linear-gradient(#d3c9b0, #857c6c) left 7px top 7px / 30px 7px no-repeat, linear-gradient(#d3c9b0, #857c6c) left 7px top 7px / 7px 30px no-repeat,
+    linear-gradient(#d3c9b0, #857c6c) right 7px top 7px / 30px 7px no-repeat, linear-gradient(#d3c9b0, #857c6c) right 7px top 7px / 7px 30px no-repeat,
+    linear-gradient(#d3c9b0, #857c6c) left 7px bottom 7px / 30px 7px no-repeat, linear-gradient(#d3c9b0, #857c6c) left 7px bottom 7px / 7px 30px no-repeat,
+    linear-gradient(#d3c9b0, #857c6c) right 7px bottom 7px / 30px 7px no-repeat, linear-gradient(#d3c9b0, #857c6c) right 7px bottom 7px / 7px 30px no-repeat;
+  filter: drop-shadow(1px 1px 0 #0008);
+}
+/* The safe: a brushed-steel sheen across the door and a warmer rim on the dial. */
+.case-obj.is-safe .case-lid { background-image: repeating-linear-gradient(90deg, #ffffff08 0 2px, #0000 2px 6px), linear-gradient(160deg, #6a7075, #45494d 60%, #575c61); }
+.case-obj.is-safe .case-dial { box-shadow: 0 0 0 5px #2a2d30, 0 0 0 8px #8a9095, 0 0 0 10px #c9a04a55, 0 3px 6px #0008; }
+/* The hatbox: satin stripes catch the light. */
+.case-obj.is-hatbox .case-box::before { background: linear-gradient(118deg, #ffffff66 0%, #ffffff22 30%, #fff0 50%, #0000001f 100%); }
+/* The stencil reads better on a darkened band. */
+.case-stencil { padding: 3px 12px; background: #0000002e; }
+.case-mark { filter: drop-shadow(0 0 6px #0004); }
+/* Open: the mouth glows brighter, rays wheel out of it and gold motes drift up. */
+.case-obj.is-open .case-mouth { opacity: 1; filter: blur(4px); }
+.case-mouth::before { content: ''; position: absolute; left: 50%; top: 50%; width: 320px; height: 320px; margin: -160px 0 0 -160px; background: repeating-conic-gradient(from 0deg, #ffe9a8aa 0 5deg, #ffd66b00 5deg 17deg); -webkit-mask: radial-gradient(circle, #000 12%, #0000 62%); mask: radial-gradient(circle, #000 12%, #0000 62%); opacity: 0; transition: opacity .5s; pointer-events: none; }
+.case-obj.is-open .case-mouth::before { opacity: .9; animation: case-rays 7s linear infinite; }
+@keyframes case-rays { to { transform: rotate(360deg); } }
+.case-mouth::after { content: ''; position: absolute; left: 20%; right: 20%; top: -10px; height: 60px; pointer-events: none; opacity: 0; background:
+  radial-gradient(circle 3px at 10% 80%, #fff6c8, #fff0 70%), radial-gradient(circle 2px at 30% 60%, #ffd66b, #fff0 70%), radial-gradient(circle 3px at 55% 90%, #fff6c8, #fff0 70%),
+  radial-gradient(circle 2px at 75% 50%, #ffd66b, #fff0 70%), radial-gradient(circle 3px at 92% 75%, #fff6c8, #fff0 70%); }
+.case-obj.is-open .case-mouth::after { animation: case-motes 1.6s ease-out infinite; }
+@keyframes case-motes { 0% { opacity: 0; transform: translateY(20px) scale(.8); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(-70px) scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .case-obj.is-open .case-mouth::before, .case-obj.is-open .case-mouth::after { animation: none; } }

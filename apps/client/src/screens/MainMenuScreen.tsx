@@ -88,7 +88,7 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEdit
         <InkButton tone={item.tone} size={item.play ? 'xl' : 'lg'} pulse={item.play && !reduced} glow={item.play} onClick={item.run} className={`menu-action ${item.play ? 'menu-play' : ''}`} data-testid={`menu-${item.key}`}>
           <span className="menu-action-icon" aria-hidden>{item.mark}</span><span>{t(item.key)}</span><span className="menu-action-arrow" aria-hidden>↗</span>
           {item.play && <em className="menu-beta" aria-hidden>{t('menuBeta')}</em>}
-          {item.key === 'menuEditor' && <em className="menu-beta menu-soon" data-testid="menu-notice">{t('menuSoon')}</em>}
+          {(item.key === 'menuEditor' || item.key === 'menuDeck') && <em className="menu-beta menu-soon" data-testid={item.key === 'menuEditor' ? 'menu-notice' : 'menu-deck-notice'}>{t('menuSoon')}</em>}
         </InkButton>
       </motion.div>)}</div>
       {cardSets.length > 0 && <label className="menu-set" data-testid="menu-set">

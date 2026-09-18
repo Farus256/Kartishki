@@ -33,7 +33,6 @@ import {
 } from '@kartishki/shared';
 import { PlayerError, type PlayerStore } from '../players';
 import { resolveCombat, snapshotBoard } from './combat';
-import { createDiscoverSpell } from './instantiate';
 import { errorPayload, ok } from './errors';
 import { createDefaultRegistry } from './keywords';
 import { abLog } from './logger';
@@ -110,20 +109,25 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
   private defFor = (baseId: string) => this.catalog.minions.find(item => item.id === baseId);
 
-  /** The table's anomaly as concrete prices and bonuses. */
+  /** The table's anomaly as concrete rules (see AB_ANOMALIES). */
   private rules(): TavernRules {
     const id = this.state.anomalyId;
     return {
       ...DEFAULT_RULES,
-      tavernBonus: id === 'ab-anomaly-big-tavern' ? 1 : 0,
+      tavernBonus: id === 'ab-anomaly-big-tavern' ? 2 : 0,
       rerollCost: id === 'ab-anomaly-free-refresh' ? 0 : DEFAULT_RULES.rerollCost,
       goldCap: id === 'ab-anomaly-deep-pockets' ? 12 : DEFAULT_RULES.goldCap,
-      firstBuyDiscount: id === 'ab-anomaly-on-the-house' ? 1 : 0,
-      combatBuff: id === 'ab-anomaly-brawl' ? 1 : 0,
       sellReward: id === 'ab-anomaly-fence' ? 2 : DEFAULT_RULES.sellReward,
       upgradeDiscount: id === 'ab-anomaly-back-room' ? 1 : 0,
       damageCap: id === 'ab-anomaly-bloodbath' ? false : DEFAULT_RULES.damageCap,
       combatKeyword: id === 'ab-anomaly-plated' ? 'divineShield' : id === 'ab-anomaly-second-wind' ? 'reborn' : undefined,
+      tripleSize: id === 'ab-anomaly-golden-age' ? 2 : 3,
+      spellSlots: id === 'ab-anomaly-spell-market' ? 2 : 0,
+      spellDiscount: id === 'ab-anomaly-spell-market' ? 1 : 0,
+      handGrowth: id === 'ab-anomaly-long-night' ? 1 : 0,
+      endTurnTimes: id === 'ab-anomaly-overtime' ? 2 : 1,
+      battlecryEcho: id === 'ab-anomaly-double-trouble' ? 1 : 0,
+      wheel: id === 'ab-anomaly-wheel-of-fate',
     };
   }
 
@@ -515,7 +519,6 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     for (const player of this.state.players.values()) {
       if (player.eliminated) continue;
       if (this.state.turn === 1 && this.state.anomalyId === 'ab-anomaly-fast-start') { player.tavernTier = 2; player.upgradeCost = initialUpgradeCost(2); }
-      if (this.state.turn === 1 && this.state.anomalyId === 'ab-anomaly-lucky-find') player.hand.push(createDiscoverSpell(this.nextId(), player.sessionId));
       beginRecruitTurn(this.deps(player), this.state.turn);
     }
     this.assignPairing();
@@ -604,10 +607,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     this.state.phase = 'COMBAT_PHASE';
     this.state.revision++;
     const rules = this.rules();
-    const brawl = rules.combatBuff;
     const snapshot = (player: AutoBattlerPlayerState) => {
       const snap = snapshotBoard(player);
-      if (brawl) for (const minion of snap.board) { minion.attack += brawl; minion.health += brawl; }
       if (rules.combatKeyword) for (const minion of snap.board) if (!minion.keywords.includes(rules.combatKeyword)) minion.keywords.push(rules.combatKeyword);
       return snap;
     };
@@ -619,7 +620,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     for (const player of this.state.players.values()) {
       if (player.eliminated) continue;
       const events: CombatEvent[] = [];
-      endRecruitTurn(this.deps(player), (owner, target) => events.push({ id: 0, kind: 'STATS', sourceId: owner.id, targetId: target.id, attack: target.attack + brawl, remainingHealth: target.health + brawl }));
+      endRecruitTurn(this.deps(player), (owner, target) => events.push({ id: 0, kind: 'STATS', sourceId: owner.id, targetId: target.id, attack: target.attack, remainingHealth: target.health }));
       if (events.length) endTurnEvents.set(player.sessionId, events);
     }
     // Capture every player before resolving any pair, so ghosts cannot depend on pair order.
@@ -629,6 +630,8 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
     let presentationMs = 2500;
     let shortestMs = Infinity;
     const initialHealth = Object.fromEntries([...this.state.players.values()].map(p => [p.sessionId, p.hero.health]));
+    // Cards still in hand when the bell rang: opponents see that many backs by the portrait, never the cards.
+    const handCounts = Object.fromEntries([...this.state.players.values()].map(p => [p.sessionId, p.hand.length]));
 
     if (!this.state.pairing.length) this.assignPairing();
 
@@ -660,6 +663,7 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
         events: [...prelude, ...result.events].map((event, index) => ({ ...event, id: index + 1 })),
         boards: { a: shownA.board, b: shownB.board },
         initialHealth,
+        handCounts,
         durationMs: Math.min(AUTO_BATTLER.MAX_COMBAT_MS, 4_500 + prelude.length * 420 + result.events.filter(e => ['ATTACK', 'HUMILIATE', 'BAIT'].includes(e.kind)).length * 2_400 + result.events.length * 250),
         summary: { winnerId: result.winnerId, loserId: result.loserId, damage: result.damage, tie: result.tie },
       };
@@ -698,6 +702,9 @@ export class AutoBattlerRoom extends Room<{ state: AutoBattlerRoomState }> {
 
       playerA.lastOpponentId = pair.playerB;
       if (playerB && !pair.ghost) playerB.lastOpponentId = pair.playerA;
+      // Passive hero hooks that key on the outcome (Bounty Hunter's purse).
+      this.registry.heroPowers.get(playerA.hero.power.id)?.onCombatEnd?.(playerA, result.winnerId === pair.playerA);
+      if (playerB && !pair.ghost) this.registry.heroPowers.get(playerB.hero.power.id)?.onCombatEnd?.(playerB, result.winnerId === pair.playerB);
       abLog('combat.result', { a: pair.playerA, b: pair.playerB, seed, winner: result.winnerId, damage: payload.summary.damage, ghost: pair.ghost });
     });
 

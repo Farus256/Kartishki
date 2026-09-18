@@ -10,12 +10,12 @@ import {AutoBattlerRoom} from '../src/autoBattler/AutoBattlerRoom';
 process.env.AB_TEST_MODE='1';process.env.AB_TEST_COMBAT_MS='60';
 let serial=0;
 async function until(check:()=>boolean,ms=6000){const end=Date.now()+ms;while(!check()){if(Date.now()>end)throw new Error('Synchronization timeout');await delay(15);}}
-async function harness(count:number){
+async function harness(count:number,options:Record<string,unknown>={}){
  const http=createServer();const server=new Server({transport:new WebSocketTransport({server:http}),greet:false});server.define('autoBattler',AutoBattlerRoom);await server.listen(0,'127.0.0.1');
  const address=http.address() as {port:number};const client=new Client(`http://127.0.0.1:${address.port}`);
  const rooms:Room<AutoBattlerRoomState>[]=[];const offers=new Map<string,AutoBattlerHeroDef[]>();const events=new Map<string,CombatEventsMessage>();const errors=new Map<string,string>();const combatCounts=new Map<string,number>();
  function attach(r:Room<AutoBattlerRoomState>){r.onMessage(EV.discoverOptions,()=>{});r.onMessage(EV.catalog,()=>{});r.onMessage(EV.heroOffers,o=>offers.set(r.sessionId,o));r.onMessage(EV.combatEvents,e=>{events.set(r.sessionId,e);const key=`${r.sessionId}:${e.turn}`;combatCounts.set(key,(combatCounts.get(key)??0)+1);});r.onMessage(EV.actionError,e=>errors.set(r.sessionId,e.code));r.send(MSG.ready);}
- for(let i=0;i<count;i++){const r=await client.joinOrCreate<AutoBattlerRoomState>('autoBattler',{displayName:`Player ${i}`,heroMs:2000,recruitMs:120000,anomaly:''},AutoBattlerRoomState);rooms.push(r);attach(r);}
+ for(let i=0;i<count;i++){const r=await client.joinOrCreate<AutoBattlerRoomState>('autoBattler',{displayName:`Player ${i}`,heroMs:2000,recruitMs:120000,anomaly:'',...options},AutoBattlerRoomState);rooms.push(r);attach(r);}
  await until(()=>rooms[0]!.state.players.size===count&&offers.size===count);
  if(count<8)rooms[0]!.send(MSG.startGame);
  await until(()=>rooms[0]!.state.phase==='HERO_SELECTION');
@@ -109,5 +109,30 @@ test('more than half the table walking out cancels the match without rewards',{t
   await until(()=>a.state.cancelled===true);
   assert.equal(settled.size,0,'a cancelled match pays no beer, cash or xp');
   assert.equal(h.host.state.players.get(a.sessionId)!.placement,0);
+ }finally{await h.server.gracefullyShutdown(false);}
+});
+test('demon table under the wheel of fate: one spell per counter, a wedge every turn, demons on offer, hand counts in the fight payload', {timeout:30000},async()=>{
+ const h=await harness(2,{anomaly:'ab-anomaly-wheel-of-fate',tribes:['demon','beast','mech','pirate','undead']});try{
+  const hero=h.rooms[0]!;const me=()=>hero.state.players.get(hero.sessionId)!;
+  let demonsSeen=0;
+  for(let round=0;round<6;round++){
+   await until(()=>h.rooms.every(r=>r.state.phase==='RECRUIT_PHASE'));
+   const turn=h.host.state.turn;
+   for(const p of h.host.state.players.values()){
+    assert.equal([...p.tavern.offers].filter(m=>m.kind==='spell').length,1,`turn ${turn}: exactly one spell on the counter`);
+    assert.ok(p.wheelBonus,`turn ${turn}: the wheel landed somewhere`);
+    demonsSeen+=[...p.tavern.offers].filter(m=>m.tribes.includes('demon')).length;
+   }
+   // Buy and play whatever fits; a demon battlecry that devours removes offers, the counter must still have its one spell next turn.
+   for(let i=0;i<3&&me().gold>=3&&me().hand.length<10&&me().tavern.offers.length;i++){await h.send(hero,MSG.buy,{offerId:me().tavern.offers[0]!.id});}
+   for(const card of [...me().hand]){if(card.kind==='spell'||me().board.length<7)await h.send(hero,MSG.playCard,{cardId:card.id});if(me().discoverOpen)await h.send(hero,MSG.discoverPick,{optionId:me().pendingDiscover[0]!.id});}
+   const held=me().hand.length;
+   for(const r of h.rooms)await h.send(r,MSG.endRecruit);
+   await until(()=>h.host.state.phase==='COMBAT_PHASE'||h.host.state.turn>turn||h.host.state.phase==='GAME_OVER');
+   await until(()=>(h.events.get(hero.sessionId)?.turn??0)===turn);
+   assert.equal(h.events.get(hero.sessionId)!.handCounts?.[hero.sessionId],held,'the fight payload carries the cards still in hand');
+   if(h.host.state.phase==='GAME_OVER')break;
+  }
+  assert.ok(demonsSeen>0,'demons were offered at a demon table');
  }finally{await h.server.gracefullyShutdown(false);}
 });

@@ -28,6 +28,8 @@ export type AbMinion = {
   id: string; cardId: string; baseId: string; kind: string;
   attack: number; health: number; maxHealth: number; tavernTier: number;
   keywords: string[]; /** Replicated with the minion; combat boards and test fixtures may omit it. */ tribes?: string[]; golden: boolean; owner: string;
+  /** Tavern price of this offer (spells carry their own; see AutoBattlerMinionState.cost). Absent off the counter. */
+  cost?: number;
 };
 
 export type AbPower = {
@@ -47,6 +49,8 @@ export type AbPlayer = {
   lastActionId: number;
   buyCost: number; rerollCost: number; sellReward: number; freeRerolls: number;
   lastCombatSummary: string; discoverOpen: boolean; pendingDiscover: AbMinion[];
+  /** Wedge the wheel-of-fate anomaly landed on this turn ('' outside that anomaly). */
+  wheelBonus: string;
 };
 
 export type AbCombatBoards = { playerA: string; playerB: string; a: AbMinion[]; b: AbMinion[] };
@@ -72,7 +76,7 @@ function toMinion(m: AutoBattlerMinionState): AbMinion {
   return {
     id: m.id, cardId: m.cardId, baseId: m.baseId, kind: m.kind,
     attack: m.attack, health: m.health, maxHealth: m.maxHealth, tavernTier: m.tavernTier,
-    keywords: [...m.keywords], tribes: [...(m.tribes ?? [])], golden: m.golden, owner: m.owner,
+    keywords: [...m.keywords], tribes: [...(m.tribes ?? [])], golden: m.golden, owner: m.owner, cost: m.cost ?? 0,
   };
 }
 
@@ -90,7 +94,7 @@ function toPlayer(p: AutoBattlerPlayerState): AbPlayer {
     tavern: { offers: [...(p.tavern.offers ?? [])].map(toMinion), frozen: p.tavern.frozen, size: p.tavern.size },
     nextOpponentId: p.nextOpponentId, swords: p.swords, eliminated: p.eliminated, placement: p.placement,
     recruitReady: p.recruitReady, lastCombatResult: p.lastCombatResult, lastCombatDamage: p.lastCombatDamage, lastCombatOpponentId: p.lastCombatOpponentId ?? '',
-    lastCombatSummary: p.lastCombatSummary, discoverOpen: p.discoverOpen,
+    lastCombatSummary: p.lastCombatSummary, discoverOpen: p.discoverOpen, wheelBonus: p.wheelBonus ?? '',
     pendingDiscover: [...(p.pendingDiscover ?? [])].map(toMinion), tripleSerial: p.tripleSerial,
     lastActionId: p.lastActionId ?? 0,
     buyCost: p.buyCost ?? AUTO_BATTLER.BUY_COST, rerollCost: p.rerollCost ?? AUTO_BATTLER.REROLL_COST, sellReward: p.sellReward ?? AUTO_BATTLER.SELL_REWARD, freeRerolls: p.freeRerolls ?? 0,

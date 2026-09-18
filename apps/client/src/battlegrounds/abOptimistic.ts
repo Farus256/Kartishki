@@ -24,12 +24,18 @@ function insert(list: AbMinion[], index: number, item: AbMinion): AbMinion[] {
   return [...list.slice(0, at), item, ...list.slice(at)];
 }
 
+/** Price of a tavern offer as the client sees it: spells carry their own price, minions follow the table price (see syncPrices). */
+export function offerCost(me: Pick<AbPlayer, 'buyCost'>, offer?: Pick<AbMinion, 'kind' | 'cost'>): number {
+  return offer?.kind === 'spell' ? offer.cost ?? me.buyCost : me.buyCost;
+}
+
 export function applyOptimistic(me: AbPlayer, intent: OptimisticIntent): AbPlayer {
   switch (intent.type) {
     case 'buy': {
       const [offer, offers] = without(me.tavern.offers, intent.id);
-      if (!offer || me.gold < me.buyCost || me.hand.length >= AUTO_BATTLER.HAND_LIMIT) return me;
-      return { ...me, gold: me.gold - me.buyCost, tavern: { ...me.tavern, offers }, hand: [...me.hand, { ...offer, owner: me.sessionId }] };
+      const cost = offerCost(me, offer);
+      if (!offer || me.gold < cost || me.hand.length >= AUTO_BATTLER.HAND_LIMIT) return me;
+      return { ...me, gold: me.gold - cost, tavern: { ...me.tavern, offers }, hand: [...me.hand, { ...offer, owner: me.sessionId }] };
     }
     case 'sell': {
       const [fromBoard, board] = without(me.board, intent.id);

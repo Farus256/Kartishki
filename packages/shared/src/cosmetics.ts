@@ -171,8 +171,9 @@ export const COSMETIC_SETTING: Record<CosmeticKind, 'board' | 'heroSkin' | 'hero
 /** Visual tier from price: drives the card's trim in the shop.
  * Anchored to casino money: common ≈ many wheel spins, rare ≈ a strong slots pair,
  * epic ≈ wheel jackpot territory, legendary ≈ slots top jackpot. */
-export function cosmeticTier(cost: number): 'common' | 'rare' | 'epic' | 'legendary' {
-  return cost >= 8000 ? 'legendary' : cost >= 4500 ? 'epic' : cost >= 1500 ? 'rare' : 'common';
+export function cosmeticTier(cost: number): 'common' | 'rare' | 'epic' | 'legendary' | 'ultimate' {
+  // Recovery note: 'ultimate' at >= 60000 per the session notes for the 2026-09-18 balance pass (skin-king / slam-spit items themselves were not recovered).
+  return cost >= 60000 ? 'ultimate' : cost >= 8000 ? 'legendary' : cost >= 4500 ? 'epic' : cost >= 1500 ? 'rare' : 'common';
 }
 
 /** Duplicate cosmetic from a pack or chest pays half its price back. */

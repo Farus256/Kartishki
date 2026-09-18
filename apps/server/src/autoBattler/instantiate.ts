@@ -22,6 +22,9 @@ export function fillMinion(m: AutoBattlerMinionState, def: AutoBattlerMinionDef,
   m.bonusHealth = 0;
   m.poolCopies = 0;
   m.tripleReward = false;
+  m.cost = 0;
+  m.tempAttack = 0;
+  m.tempHealth = 0;
   while (m.keywords.length) m.keywords.pop();
   for (const keyword of printed.keywords) m.keywords.push(keyword);
   while (m.tribes.length) m.tribes.pop();
@@ -59,6 +62,9 @@ export function cloneMinionState(source: AutoBattlerMinionState, id: string): Au
   copy.bonusHealth = source.bonusHealth;
   copy.poolCopies = source.poolCopies;
   copy.tripleReward = source.tripleReward;
+  copy.cost = source.cost;
+  copy.tempAttack = source.tempAttack;
+  copy.tempHealth = source.tempHealth;
   for (const keyword of source.keywords) copy.keywords.push(keyword);
   for (const tribe of source.tribes) copy.tribes.push(tribe);
   return copy;

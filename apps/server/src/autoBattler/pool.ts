@@ -74,11 +74,11 @@ export class SharedMinionPool {
     return items;
   }
 
-  /** Roll N shop offers of tavernTier <= maxTier and remove them from the pool. */
-  roll(maxTier: number, count: number, rng: SeededRng): AutoBattlerMinionDef[] {
+  /** Roll N shop offers of tavernTier <= maxTier and remove them from the pool; `only` narrows the bag (spell-only slots). */
+  roll(maxTier: number, count: number, rng: SeededRng, only?: (def: AutoBattlerMinionDef) => boolean): AutoBattlerMinionDef[] {
     const rolled: AutoBattlerMinionDef[] = [];
     for (let i = 0; i < count; i++) {
-      const bag = this.bag(def => def.tavernTier <= maxTier);
+      const bag = this.bag(def => def.tavernTier <= maxTier && (!only || only(def)));
       if (!bag.length) break;
       const pick = rng.pick(bag);
       this.take(pick.id);

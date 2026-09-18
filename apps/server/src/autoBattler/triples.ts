@@ -30,13 +30,15 @@ export function resolveTriples(
   nextId: () => string,
   defFor: (baseId: string) => AutoBattlerMinionDef | undefined,
   onTriple?: (golden: AutoBattlerPlayerState['hand'][number]) => void,
+  /** Copies that merge (3; 2 under the golden-age anomaly). */
+  size = 3,
 ): boolean {
   let merged = false;
   for (let safety = 0; safety < 8; safety++) {
     recountTriples(player);
     let baseId: string | undefined;
     player.tripleCounts.forEach((count, id) => {
-      if (baseId === undefined && count >= 3) baseId = String(id);
+      if (baseId === undefined && count >= size) baseId = String(id);
     });
     if (!baseId) break;
     const def = defFor(baseId);
@@ -55,7 +57,7 @@ export function resolveTriples(
     // Resolve again after a play frees a hand slot; prefer hand copies when present.
     if (player.hand.length >= AUTO_BATTLER.HAND_LIMIT && !handHits.length) break;
 
-    let need = 3;
+    let need = size;
     for (const index of [...handHits].reverse()) {
       if (need <= 0) break;
       const [card] = player.hand.splice(index, 1);
@@ -68,14 +70,15 @@ export function resolveTriples(
       if (card) taken.push(card);
       need--;
     }
-    if (need > 0 || taken.length < 3) break;
+    if (need > 0 || taken.length < size) break;
 
     const printed = printedStats(def, false);
     let extraAtk = 0;
     let extraHp = 0;
     for (const copy of taken) {
-      extraAtk += copy.attack - printed.attack;
-      extraHp += copy.maxHealth - printed.health;
+      // This-turn-only stats do not carry into the golden.
+      extraAtk += copy.attack - copy.tempAttack - printed.attack;
+      extraHp += copy.maxHealth - copy.tempHealth - printed.health;
     }
 
     const golden = createMinionState(def, nextId(), player.sessionId, true);
@@ -85,7 +88,8 @@ export function resolveTriples(
     golden.health += extraHp;
     golden.maxHealth += extraHp;
     golden.poolCopies = taken.reduce((n, copy) => n + copy.poolCopies, 0);
-    golden.tripleReward = true;
+    // Tokens (the Foreman's free 1/1s, wheel tokens) merge like any card, but three of them mint no Discover — that would be a free one every few turns.
+    golden.tripleReward = !def.token;
     for (const keyword of new Set(taken.flatMap(copy => [...copy.keywords]))) {
       if (!golden.keywords.includes(keyword)) golden.keywords.push(keyword);
     }

@@ -37,7 +37,11 @@ export const SLOT_FACES = [
   face7,
 ];
 
-const CELL = 152;
+/** One symbol row. Three rows show per reel; the pay line is the middle one. */
+const CELL = 104;
+const ROWS = 3;
+/** Strip offset that puts symbol `r` on the middle row (the rows above and below are its real strip neighbours). */
+const rowY = (r: number) => -(r - 1) * CELL;
 
 type Bill = {
   id: string;
@@ -191,9 +195,38 @@ const slotStyles = `
   width: 100% !important;
   min-width: 0 !important;
 
-  height: ${CELL}px !important;
+  height: ${CELL * ROWS}px !important;
 
   overflow: hidden !important;
+  /* Glass: the pay line sits in the middle band, the rows above and below fade like a real drum. */
+  background: linear-gradient(#8f8977, #c9c3b4 18%, #f1ebdd 34% 66%, #c9c3b4 82%, #8f8977) !important;
+}
+
+.slot-machine .reel-window::before,
+.slot-machine .reel-window::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 3;
+  background: #b3150e;
+  box-shadow: 0 0 6px #ff6a55aa;
+  opacity: .85;
+  pointer-events: none;
+}
+
+.slot-machine .reel-window::before { top: ${CELL}px; }
+.slot-machine .reel-window::after { top: ${CELL * 2 - 3}px; }
+
+
+/* The landed symbol on the pay line pulses once the reels stop. */
+.slot-machine .reels.is-settled .reel-window.is-win .reel-strip {
+  animation: slot-win-pulse .55s ease-in-out 3;
+}
+
+@keyframes slot-win-pulse {
+  50% { filter: brightness(1.35); }
 }
 
 .slot-machine .reel-sym {
@@ -1187,7 +1220,7 @@ export function SlotMachine() {
           </h2>
 
           <div
-            className="reels"
+            className={`reels${!spinning && win.length ? ' is-settled' : ''}`}
             aria-label={t('threeReels')}
             aria-busy={
               spinning
@@ -1196,10 +1229,8 @@ export function SlotMachine() {
             {[0, 1, 2].map(
               reelIndex => (
                 <div
-                  className="reel-window"
-                  key={
-                    reelIndex
-                  }
+                  className={`reel-window${win.includes(reelIndex) ? ' is-win' : ''}`}
+                  key={reelIndex}
                 >
                   <motion.div
                     key={

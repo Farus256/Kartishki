@@ -24,7 +24,7 @@ export const KEYWORD_POINTS: Record<AutoBattlerKeyword, number> = {
 /** How often a trigger fires over a game: a battlecry is once, an end-of-turn buff is every turn. */
 const TRIGGER_RATE: Record<AutoBattlerEffect['trigger'], number> = {
   battlecry: 1, play: 2, buy: 2.2, sell: 1, endTurn: 2.2, triple: 0.7, startCombat: 1.3, deathrattle: 1, aura: 1.6,
-  reroll: 1.8, friendlyDeath: 1.6, shieldPop: 1.4, friendlyAttack: 1.6,
+  reroll: 1.8, friendlyDeath: 1.6, shieldPop: 1.4, friendlyAttack: 1.6, spell: 1.5, friendlySummon: 1.5, selfDamage: 1.6, devour: 1.4,
 };
 
 /** How many bodies a target usually reaches. */
@@ -45,11 +45,18 @@ function actionPoints(action: AutoBattlerEffectAction, defFor: (id: string) => A
       const token = defFor(action.summonId);
       return (token ? bodyPoints(token) * 0.7 : 2) * action.count;
     }
+    // A second ring of every Battlecry / Deathrattle on the board: worth about a strong tier-5 body.
+    case 'echo': return 8;
+    // The hero pays Health for the board's selfDamage engines: a cost that turns into stats elsewhere.
+    case 'selfDamage': return action.amount * 1.2;
+    // A meal is roughly a tier-appropriate body's stats, minus the offer the player could have bought.
+    case 'devour': return action.count * 3.2;
+    case 'guard': return 3;
   }
 }
 
 function stepPoints(effect: AutoBattlerEffect, step: AutoBattlerEffectStep, defFor: (id: string) => AutoBattlerMinionDef | undefined): number {
-  const reach = effect.trigger === 'aura' ? TARGET_REACH.friendly : TARGET_REACH[step.target ?? 'self'];
+  const reach = step.action.kind === 'echo' || step.action.kind === 'guard' ? 1 : effect.trigger === 'aura' ? TARGET_REACH.friendly : TARGET_REACH[step.target ?? 'self'];
   return actionPoints(step.action, defFor) * reach * tribeFilter(step) * scaling(step);
 }
 
@@ -65,7 +72,7 @@ export function bodyPoints(def: AutoBattlerMinionDef): number {
 
 /** Full hidden value of a card. */
 export function cardPoints(def: AutoBattlerMinionDef, defFor: (id: string) => AutoBattlerMinionDef | undefined = id => starterAutoBattlerMinions.find(m => m.id === id)): number {
-  if (def.spell) return def.spell.kind === 'discover' ? 6 : (def.spell.amount ?? 1) * 2.2;
+  if (def.spell) return def.spell.kind === 'discover' ? 6 : (def.spell.amount ?? 1) * 2.2 + (Math.abs(def.spell.attack ?? 0) + Math.abs(def.spell.health ?? 0)) * 0.9 + (def.spell.keyword ? KEYWORD_POINTS[def.spell.keyword] : 0);
   let points = bodyPoints(def);
   if (def.deathrattle) {
     const token = defFor(def.deathrattle.summonId);
