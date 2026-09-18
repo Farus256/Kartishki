@@ -1,0 +1,38 @@
+/* Server browser: a paper ledger of custom rooms. Layout keys off the 1440-wide stage like the menu. */
+.browser-screen { color: var(--ink); }
+.browser-head { position: absolute; top: 108px; left: 52px; right: 52px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+.browser-head h1 { margin: 0; display: flex; align-items: center; gap: 14px; font: 40px/1 var(--font-hand); letter-spacing: 2px; }
+.browser-head p { margin: 6px 0 0; font: 12px var(--font-mono); letter-spacing: 1px; color: #5c5040; }
+.browser-actions { display: flex; gap: 10px; align-items: center; }
+/* RANKED / CUSTOM stamps: nobody should mistake a custom room for a rated one. */
+.mode-stamp { display: inline-block; padding: 3px 10px; border: 3px solid var(--ink); font: 15px/1 var(--font-stencil); font-style: normal; letter-spacing: 2px; transform: rotate(-4deg); box-shadow: 3px 3px 0 #1a1a1a55; }
+.mode-stamp.is-custom { background: #6a4696; color: #f3ecff; border-color: #3a2a55; }
+.mode-stamp.is-ranked { background: var(--gold); color: var(--ink); }
+.browser-filters { position: absolute; top: 178px; left: 52px; right: 52px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 12px 14px; border: 3px solid var(--ink); background: #d5c7af; box-shadow: 4px 4px #1a1a1a; font: 12px var(--font-mono); }
+.browser-filters input[type=text], .browser-filters input:not([type]), .browser-filters select, .room-form input, .room-form select { padding: 6px 10px; border: 2px solid var(--ink); background: var(--paper); font: 13px var(--font-mono); box-shadow: 3px 3px 0 var(--ink); }
+.browser-filters input:not([type]) { width: 220px; }
+.browser-filters label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.browser-list { position: absolute; top: 258px; left: 52px; right: 52px; bottom: 28px; overflow: auto; border: 3px solid var(--ink); background: #e9e1cf; box-shadow: 6px 6px #1a1a1a; }
+.browser-list table { width: 100%; border-collapse: collapse; }
+.browser-list th { position: sticky; top: 0; padding: 10px 12px; background: #24231f; color: #efece4; font: 12px var(--font-mono); letter-spacing: 1px; text-align: left; }
+.browser-list td { padding: 8px 12px; border-top: 1px dashed #66533c66; font: 19px/1.1 var(--font-hand); vertical-align: middle; }
+.browser-list .num { text-align: center; }
+.browser-list td.name { font-size: 22px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browser-list tr.is-playing td, .browser-list tr.is-full td { opacity: .55; }
+.browser-status { font: 11px var(--font-mono); letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border: 2px solid var(--ink); background: #f6f0e1; }
+.browser-status.is-playing { background: #b8b2a4; }
+.browser-empty { padding: 60px 20px; text-align: center; font: 22px var(--font-hand); color: #5c5040; }
+.browser-error { margin: 12px 0 0; font: 12px var(--font-mono); color: #a52922; }
+.browser-note { font: 12px var(--font-mono) !important; color: #5c5040; }
+.browser-modal .ab-modal-card { min-width: 560px; text-align: left; }
+.browser-modal .ab-modal-card h2 { display: flex; align-items: center; gap: 14px; }
+.browser-modal-actions { display: flex; gap: 12px; margin-top: 18px; }
+/* Room settings form (create modal and the host's lobby panel). */
+.room-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+.room-form label { display: flex; flex-direction: column; gap: 5px; font: 11px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; }
+.room-form label > span:first-child { color: #5c5040; }
+.room-form label small { font: 11px var(--font-mono); letter-spacing: 0; text-transform: none; color: #7a6a52; }
+.room-form label:first-child { grid-column: 1 / -1; }
+.room-form-toggle { grid-column: 1 / -1; justify-self: start; padding: 2px 0; border: 0; background: none; font: 13px var(--font-mono); letter-spacing: 1px; text-decoration: underline dashed; cursor: pointer; color: #3a2a55; }
+.room-form .anomaly-chip { align-self: flex-start; margin-top: 2px; }
+.room-form input:disabled, .room-form select:disabled { opacity: .7; box-shadow: none; }

@@ -8,6 +8,7 @@ import { useCombatHistory, type FightRecord } from './useCombatHistory';
 import { abCopyName, boardMainTribe } from '@kartishki/shared';
 import { powerCopy } from './HeroPowerTooltip';
 import { PlayerName } from '../cosmetics/PlayerName';
+import { BotTag } from './BotTag';
 
 /** Opponent boards are owner-only, so their tribe comes from the server's last-fight snapshot; my own board is read live. */
 function likelyTribe(player: AbPlayer, meId: string, catalog: AutoBattlerCatalog, lang: string, t: (key: string, opts?: { defaultValue?: string }) => string, ru: boolean): string {
@@ -28,7 +29,7 @@ function FightLog({ player, players, log, meId, ru, catalog }: { player: AbPlaye
       {/* The real portrait frame: the player's skin and aura run live here, as on the table. */}
       <div className="ab-hero-face ab-lb-log-face" data-skin={player.skin || undefined} data-aura={player.aura || undefined}><AbHeroFace id={player.heroId || player.sessionId} art={hero?.art} /><Aura id={player.aura} skin={player.skin} /></div>
       <div>
-        <strong><PlayerName fx={player.nameFx} name={player.sessionId === meId ? t('you') : player.displayName} /></strong>
+        <strong><PlayerName fx={player.nameFx} name={player.sessionId === meId ? t('you') : player.displayName} />{player.isBot && <BotTag />}</strong>
         <small>{hero ? (i18n.language.startsWith('en') ? hero.name.en || hero.name.ru : hero.name.ru) : '—'} · ♥ {player.health}</small>
       </div>
     </header>
@@ -87,7 +88,7 @@ export function Leaderboard({ players, meId, catalog, turn = 0 }: { players: AbP
                 <div className="ab-lb-copy">
                   <strong><PlayerName fx={player.nameFx} name={player.sessionId === meId ? t('you') : player.displayName} /></strong>
                   <span>♥ {player.health}</span>
-                  <small>{t('abTier',{tier:player.tavernTier})}{player.eliminated?` · #${player.placement}`:''}</small>
+                  <small>{t('abTier',{tier:player.tavernTier})}{player.eliminated?` · #${player.placement}`:''}{player.isBot && <BotTag />}</small>
                 </div>
                 {run && run.n >= 2 && <b className={`ab-lb-streak is-${run.result}`} aria-label={run.result === 'win' ? (ru ? `Серия побед: ${run.n}` : `Win streak: ${run.n}`) : (ru ? `Серия поражений: ${run.n}` : `Loss streak: ${run.n}`)}>{run.result === 'win' ? 'W' : 'L'}{run.n}</b>}
                 {player.sessionId===opponentId && <span className="ab-swords" aria-label={t('abSwords')}>⚔</span>}

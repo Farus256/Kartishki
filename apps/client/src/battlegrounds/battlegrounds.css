@@ -516,3 +516,12 @@
 .ab-screen .ab-minion.is-token .ab-reward-mark .ab-spell-glyph { width:66%; align-self:end; }
 .ab-screen .ab-minion.is-token .ab-reward-mark small { max-width:78%; font-size:9px; line-height:1.1; letter-spacing:.02em; color:#3a2a10; }
 .ab-screen .ab-minion.is-token.is-spell { border-color:#8a6a2a; background:linear-gradient(110deg,#e9cf8c,#5a3d2a 45%,#e0c07a); }
+/* Anomaly chip: the same purple identity as the gem, sized for rows and forms (see AnomalyGlyph). */
+.anomaly-chip { display:inline-flex; align-items:center; gap:7px; padding:3px 9px 3px 4px; border:2px solid #b48bff; border-radius:999px; background:linear-gradient(135deg,#6a4696,#3e2a5a); color:#efe4ff; font:15px/1 var(--font-hand); white-space:nowrap; box-shadow:2px 2px 0 #1a1a1a66; }
+.anomaly-chip svg { width:24px; height:24px; flex:none; filter:drop-shadow(0 1px 0 #0008); }
+.anomaly-chip[data-anomaly=none] { background:#4a4650; border-color:#8d879a; color:#d9d3e0; }
+.anomaly-chip[data-anomaly=random] { background:linear-gradient(135deg,#5c4a7a,#3a3050); border-style:dashed; }
+.ab-bot-tag { display:inline-block; margin-left:6px; padding:1px 5px; border:2px solid var(--ink); background:#b8b2a4; color:var(--ink); font:10px/1.2 var(--font-stencil); font-style:normal; letter-spacing:1px; vertical-align:middle; transform:rotate(-3deg); }
+.ab-header-mode { font-size:11px; padding:2px 7px; transform:rotate(-2deg); }
+.ab-lobby-note { font:12px var(--font-mono) !important; color:#5c5040; margin:6px 0 14px !important; }
+.ab-modal-card .room-form { text-align:left; margin:8px 0 14px; }

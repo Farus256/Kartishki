@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { PlayerName } from '../cosmetics/PlayerName';
+import { BotTag } from './BotTag';
 import { Aura } from '../cosmetics/Aura';
 import { CardBackFace } from '../cosmetics/CardBackFace';
 import { HIT_EFFECTS, playHitEffect } from '../cosmetics/hitEffects';
@@ -611,7 +612,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
     <AbHeroFace className="ab-combat-hero-image" id={player.heroId} art={catalog.heroes.find(h => h.id === player.heroId)?.art} /><Aura id={player.aura} skin={player.skin} />
     <span className="ab-combat-hero-vitals ab-hero-health" aria-label={`${t('health')}: ${heroVitals[player.sessionId]?.health}`}><HeartIcon /><span>{heroVitals[player.sessionId]?.health}</span></span>
     </div>
-    <div className="ab-hero-vitals"><strong>{combat.ghost&&player===foe?t('abGhost')+' ':''}<PlayerName fx={player.nameFx} name={player.displayName} /></strong></div>
+    <div className="ab-hero-vitals"><strong>{combat.ghost&&player===foe?t('abGhost')+' ':''}<PlayerName fx={player.nameFx} name={player.displayName} />{player.isBot&&<BotTag />}</strong></div>
     <HeroPowerTooltip power={player.power} catalog={catalog} combat className="ab-hero-power-anchor ab-combat-power-anchor">
     <div className="ab-power" tabIndex={0} aria-label={t('abPower')}>
       <b>{abCopyName(catalog.copy,'powers',player.power.id,i18n.language,t(`abPower_${player.power.id}`,{defaultValue:t('abPower')}))}</b>

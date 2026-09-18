@@ -35,6 +35,8 @@ import { AB_LAYOUT } from '../battlegrounds/battlegroundsLayout';
 import { FuseRope, SandClock, useDeadline } from '../battlegrounds/PhaseClock';
 import { useCardLerp } from '../battlegrounds/useCardLerp';
 import { InkButton } from '../ui/InkButton';
+import { BotTag } from '../battlegrounds/BotTag';
+import { RoomSettingsForm } from './ServerBrowserScreen';
 import { hidePaperTooltips } from '../ui/PaperTooltip';
 import '../battlegrounds/battlegrounds.css';
 import '../battlegrounds/fx-cards.css';
@@ -42,7 +44,7 @@ import '../battlegrounds/fx-table.css';
 import '../battlegrounds/fx-combat.css';
 import '../battlegrounds/fx-polish.css';
 
-export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
+export function BattlegroundsScreen({ onLeave, onBrowser }: { onLeave: () => void; onBrowser?: () => void }) {
   const { t, i18n } = useTranslation();
   const state = useSyncExternalStore(autoBattlerSession.subscribe, autoBattlerSession.getSnapshot);
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
@@ -56,8 +58,8 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
   const storedSet = chosenCardSet();
   const pickedSet = state.setId || (cardSets.some(set => set.id === storedSet) ? storedSet : '');
   useEffect(() => {
-    if (storedSet && state.status === 'online' && state.phase === 'LOBBY' && !state.setId) autoBattlerSession.chooseCardSet('');
-  }, [storedSet, state.status, state.phase, state.setId]);
+    if (storedSet && state.status === 'online' && state.phase === 'LOBBY' && !state.setId && state.mode !== 'custom') autoBattlerSession.chooseCardSet('');
+  }, [storedSet, state.status, state.phase, state.setId, state.mode]);
   const recruitHeroes = useRef(state.players);
   if (state.phase === 'RECRUIT_PHASE' && !state.combat) recruitHeroes.current = state.players;
   const [aim, setAim] = useState<'tavern' | 'board' | null>(null);
@@ -175,7 +177,12 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
     if (player.library) void playerSession.refresh();
     onLeave();
   }
-  function playAgain() { lastTriple.current = 0; setTriple(false); setPlaying(false); playerSession.clearMatchReward(); autoBattlerSession.leave(); void autoBattlerSession.connect(); }
+  // A custom table sends its players back to the browser; the ranked queue re-seats right away.
+  function playAgain() { lastTriple.current = 0; setTriple(false); setPlaying(false); playerSession.clearMatchReward(); autoBattlerSession.leave(); if (custom && onBrowser) { onBrowser(); return; } void autoBattlerSession.connect(); }
+  const custom = state.mode === 'custom';
+  const isHost = custom && state.room?.hostId === state.sessionId;
+  const roomSettings = state.room ?? { name: '', hostId: '', maxPlayers: AUTO_BATTLER.MAX_PLAYERS, bots: 0, anomaly: 'random', timer: 60 };
+  const humans = state.players.filter(p => !p.isBot).length;
 
   function send(intent: AbIntent) {
     if (!dnd.api.tryLock(intentKey(intent))) return;
@@ -241,7 +248,8 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
           <span>{t('abPhase_' + (combatTable ? 'COMBAT_PHASE' : state.phase), { defaultValue: state.phase })}</span>
           {state.turn > 0 && <span>{t('turn', { turn: combatTable ? lastCombat.current?.combat.turn ?? state.turn : state.turn })}</span>}
           {currentSet && <span className="ab-header-set" data-testid="ab-set-name">{pickLoc(currentSet.name, i18n.language)}</span>}
-          <span className="ab-header-count">{state.players.length}/{AUTO_BATTLER.MAX_PLAYERS}</span>
+          <span className={`mode-stamp ${custom ? 'is-custom' : 'is-ranked'} ab-header-mode`} data-testid="ab-mode">{custom ? t('abUnranked') : t('abRanked')}</span>
+          <span className="ab-header-count">{state.players.length}/{custom ? roomSettings.maxPlayers : AUTO_BATTLER.MAX_PLAYERS}</span>
           <div className="ml-auto flex gap-2">
             {inRecruit && state.turn <= AUTO_BATTLER.EARLY_READY_TURNS && (
               <InkButton size="sm" tone={me!.recruitReady ? 'ink' : 'blood'} aria-pressed={me!.recruitReady} data-testid="ab-ready"
@@ -272,7 +280,7 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
             <section className="ab-zone-player" data-testid="ab-zone-player">
               {me && (
                 <>
-                  <div className="ab-round-band"><span>{t('abNextOpponent')} <b>VS <PlayerName fx={opponent?.nameFx} name={opponent?.displayName ?? '—'} /></b></span><span>{aim ? t('abPowerTarget') : t('abOrderHint')}</span><small>{me.board.length}/7</small></div>
+                  <div className="ab-round-band"><span>{t('abNextOpponent')} <b>VS <PlayerName fx={opponent?.nameFx} name={opponent?.displayName ?? '—'} />{opponent?.isBot && <BotTag />}</b></span><span>{aim ? t('abPowerTarget') : t('abOrderHint')}</span><small>{me.board.length}/7</small></div>
                   <BoardRow me={me} catalog={state.catalog} recruit={recruit} aimingBoard={aim === 'board'} selectedId={selected}
                     onActivate={onBoardMinion} />
                   {selected && recruit && <div className="ab-selection-tools"><button onClick={() => { send({ type: 'sell', id: selected }); setSelected(null); }}>{t('abSell', { n: me.sellReward })}</button><button onClick={() => setSelected(null)}>{t('cancel')}</button></div>}
@@ -303,8 +311,14 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
         {state.phase === 'LOBBY' && (
           <div className="ab-modal" data-testid="ab-lobby">
             <div className="ab-modal-card">
-              <h2>{t('abLobby')}</h2>
-              {cardSets.length > 0 && (
+              <h2>{t('abLobby')} <em className={`mode-stamp ${custom ? 'is-custom' : 'is-ranked'}`} data-testid="ab-lobby-mode">{custom ? t('abUnranked') : t('abRanked')}</em></h2>
+              {custom && <>
+                <p className="ab-lobby-note">{t('abCustomRewards')}</p>
+                <RoomSettingsForm value={{ ...roomSettings, setId: state.setId }} disabled={!isHost} humans={humans} onChange={patch => autoBattlerSession.updateRoomSettings(patch)} />
+                <p data-testid="ab-lobby-seats">{t('abSeats', { humans, bots: roomSettings.bots, max: roomSettings.maxPlayers })}</p>
+                {!isHost && <p className="ab-lobby-note">{t('abHostOnly')} {t('abWaitHost')}</p>}
+              </>}
+              {!custom && cardSets.length > 0 && (
                 <label className="ab-set-pick">
                   {t('abCardSet')}
                   <select value={pickedSet} data-testid="ab-set-select" onChange={event => autoBattlerSession.chooseCardSet(event.target.value)}>
@@ -314,11 +328,11 @@ export function BattlegroundsScreen({ onLeave }: { onLeave: () => void }) {
                   <small>{t('abCardSetHint')}</small>
                 </label>
               )}
-              <p>{t('abWaiting', { count: state.players.length })}</p>
-              <InkButton tone="blood" disabled={state.players.length < AUTO_BATTLER.MIN_PLAYERS} onClick={() => autoBattlerSession.startGame()}>
+              {!custom && <p>{t('abWaiting', { count: state.players.length })}</p>}
+              {(!custom || isHost) && <InkButton tone="blood" data-testid="ab-start" disabled={humans + (custom ? roomSettings.bots : 0) < AUTO_BATTLER.MIN_PLAYERS} onClick={() => autoBattlerSession.startGame()}>
                 {t('abStart')}
-              </InkButton>
-              {state.players.length < AUTO_BATTLER.MIN_PLAYERS && <p>{t('abNeedPlayers')}</p>}
+              </InkButton>}
+              {!custom && state.players.length < AUTO_BATTLER.MIN_PLAYERS && <p>{t('abNeedPlayers')}</p>}
             </div>
           </div>
         )}

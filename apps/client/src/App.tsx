@@ -11,6 +11,7 @@ import { DeckBuilderScreen } from './screens/DeckBuilderScreen';
 import { ShopScreen } from './screens/ShopScreen';
 import { MatchScreen } from './screens/MatchScreen';
 import { BattlegroundsScreen } from './screens/BattlegroundsScreen';
+import { ServerBrowserScreen } from './screens/ServerBrowserScreen';
 import { EditorScreen } from './screens/EditorScreen';
 import { SettingsModal } from './screens/SettingsModal';
 import { CustomizationModal } from './screens/CustomizationModal';
@@ -18,7 +19,7 @@ import { audioManager } from './AudioManager';
 import { builtInBackgroundTracks } from './gameAudioAssets';
 import { menuTrackUrl, useMenuTracks } from './ui/useCatalog';
 
-type Screen = 'landing' | 'menu' | 'deck' | 'shop' | 'match' | 'battlegrounds' | 'editor';
+type Screen = 'landing' | 'menu' | 'deck' | 'shop' | 'match' | 'battlegrounds' | 'browser' | 'editor';
 
 i18n.on('languageChanged', language => { document.documentElement.lang = language; });
 
@@ -67,7 +68,7 @@ export function App() {
           transition={{ duration: 0.26, ease: 'easeOut' }}>
           {screen === 'landing' && <LandingScreen onGuest={() => { setGuest(true); setScreen('menu'); }} />}
           {screen === 'menu' && (
-            <MainMenuScreen onPlay={() => setQueue(true)} onBattlegrounds={() => setScreen('battlegrounds')}
+            <MainMenuScreen onPlay={() => setQueue(true)} onBattlegrounds={() => setScreen('battlegrounds')} onBrowser={() => setScreen('browser')}
               onDeck={() => setScreen('deck')} onShop={() => setScreen('shop')}
               onEditor={() => setScreen('editor')}
               onCustomize={() => setCustomize(true)} onExit={exit} />
@@ -75,7 +76,8 @@ export function App() {
           {screen === 'deck' && <DeckBuilderScreen onBack={toMenu} onShop={() => setScreen('shop')} />}
           {screen === 'shop' && <ShopScreen onBack={toMenu} />}
           {screen === 'match' && <MatchScreen onLeave={toMenu} />}
-          {screen === 'battlegrounds' && <BattlegroundsScreen onLeave={toMenu} />}
+          {screen === 'battlegrounds' && <BattlegroundsScreen onLeave={toMenu} onBrowser={() => setScreen('browser')} />}
+          {screen === 'browser' && <ServerBrowserScreen onBack={toMenu} onJoined={() => setScreen('battlegrounds')} />}
           {screen === 'editor' && <EditorScreen onBack={toMenu} />}
         </motion.div>
       </AnimatePresence>

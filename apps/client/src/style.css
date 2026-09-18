@@ -465,3 +465,5 @@ button:focus-visible { outline: 3px solid #a66c14; outline-offset: 4px; }
 .beer-meter-foam { position: absolute; top: -2px; bottom: -2px; width: 8px; margin-left: -4px; background: #fff8e6; border-radius: 4px; box-shadow: 0 0 0 1px #302b2255; }
 .beer-meter.is-dark .beer-meter-fill { background: linear-gradient(180deg, #7a4a1e, #3a2416 60%, #201309); }
 .beer-meter small { font: 10px var(--font-mono); letter-spacing: 1px; text-transform: uppercase; color: #6c6345; }
+/* Main menu: the server browser is the second headline; its stamp says plainly that it never touches the rating. */
+.menu-unranked { background: #6a4696; color: #f3ecff; border-color: #3a2a55; right: 14px; top: 6px; font-size: 13px; letter-spacing: 1px; transform: rotate(6deg); }

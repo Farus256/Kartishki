@@ -15,7 +15,7 @@ import { pickLoc } from '@kartishki/shared';
 import { useServerReady } from '../ui/useServerReady';
 import { GAME_VERSION } from '../version';
 
-type Props = { onPlay: () => void; onBattlegrounds: () => void; onDeck: () => void; onShop: () => void; onEditor: () => void; onCustomize: () => void; onExit: () => void };
+type Props = { onPlay: () => void; onBattlegrounds: () => void; onBrowser: () => void; onDeck: () => void; onShop: () => void; onEditor: () => void; onCustomize: () => void; onExit: () => void };
 const TROPHY = { 1: '#c9a227', 2: '#9aa0a6', 3: '#b87333' } as const;
 function Trophy({ place }: { place: 1 | 2 | 3 }) {
   return <svg className="menu-ladder-trophy" viewBox="0 0 20 22" aria-hidden>
@@ -42,7 +42,7 @@ function untilMidnight() {
   const ms = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime();
   return [Math.floor(ms / 3600000), Math.floor(ms / 60000) % 60, Math.floor(ms / 1000) % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
-export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEditor, onCustomize, onExit }: Props) {
+export function MainMenuScreen({ onPlay, onBattlegrounds, onBrowser, onDeck, onShop, onEditor, onCustomize, onExit }: Props) {
   const { t, i18n } = useTranslation();
   const reduced = useReducedMotion();
   const player = useSyncExternalStore(playerSession.subscribe, playerSession.getSnapshot);
@@ -66,9 +66,12 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEdit
     const id = setInterval(() => setTimer(untilMidnight()), 1000);
     return () => clearInterval(id);
   }, [dailyReady, profile?.id]);
+  // Battlefield is the headline (ranked), the server browser sits right under it (custom, unranked); classic 1v1 keeps a
+  // plain entry further down so it never competes with the two.
   const items = [
-    { key: 'menuPlay', tone: 'blood' as const, run: onPlay, mark: '⚔', play: true },
-    { key: 'menuBattlegrounds', tone: 'blood' as const, run: onBattlegrounds, mark: '🍺' },
+    { key: 'menuBattlegrounds', tone: 'blood' as const, run: onBattlegrounds, mark: '🍺', play: true },
+    { key: 'menuBrowser', tone: 'blood' as const, run: onBrowser, mark: '☰' },
+    { key: 'menuPlay', tone: 'paper' as const, run: onPlay, mark: '⚔', beta: true },
     { key: 'menuDeck', tone: 'paper' as const, run: onDeck, mark: '▤' },
     { key: 'menuShop', tone: 'gold' as const, run: onShop, mark: '$' },
     // Admin-only: the badge stays on for everyone; non-admins cannot open the editor.
@@ -88,7 +91,9 @@ export function MainMenuScreen({ onPlay, onBattlegrounds, onDeck, onShop, onEdit
         initial={reduced ? false : { opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ ...spring, delay: index * .04 }}>
         <InkButton tone={item.tone} size={item.play ? 'xl' : 'lg'} pulse={item.play && !reduced} glow={item.play} onClick={item.run} className={`menu-action ${item.play ? 'menu-play' : ''}`} data-testid={`menu-${item.key}`}>
           <span className="menu-action-icon" aria-hidden>{item.mark}</span><span>{t(item.key)}</span><span className="menu-action-arrow" aria-hidden>↗</span>
-          {item.play && <em className="menu-beta" aria-hidden>{t('menuBeta')}</em>}
+          {item.play && <em className="menu-beta" aria-hidden>{t('abRanked')}</em>}
+          {item.beta && <em className="menu-beta menu-soon" aria-hidden>{t('menuBeta')}</em>}
+          {item.key === 'menuBrowser' && <em className="menu-beta menu-unranked" aria-hidden>{t('abUnranked')}</em>}
           {(item.key === 'menuEditor' || item.key === 'menuDeck') && <em className="menu-beta menu-soon" data-testid={item.key === 'menuEditor' ? 'menu-notice' : 'menu-deck-notice'}>{t('menuSoon')}</em>}
         </InkButton>
       </motion.div>)}</div>

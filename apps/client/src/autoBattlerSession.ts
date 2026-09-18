@@ -14,6 +14,7 @@ import {
   type BattlegroundsRewards,
   type CombatEventsMessage,
   type DiscoverOptionsMessage,
+  type RoomSettings,
 } from '@kartishki/shared';
 import { playerSession } from './playerSession';
 import { chosenCardSet, rememberCardSet } from './activeCardSet';
@@ -44,6 +45,8 @@ export type AbPlayer = {
   board: AbMinion[]; hand: AbMinion[];
   tavern: { offers: AbMinion[]; frozen: boolean; size: number };
   nextOpponentId: string; swords: boolean; eliminated: boolean; placement: number;
+  /** Server-driven seat (no person behind it); the UI tags it. */
+  isBot?: boolean;
   recruitReady: boolean; lastCombatResult: string; lastCombatDamage: number; lastCombatOpponentId: string;
   tripleSerial: number;
   lastActionId: number;
@@ -65,11 +68,19 @@ export type AbSnapshot = {
   combat: CombatEventsMessage | null;
   combatBoards: AbCombatBoards | null;
   pairing: { playerA: string; playerB: string; ghost: boolean }[];
+  /** 'ranked' (rating on) or 'custom' (server-browser room: no rating, reduced payouts). */
+  mode?: 'ranked' | 'custom';
+  /** Custom room settings as the server holds them; hostId tells who may edit and start. */
+  room?: { name: string; hostId: string; maxPlayers: number; bots: number; anomaly: string; timer: number };
 };
+
+/** Where connect() sits down: the ranked queue (default), a fresh custom room, or an existing one from the browser. */
+export type AbTarget = { kind: 'ranked' } | { kind: 'create'; settings: Partial<RoomSettings> } | { kind: 'join'; roomId: string };
 
 const empty = (): AbSnapshot => ({
   status: 'offline', phase: 'LOBBY', turn: 0, revision: 0, recruitSeconds: 0, heroSeconds: 0, phaseEndsAt: 0, sessionId: '', error: '', winnerId: '', anomalyId: '', cancelled: false, setId: '', tribes: [],
   players: [], catalog: starterAutoBattlerCatalog, heroOffers: [], discover: null, combat: null, combatBoards: null, pairing: [],
+  mode: 'ranked', room: { name: '', hostId: '', maxPlayers: AUTO_BATTLER.MAX_PLAYERS, bots: 0, anomaly: 'random', timer: 60 },
 });
 
 function toMinion(m: AutoBattlerMinionState): AbMinion {
@@ -92,7 +103,7 @@ function toPlayer(p: AutoBattlerPlayerState): AbPlayer {
     gold: p.gold, tavernTier: p.tavernTier, upgradeCost: p.upgradeCost,
     board: [...(p.board ?? [])].map(toMinion), hand: [...(p.hand ?? [])].map(toMinion),
     tavern: { offers: [...(p.tavern.offers ?? [])].map(toMinion), frozen: p.tavern.frozen, size: p.tavern.size },
-    nextOpponentId: p.nextOpponentId, swords: p.swords, eliminated: p.eliminated, placement: p.placement,
+    nextOpponentId: p.nextOpponentId, swords: p.swords, eliminated: p.eliminated, placement: p.placement, isBot: p.isBot === true,
     recruitReady: p.recruitReady, lastCombatResult: p.lastCombatResult, lastCombatDamage: p.lastCombatDamage, lastCombatOpponentId: p.lastCombatOpponentId ?? '',
     lastCombatSummary: p.lastCombatSummary, discoverOpen: p.discoverOpen, wheelBonus: p.wheelBonus ?? '',
     pendingDiscover: [...(p.pendingDiscover ?? [])].map(toMinion), tripleSerial: p.tripleSerial,
@@ -112,6 +123,8 @@ let errorTimer: ReturnType<typeof setTimeout> | undefined;
 /** Server echo normally lands in one patch; after this the local guess is dropped. */
 const OPTIMISTIC_TTL_MS = 4000;
 let pending: { actionId: number; at: number; intent: OptimisticIntent }[] = [];
+/** Where the last connect() sat down, so a dropped socket re-seats at the same kind of table (a lost custom room is re-joined by id). */
+let lastTarget: AbTarget = { kind: 'ranked' };
 
 function overlay(base: AbSnapshot): AbSnapshot {
   if (!pending.length) return base;
@@ -141,6 +154,8 @@ function sync(joined: Room<AutoBattlerRoomState>) {
     sessionId: joined.sessionId, winnerId: s.winnerId, heroSeconds: s.heroSeconds, anomalyId: s.anomalyId ?? '', cancelled: s.cancelled === true, setId: s.setId ?? '', tribes: s.tribes ? [...s.tribes] : [],
     players: [...s.players.values()].map(toPlayer),
     pairing: [...(s.pairing ?? [])].map(p => ({ playerA: p.playerA, playerB: p.playerB, ghost: p.ghost })),
+    mode: s.mode === 'custom' ? 'custom' : 'ranked',
+    room: { name: s.room?.name ?? '', hostId: s.room?.hostId ?? '', maxPlayers: s.room?.maxPlayers ?? AUTO_BATTLER.MAX_PLAYERS, bots: s.room?.bots ?? 0, anomaly: s.room?.anomaly ?? 'random', timer: s.room?.timer ?? 60 },
     discover: null,
   });
 }
@@ -148,8 +163,10 @@ function sync(joined: Room<AutoBattlerRoomState>) {
 export const autoBattlerSession = {
   subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
   getSnapshot: () => snapshot,
-  async connect() {
+  /** Sits down at the ranked queue, creates a custom room, or joins one by id (see AbTarget). Idempotent while seated. */
+  async connect(target: AbTarget = { kind: 'ranked' }) {
     if (room || snapshot.status === 'connecting') return;
+    lastTarget = target;
     const attempt = ++generation;
     publish({ ...empty(), status: 'connecting' });
     try {
@@ -159,7 +176,11 @@ export const autoBattlerSession = {
       try { table = sessionStorage.getItem('kartishki-ab-table') ?? ''; } catch { /* optional */ }
       let joined: Room<AutoBattlerRoomState>;
       const token = sessionStorage.getItem(RECONNECT_KEY);
-      const join = (auth: { playerToken?: string }) => client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, table, set: chosenCardSet(), ...auth }, AutoBattlerRoomState);
+      const join = (auth: { playerToken?: string }) => target.kind === 'create'
+        ? client.create<AutoBattlerRoomState>('autoBattler', { displayName: name, mode: 'custom', room: target.settings, ...auth }, AutoBattlerRoomState)
+        : target.kind === 'join'
+          ? client.joinById<AutoBattlerRoomState>(target.roomId, { displayName: name, ...auth }, AutoBattlerRoomState)
+          : client.joinOrCreate<AutoBattlerRoomState>('autoBattler', { displayName: name, mode: 'ranked', table, set: chosenCardSet(), ...auth }, AutoBattlerRoomState);
       try {
         joined = token ? await client.reconnect<AutoBattlerRoomState>(token, AutoBattlerRoomState) : await join(playerSession.authOptions());
       } catch {
@@ -206,7 +227,7 @@ export const autoBattlerSession = {
           return;
         }
         publish({ status: 'offline' });
-        void autoBattlerSession.connect();
+        void autoBattlerSession.connect(lastTarget.kind === 'create' ? { kind: 'join', roomId: joined.roomId } : lastTarget);
       });
       sync(joined);
       joined.send(MSG.ready);
@@ -215,6 +236,8 @@ export const autoBattlerSession = {
     }
   },
   startGame() { room?.send(MSG.startGame); },
+  /** Host only, lobby only; the server re-validates every field. */
+  updateRoomSettings(patch: Partial<RoomSettings>) { room?.send(MSG.roomSettings, patch); },
   /** Pick a set for the next table: leave the current lobby and sit down at one matched by the new set. */
   chooseCardSet(setId: string) {
     rememberCardSet(setId);
