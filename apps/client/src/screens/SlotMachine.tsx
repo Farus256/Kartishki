@@ -40,7 +40,7 @@ export const SLOT_FACES = [
 ];
 
 /** One symbol row. Three rows show per reel; the pay line is the middle one. */
-const CELL = 104;
+const CELL = 84;
 const ROWS = 3;
 /** Strip offset that puts symbol `r` on the middle row (the rows above and below are its real strip neighbours). */
 const rowY = (r: number) => -(r - 1) * CELL;
@@ -116,7 +116,7 @@ const slotStyles = `
 
   margin: 0 auto !important;
 
-  padding: 8px 8px 28px !important;
+  padding: 0 8px !important;
 
   display: grid !important;
   grid-template-columns:
@@ -206,9 +206,9 @@ const slotStyles = `
 .slot-machine h2 {
   max-width: 100%;
   text-align: center;
-  font-size: 52px !important;
+  font-size: 44px !important;
   letter-spacing: 3px !important;
-  margin: 4px 0 14px !important;
+  margin: 2px 0 8px !important;
 }
 
 .slot-machine .reels {
@@ -319,7 +319,7 @@ const slotStyles = `
   align-items: center !important;
 
   gap: 12px !important;
-  padding: 8px 6px 10px 0 !important;
+  padding: 4px 6px 4px 0 !important;
 
   overflow: visible !important;
 }
@@ -360,14 +360,14 @@ const slotStyles = `
 .slot-spin {
   justify-self: end !important;
 
-  width: 132px !important;
-  height: 132px !important;
+  width: 108px !important;
+  height: 108px !important;
 
-  min-width: 132px !important;
-  min-height: 132px !important;
+  min-width: 108px !important;
+  min-height: 108px !important;
 
-  max-width: 132px !important;
-  max-height: 132px !important;
+  max-width: 108px !important;
+  max-height: 108px !important;
 
   padding: 0 !important;
   margin: 0 !important;
@@ -696,75 +696,6 @@ const slotStyles = `
   }
 }
 
-/* ------------------------- */
-/* RESPONSIVE                */
-/* ------------------------- */
-
-@media (max-width: 950px) {
-  .slot-layout {
-    grid-template-columns: 1fr !important;
-
-    width: min(720px, 100%) !important;
-  }
-
-  .slot-rules {
-    position: static !important;
-  }
-
-  .slot-pay {
-    grid-template-columns: 1fr 1fr !important;
-  }
-
-  .slot-pay li {
-    grid-template-columns: 36px minmax(0, 1fr) !important;
-  }
-}
-
-@media (max-width: 650px) {
-  .slot-layout {
-    padding:
-      24px
-      8px
-      14px !important;
-  }
-
-  .slot-machine .reels {
-    gap: 4px !important;
-  }
-
-  .slot-machine .slot-bottom {
-    grid-template-columns:
-      1fr
-      140px !important;
-  }
-
-  .slot-status {
-    grid-column: 1 / -1;
-
-    grid-row: 2;
-
-    width: 100%;
-
-    text-align: center;
-  }
-
-  .slot-spin {
-    width: 120px !important;
-    height: 120px !important;
-
-    min-width: 120px !important;
-    min-height: 120px !important;
-
-    max-width: 120px !important;
-    max-height: 120px !important;
-
-    font-size: 22px !important;
-  }
-
-  .slot-pay {
-    grid-template-columns: 1fr 1fr !important;
-  }
-}
 `;
 
 export function SlotMachine() {

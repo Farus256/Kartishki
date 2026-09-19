@@ -291,65 +291,44 @@ function rimPath(w: number, h: number, pad: number): (t: number) => RimPoint {
 }
 
 /** The heat-haze filter the fire frame's canvas runs through: turbulence displaces the flames a few px, breathing. */
-let heatFilter: SVGSVGElement | undefined;
-function ensureHeatFilter() {
-  if (heatFilter || typeof document === 'undefined') return;
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', '0'); svg.setAttribute('height', '0'); svg.setAttribute('aria-hidden', 'true');
-  svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
-  svg.innerHTML = `<filter id="kartishki-heat" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.018 0.05" numOctaves="2" seed="3" result="n"><animate attributeName="baseFrequency" values="0.018 0.05;0.024 0.062;0.016 0.046;0.018 0.05" dur="4.5s" repeatCount="indefinite"/></feTurbulence><feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G"/></filter>`;
-  document.body.appendChild(svg);
-  heatFilter = svg;
-}
-
 /**
- * Flame frame. Real fire is not a row of shapes, it is a crowd of soft hot blobs rising, cooling and thinning: this
- * emitter spawns ~150 of them a second along the rim (right side → arch → left side), every blob born as a white-yellow
- * core inside an orange body inside a red skirt, all additive, all steered by noise so the licks split and rejoin.
- * Height and density breathe on a slow gust per side; the bottom edge only smoulders. Embers and soot let go of the
- * tips, a bed of coals glows along the rim, and the canvas wobbles through the heat-haze filter (see #kartishki-heat).
+ * Flame frame: no tongues of fire, just a slow storm of embers. Small warm sparks are born along the whole rim, drift
+ * upward at a walking pace, sway on noise and cool from white-yellow through orange to a dull red before they go out.
+ * A faint coal glow breathes along the rim underneath. Dense but quiet — the portrait stays perfectly readable.
  */
 function flameFrame(layer: VfxLayer, w: number, h: number) {
-  ensureHeatFilter();
-  layer.canvas.dataset.fx = 'skin-fire';
-  layer.max = 330;
-  const rim = rimPath(w, h, 4);
+  layer.max = 260;
+  const rim = rimPath(w, h, 6);
   const k = Math.max(.6, Math.min(1.5, w / 160));
-  // Coals: fixed samples all round the rim, brightest on top; only a dull glow along the bottom edge.
-  const bed = Array.from({ length: 56 }, (_, i) => { const p = rim(i / 56); return { p, heat: p.ny < 0 ? 1 : p.ny > .6 ? .3 : .7, seed: rand(0, 50) }; });
-  let acc = 0, soot = 0;
+  const bed = Array.from({ length: 40 }, (_, i) => { const p = rim(i / 40); return { p, heat: p.ny < 0 ? .9 : p.ny > .6 ? .35 : .6, seed: rand(0, 50) }; });
+  let acc = 0;
   layer.emitter((dt, t) => {
-    const gustL = .8 + .35 * noise2(t * .7, 3), gustR = .8 + .35 * noise2(t * .7 + 7, 3);
-    acc += dt * (REDUCED() ? 40 : 170);
+    const gust = .75 + .25 * noise2(t * .5, 3);
+    acc += dt * (REDUCED() ? 14 : 48) * gust;
     while (acc >= 1) {
       acc -= 1;
-      // Where along the rim: right side up over the arch to the left side (t .6 → 1.4), denser at the top corners.
-      const u = .6 + rand(0, .8) ** 1 * 1;
+      // Anywhere on the rim, a little denser up the sides and over the arch; the bottom edge sheds only a few.
+      const u = Math.random();
       const p = rim(u);
-      const gust = p.nx < 0 ? gustL : gustR;
-      const tall = (.5 + .5 * (noise2(t * 2.2 + u * 9, 5) * .5 + .5)) * gust;
-      const life = rand(.45, .8) * (.6 + tall);
-      const rise = rand(48, 84) * k * (.7 + tall * .7);
-      const x = p.x + p.nx * rand(0, 6) * k, y = p.y + p.ny * 2;
-      const vx = p.nx * rand(6, 22) * k, vy = -rise;
-      // Skirt (red, big, thin), body (orange), core (white-yellow, small, brief): three lives from one birth.
-      const sway = noise2(t * 1.6 + u * 14, 11) * 26 * k;
-      layer.spawn({ x, y, vx: vx + sway, vy: vy * .85, ay: -30, turb: 45, drag: .5, life: life * 1.1, size: rand(16, 24) * k, size1: 5 * k, color: '#ff3a12', alpha: .3, fadeIn: .08, fadeOut: .6 });
-      layer.spawn({ x, y, vx: vx + sway, vy, ay: -40, turb: 55, drag: .5, life, size: rand(11, 16) * k, size1: 3 * k, color: '#ff8a1f', alpha: .7, fadeIn: .05, fadeOut: .55 });
-      if (Math.random() < .6) layer.spawn({ x, y, vx: vx * .8 + sway, vy: vy * 1.05, ay: -50, turb: 40, drag: .5, life: life * .55, size: rand(6, 9) * k, size1: 1.5 * k, color: '#fff3b0', alpha: .95, fadeIn: .03, fadeOut: .5 });
-      // The tallest licks shed an ember from the tip.
-      if (tall > .85 && Math.random() < .12) layer.spawn({ x, y: y - 20 * k, vx: p.nx * rand(8, 20) + rand(-10, 10), vy: rand(-70, -40), ay: -20, turb: 130, drag: .5, life: rand(.6, 1.2), size: rand(1.8, 3) * k, size1: .7, color: pick(['#fff1a8', '#ffb347', '#ff7a1a']), alpha: 1, fadeIn: .05, fadeOut: .6 });
+      if (p.ny > .6 && Math.random() < .6) continue;
+      const big = Math.random() < .18;
+      const life = rand(2.2, 4.2) * (big ? 1.2 : 1);
+      layer.spawn({
+        x: p.x + p.nx * rand(0, 8) * k, y: p.y + p.ny * rand(0, 4) * k,
+        vx: p.nx * rand(2, 9) * k, vy: -rand(14, 30) * k, ay: -6 * k, turb: 22, drag: .25,
+        life, size: (big ? rand(2.4, 3.6) : rand(1.2, 2.2)) * k, size1: .5 * k,
+        color: pick(['#fff3b0', '#ffd66b', '#ffb347', '#ff8a3a', '#ff6a2a']), alpha: rand(.7, 1), fadeIn: .12, fadeOut: .55,
+        // A slow twinkle so the cloud never reads as a static texture.
+        weight: q => .55 + .45 * Math.max(0, Math.sin(q.age * rand(2, 3.5) + q.seed)),
+      });
     }
-    // Soot behind the fire, so it reads against a bright wall.
-    soot += dt * (REDUCED() ? 1 : 4);
-    while (soot >= 1) { soot -= 1; const p = rim(rand(.68, 1.32)); layer.spawn({ x: p.x + p.nx * 10, y: p.y - 18 * k, vx: p.nx * rand(4, 12), vy: rand(-30, -16), ay: -8, turb: 60, drag: .3, life: rand(1.2, 2), size: rand(9, 15) * k, size1: rand(24, 34) * k, shape: 'wisp', blend: 'source-over', color: rgba(40, 24, 18, .28), alpha: 1, fadeIn: .25, fadeOut: .5 }); }
     layer.paint((ctx) => {
       ctx.globalCompositeOperation = 'lighter';
       for (const b of bed) {
-        const f = (.55 + .45 * noise2(t * 5, b.seed)) * b.heat;
-        const x = layer.inset + b.p.x, y = layer.inset + b.p.y, r = (8 + 5 * f) * k;
+        const f = (.5 + .5 * noise2(t * 1.6, b.seed)) * b.heat;
+        const x = layer.inset + b.p.x, y = layer.inset + b.p.y, r = (6 + 4 * f) * k;
         const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, `rgba(255,170,60,${.6 * f})`); g.addColorStop(.5, `rgba(255,80,20,${.25 * f})`); g.addColorStop(1, 'rgba(255,60,20,0)');
+        g.addColorStop(0, `rgba(255,150,50,${.28 * f})`); g.addColorStop(.6, `rgba(255,80,20,${.1 * f})`); g.addColorStop(1, 'rgba(255,60,20,0)');
         ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
       }
     });
