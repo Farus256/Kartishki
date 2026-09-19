@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { audioManager } from '../AudioManager';
 import { InkButton } from '../ui/InkButton';
+import { BackButton } from '../ui/BackButton';
 import { spawnBurst } from './tableFx';
 
 type Reward = { elo: number; previousElo: number; gained: number; xpGain?: number };
@@ -46,7 +47,7 @@ export function GameOverCard({ placement, finished, winner, cancelled = false, r
         )}
         <div className="ab-gameover-actions">
           <InkButton tone="blood" onClick={onAgain}>{t('abPlayAgain')}</InkButton>
-          <InkButton tone="ink" onClick={onLeave}>{t('backToMenu')}</InkButton>
+          <BackButton onClick={onLeave} size="md" />
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { DEFAULT_BATTLEGROUNDS_ELO, battlegroundsEloDelta } from './leveling';
-export const DAILY_REWARD = 100;
+export const DAILY_REWARD = 500;
 export const WIN_REWARD = 50;
 export const PACK_COST = 100;
 export const CASE_COST = 200;

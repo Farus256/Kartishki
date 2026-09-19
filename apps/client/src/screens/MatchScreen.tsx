@@ -12,6 +12,7 @@ import { playerSession } from '../playerSession';
 import { session } from '../session';
 import { GameCursor } from '../ui/GameCursor';
 import { InkButton } from '../ui/InkButton';
+import { BackButton } from '../ui/BackButton';
 import '../battlegrounds/battlegrounds.css';
 import '../battlegrounds/fx-cards.css';
 import '../battlegrounds/fx-table.css';
@@ -122,7 +123,7 @@ export function MatchScreen({ onLeave }: { onLeave: () => void }) {
               </div>
             )}
             <div className="ab-gameover-actions">
-              <InkButton tone="ink" onClick={() => { session.leave(); onLeave(); }}>{t('backToMenu')}</InkButton>
+              <BackButton onClick={() => { session.leave(); onLeave(); }} size="md" />
             </div>
           </div>
         </div>

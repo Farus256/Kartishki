@@ -11,6 +11,7 @@ import { PortraitPlaceholder } from '../ui/PortraitPlaceholder';
 import { Backdrop } from '../ui/Backdrop';
 import { CardBack, GameCard } from '../ui/GameCard';
 import { InkButton, spring } from '../ui/InkButton';
+import { BackButton } from '../ui/BackButton';
 import { TopBar } from '../ui/TopBar';
 import { rarityOrder, rarityStyle } from '../ui/rarity';
 import { useCardArt } from '../ui/cardArt';
@@ -85,7 +86,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
   const crate = chests.find(p => p.id === chestId) ?? chests[0];
   return <div className="absolute inset-0 overflow-clip">
     <Backdrop />
-    <TopBar right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
+    <TopBar right={<BackButton onClick={onBack} />} />
     <nav className="shop-tabs" aria-label={t('shopMode')}>
       {tabs.map(key => { const on = tab === key; const locked = !!e.opening && shopTab(e.opening.kind) !== key; return <motion.button key={key} aria-pressed={on} disabled={locked} onClick={() => { setTab(key); e.clearMessage(); }}
         whileHover={locked ? undefined : { y: -3, rotate: on ? -1 : -1.5 }} whileTap={locked ? undefined : { y: 2, scale: .97, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 26 }}>

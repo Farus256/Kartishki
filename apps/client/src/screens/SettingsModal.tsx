@@ -6,6 +6,7 @@ import i18n from '@kartishki/i18n';
 import type { PlayerSettings } from '@kartishki/shared';
 import { playerSession } from '../playerSession';
 import { InkButton, spring } from '../ui/InkButton';
+import { BackButton } from '../ui/BackButton';
 import './settings.css';
 
 /**
@@ -78,7 +79,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
         <footer className="settings-foot">
           <small>{player.library ? t('settingsSavedToAccount') : t('settingsGuestNote')}</small>
-          <InkButton tone="ink" size="sm" onClick={close}>{t('close')}</InkButton>
+          <BackButton onClick={close} label={t('close')} />
         </footer>
       </motion.div>
     </motion.div>

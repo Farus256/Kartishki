@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { CosmeticBrowser } from '../cosmetics/CosmeticBrowser';
 import { InkButton, spring } from '../ui/InkButton';
+import { BackButton } from '../ui/BackButton';
 
 /** Wardrobe: the same browser as the shop, filtered to what the player owns; a click wears it. */
 export function CustomizationModal({ onClose, onShop }: { onClose: () => void; onShop: () => void }) {
@@ -22,7 +23,7 @@ export function CustomizationModal({ onClose, onShop }: { onClose: () => void; o
           <h2 id="customize-title" className="font-hand text-[40px] text-ink">{t('customizeTitle')}</h2>
           <div className="customize-buttons">
             <InkButton tone="gold" size="sm" onClick={() => { onClose(); onShop(); }}>{t('customizeShop')}</InkButton>
-            <InkButton tone="blood" size="sm" onClick={onClose}>{t('close')}</InkButton>
+            <BackButton onClick={onClose} label={t('close')} />
           </div>
         </header>
         <div className="customize-body"><CosmeticBrowser mode="owned" onShop={() => { onClose(); onShop(); }} /></div>

@@ -5,6 +5,7 @@ import { autoBattlerSession } from '../autoBattlerSession';
 import { AnomalyChip } from '../battlegrounds/AnomalyGlyph';
 import { Backdrop } from '../ui/Backdrop';
 import { InkButton } from '../ui/InkButton';
+import { BackButton } from '../ui/BackButton';
 import { TopBar } from '../ui/TopBar';
 import { apiBase, useCardSets } from '../ui/useCatalog';
 import './serverBrowser.css';
@@ -115,7 +116,7 @@ export function ServerBrowserScreen({ onBack, onJoined }: { onBack: () => void; 
       <div className="browser-actions">
         <InkButton size="sm" onClick={() => void refresh()} disabled={loading} data-testid="browser-refresh">↻ {t('browserRefresh')}</InkButton>
         <InkButton size="sm" tone="blood" onClick={() => setCreating(true)} data-testid="browser-create">+ {t('browserCreate')}</InkButton>
-        <InkButton size="sm" tone="ink" onClick={onBack} data-testid="browser-back">↩ {t('browserBack')}</InkButton>
+        <BackButton onClick={onBack} data-testid="browser-back" />
       </div>
     </header>
     <section className="browser-filters" aria-label={t('browserTitle')}>

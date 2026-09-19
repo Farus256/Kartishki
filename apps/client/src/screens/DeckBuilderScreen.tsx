@@ -11,6 +11,7 @@ import { PortraitPlaceholder } from '../ui/PortraitPlaceholder';
 import { Backdrop } from '../ui/Backdrop';
 import { GameCard, LockedSlot } from '../ui/GameCard';
 import { InkButton, spring } from '../ui/InkButton';
+import { BackButton } from '../ui/BackButton';
 import { TopBar } from '../ui/TopBar';
 import { rarityOrder } from '../ui/rarity';
 import { useCardArt } from '../ui/cardArt';
@@ -71,7 +72,7 @@ export function DeckBuilderScreen({ onBack, onShop }: { onBack: () => void; onSh
   return (
     <div className="absolute inset-0">
       <Backdrop />
-      <TopBar onPlus={onShop} right={<InkButton size="sm" onClick={onBack}>{t('backToMenu')}</InkButton>} />
+      <TopBar onPlus={onShop} right={<BackButton onClick={onBack} />} />
 
       <section className="absolute top-[100px] bottom-0 left-0 w-[1070px] binder-board overflow-visible border-r-[8px] border-ink px-[28px] pt-[8px]">
         <h2 className="sr-only">{t('binder')}</h2>
