@@ -40,3 +40,5 @@ release/
 *.key
 .neon
 Backgroundmusik/Bad Piggies theme 1 hour.mp3
+.playwright-mcp/
+.agents/mcp_config.json

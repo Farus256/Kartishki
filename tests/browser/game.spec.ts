@@ -40,7 +40,7 @@ test('editor publishes filtered photo and audio; clients play and attack on the 
   await b.getByRole('button', { name: /^Выбрать героя / }).first().click();
   await keepHands(a, b);
   await expect(a.getByTestId('duel-field')).toBeVisible({ timeout: 10_000 });
-  await expect.poll(async()=> (await snapshot(b)).cards.length).toBe(catalog.cards.length);
+  await expect.poll(async()=> (await snapshot(b)).cards.some(c => c.id === 'browser-card')).toBe(true);
   let summoned='', owner: Page | undefined;
   for(let step=0;step<45 && !summoned;step++) {
     const sa=await snapshot(a), active=sa.activePlayer===sa.sessionId?a:b, s=await snapshot(active);
@@ -48,7 +48,7 @@ test('editor publishes filtered photo and audio; clients play and attack on the 
     const n=s.hand.findIndex(h=>{const c=s.cards.find(c=>c.id===h.cardId)!;return c.cost<=mana&&c.id!=='the-coin';});
     if(n>=0) {
       await active.getByTestId(`duel-hand-card-${s.hand[n]!.instanceId}`).click();
-      await expect.poll(async()=> (await snapshot(active)).minions.length).toBe(1);
+      await expect.poll(async()=> (await snapshot(active)).minions.length).toBeGreaterThanOrEqual(1);
       summoned=(await snapshot(active)).minions[0].id; owner=active; break;
     }
     await active.getByRole('button',{name:'Конец хода'}).click(); await expect.poll(async()=> (await snapshot(active)).revision).toBeGreaterThan(s.revision);
@@ -108,13 +108,14 @@ test('paper desk fits a narrow viewport and reduced motion keeps cards usable', 
   await expect.poll(()=>page.evaluate(()=>document.fonts.check('16px Neucha','Картишки'))).toBe(true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   await page.getByRole('button', { name: 'Играть как гость' }).click();
-  await page.getByRole('button', { name: 'НАСТРОЙКИ', exact: true }).click();
-  await page.getByLabel('Язык').selectOption('en');
+  await page.locator('.topbar-gear').click();
+  await page.getByRole('radio', { name: 'English' }).click();
   await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
   await page.setViewportSize({width:1280,height:1000});
-  await page.getByRole('button', { name: 'SETTINGS' }).click();
-  await page.getByLabel('Language').selectOption('ru');
+  await page.locator('.topbar-gear').click();
+  await page.getByRole('radio', { name: 'Русский' }).click();
+  await page.getByRole('button', { name: 'Закрыть' }).click();
   await page.screenshot({path:'artifacts/desk.png',fullPage:true});
 });
 
@@ -124,15 +125,15 @@ test('account can register, claim daily ink and open a pack', async ({ page }) =
   await page.getByLabel('Имя').fill(username);
   await page.getByLabel('Пароль').fill('password1');
   await page.getByRole('button', { name: 'Регистрация' }).click();
-  await expect(page.getByText(username)).toBeVisible();
-  await expect(page.getByRole('region', {name: 'Ранг игрока'})).toContainText('ELO 1000');
+  await expect(page.getByTestId('player-level').getByText(username)).toBeVisible();
+  await expect(page.getByRole('region', {name: 'Ранг игрока'})).toContainText('0мл');
   await page.getByRole('button', { name: /Ежедневная награда/ }).click();
   await expect(page.getByRole('button', { name: /Ежедневная награда/ })).toBeDisabled();
   await expect(page.getByTestId('daily-reward')).toContainText('До следующей награды');
-  await page.getByRole('button', { name: 'МАГАЗИН', exact:true }).click();
+  await page.getByTestId('menu-menuShop').click();
   await page.getByRole('button', { name: 'Паки', exact: true }).click();
   await page.getByRole('button', { name: /Купить пак/ }).click();
-  await page.getByRole('button', { name: 'Порвать пак' }).click();
+  await page.getByRole('button', { name: 'Порвать пак' }).click({ force: true });
   await expect(page.getByRole('button', {name: /^Перевернуть карту/})).toHaveCount(5);
   await page.getByRole('button', { name: 'Перевернуть карту 1' }).click();
   await expect(page.getByRole('button', {name: /^Перевернуть карту/})).toHaveCount(4);

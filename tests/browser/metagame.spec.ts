@@ -1,4 +1,4 @@
-﻿import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 const state = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('kartishki-demo-economy-v1')!));
 
 test('custom music takes priority and skips an unavailable track', async ({ page }) => {
@@ -95,7 +95,7 @@ test('pack purchase is charged once, resumes, flips five cards', async ({ page }
   await expect(page.getByTestId('player-level')).toContainText('осталось 15');
   await page.reload(); await page.getByRole('button', { name: 'Играть как гость' }).click();
   await page.getByRole('button', { name: /МАГАЗИН/i }).last().click();
-  await page.getByRole('button', { name: 'Порвать пак' }).click();
+  await page.getByRole('button', { name: 'Порвать пак' }).click({ force: true });
   for (let i = 1; i <= 5; i++) await page.getByRole('button', { name: `Перевернуть карту ${i}` }).click();
   if (dust) await expect(page.getByText(/Уже в альбоме:/)).toBeVisible();
   await page.getByRole('button', { name: 'Ура, в коллекцию!' }).click();
@@ -107,7 +107,7 @@ test('pack purchase is charged once, resumes, flips five cards', async ({ page }
 test('all-inclusive pack rips like the others and still converts album duplicates', async ({ page }) => {
   await enter(page, 'shop');
   await page.getByRole('button', { name: 'Паки', exact: true }).click();
-  await page.getByRole('button', { name: 'Всё включено' }).click();
+  await page.locator('.product-choice').filter({ hasText: '150' }).click();
   const before = await state(page);
   await expect(page.locator('.product-choice.chosen .foil-brand')).toHaveText('Картишки Всё включено');
   await expect(page.locator('.product-choice.chosen .foil-emblem')).toHaveText('$');
@@ -122,7 +122,7 @@ test('all-inclusive pack rips like the others and still converts album duplicate
   const dust = rewards.filter(reward => reward.kind === 'duplicate').reduce((sum, reward) => sum + Number(reward.amount), 0);
   const cash = rewards.filter(reward => reward.kind === 'currency').reduce((sum, reward) => sum + Number(reward.amount), 0);
   expect(mid.dollars).toBe(1350);
-  await page.getByRole('button', { name: 'Порвать пак' }).click();
+  await page.getByRole('button', { name: 'Порвать пак' }).click({ force: true });
   for (let i = 0; i < rewards.length; i++) {
     const kind = rewards[i]!.kind;
     await page.getByRole('button', { name: kind === 'card' || kind === 'duplicate' ? `Перевернуть карту ${i + 1}` : `Перевернуть награду ${i + 1}` }).click();

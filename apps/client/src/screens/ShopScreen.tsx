@@ -95,7 +95,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
     </nav>
     <p role="status" className="absolute right-12 top-[124px] max-w-[620px] text-right font-mono text-[13px] text-blood">{e.message}</p>
     <main className="absolute inset-x-[55px] top-[186px] bottom-[24px]">
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="wait">
         <motion.div key={tab} className="shop-tab-panel" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: .16, ease: [.2, .8, .3, 1] }}>
           {tab === 'casino' && <CasinoGames />}
           {tab === 'cosmetics' && <CosmeticsStall />}

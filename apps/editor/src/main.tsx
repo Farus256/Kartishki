@@ -45,7 +45,27 @@ function Editor() {
     try { const result = await fetch(`${endpoint}/api/catalog`); if (!result.ok) throw new Error(); const data: Catalog = await result.json(); setCatalog(data); setMessage('catalogLoaded'); }
     catch { setMessage('connectionError'); } finally { setBusy(false); }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    let unmounted = false;
+    async function init() {
+      for (let i = 0; i < 6; i++) {
+        try {
+          const result = await fetch(`${endpoint}/api/catalog`);
+          if (result.ok && !unmounted) {
+            const data: Catalog = await result.json();
+            setCatalog(data);
+            setMessage('catalogLoaded');
+            return;
+          }
+        } catch { /* wait for server boot */ }
+        if (unmounted) return;
+        await new Promise(r => setTimeout(r, 600));
+      }
+      if (!unmounted) setMessage('connectionError');
+    }
+    void init();
+    return () => { unmounted = true; };
+  }, []);
   function save() {
     if (!validateCard(card)) { setMessage('invalidCard'); return; }
     const url = URL.createObjectURL(new Blob([JSON.stringify(card,null,2)], { type: 'application/json' }));
@@ -73,7 +93,7 @@ function Editor() {
 
   const nav = <>
     <button type="button" aria-pressed={mode === 'battlegrounds'} onClick={() => { setMode('battlegrounds'); void load(); }}>{i18n.language === 'ru' ? 'Поле сражений' : 'Battlegrounds'}</button>
-    <button type="button" aria-pressed={mode === 'cards'} onClick={() => setMode('cards')}>{i18n.language === 'ru' ? 'Обычные карты' : 'Standard cards'}</button>
+    <button type="button" aria-pressed={mode === 'cards'} onClick={() => { setMode('cards'); void load(); }}>{i18n.language === 'ru' ? 'Обычные карты' : 'Standard cards'}</button>
     <button type="button" aria-pressed={mode === 'shop'} onClick={() => { setMode('shop'); void load(); }}>{t('shopEditor')}</button>
     <button type="button" aria-pressed={mode === 'levels'} onClick={() => { setMode('levels'); void load(); }}>{t('levelsEditor')}</button>
     <button type="button" aria-pressed={mode === 'music'} onClick={() => { setMode('music'); void load(); }}>{t('menuMusic')}</button>

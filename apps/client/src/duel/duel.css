@@ -70,7 +70,7 @@
 .duel-hero.is-away .ab-hero-face { filter:grayscale(.8) brightness(.7); }
 .duel-away { position:absolute; left:50%; bottom:-22px; transform:translateX(-50%); padding:2px 8px; border:2px solid var(--ink); border-radius:8px; background:#e9dfc4; color:var(--blood); font:12px var(--font-mono); font-style:normal; white-space:nowrap; }
 .duel-hero-face.is-hit::after { content:''; position:absolute; inset:4px; border-radius:34% 34% 5% 5%; background:var(--blood); pointer-events:none; opacity:0; animation:ab-hit .22s ease-out; }
-.duel-hero-name { position:absolute; max-width:190px; color:#ffdfab; text-shadow:0 2px 3px #221720; }
+.duel-hero-name { position:absolute; max-width:190px; color:#ffdfab; text-shadow:0 2px 3px #221720; pointer-events:none; }
 .duel-mana { position:absolute; display:flex; align-items:center; gap:10px; padding:0 14px 0 12px; height:44px; border:4px ridge #7fb7d8; border-radius:24px; background:linear-gradient(180deg,#1d3446,#132330); box-shadow:0 0 0 3px var(--ab-ring),0 6px 12px #0007; color:#e8f6ff; }
 .duel-mana strong { min-width:58px; font:26px var(--font-stencil); color:#bfe9ff; text-shadow:0 2px 0 #0d2233; white-space:nowrap; text-align:center; }
 .duel-mana em { font:12px var(--font-mono); color:#8cc9ea; margin-left:2px; font-style:normal; }
