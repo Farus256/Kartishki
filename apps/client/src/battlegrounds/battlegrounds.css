@@ -248,6 +248,7 @@
 .ab-minion-art { display:block; height:100px; overflow:hidden; border:1px solid var(--ink); background:#d5cfbd; clip-path:polygon(0 2%,98% 0,100% 98%,1% 100%); }
 .ab-minion-art img { width:100%; height:100%; object-fit:cover; }
 .ab-minion-tier { position:absolute; left:-11px; top:-11px; width:34px; height:34px; transform:rotate(-9deg); border:2px solid var(--ink); background:var(--gold); font:20px/30px var(--font-stencil); }
+.ab-minion-price { position:absolute; right:-11px; top:-11px; min-width:34px; height:34px; padding:0 4px; box-sizing:border-box; transform:rotate(9deg); border:2px solid var(--ink); background:#2e8b44; color:#fff8df; font:20px/30px var(--font-stencil); text-align:center; box-shadow:2px 3px 0 #1a1a1a44; z-index:5; pointer-events:none; }
 .ab-minion-name { position:relative; display:block; font:17px/20px var(--font-hand); margin:3px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ab-minion-stats { position:absolute; bottom:8px; left:-14px; right:-14px; z-index:5; display:flex; justify-content:space-between; pointer-events:none; font:23px var(--font-stencil); overflow:visible; }
 .ab-minion-stats b,.ab-minion-stats i { position:relative; display:grid; place-items:center; width:40px; height:40px; border:0; background:transparent; color:#fff8df; font-style:normal; isolation:isolate; text-shadow:1px 2px 1px #241d16,-1px -1px #241d16; }
@@ -295,6 +296,7 @@
 .ab-screen .ab-minion.is-token .ab-minion-art { height:152px; border-radius:50%; clip-path:none; border:1px solid #362922; }
 .ab-screen .ab-minion.is-token .ab-minion-name { display:none; }
 .ab-screen .ab-minion.is-token .ab-minion-tier { width:30px; height:30px; font-size:18px; line-height:26px; left:0; top:-6px; }
+.ab-screen .ab-minion.is-token .ab-minion-price { min-width:30px; height:30px; font-size:18px; line-height:26px; right:0; top:-6px; padding:0 2px; }
 .ab-screen .ab-minion.is-token .ab-minion-stats { bottom:-8px; left:-2px; right:-2px; font-size:28px; }
 .ab-screen .ab-minion.is-token .ab-minion-stats b,.ab-screen .ab-minion.is-token .ab-minion-stats i { width:38px; height:36px; }
 .ab-screen .ab-minion.is-token .ab-minion-keys { display:flex; bottom:34px; left:18px; right:18px; z-index:8; background:transparent; gap:3px; }

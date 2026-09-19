@@ -55,8 +55,9 @@
 /* Hand: the hovered card grows, neighbours lean away */
 .ab-hand .ab-minion-wrap { transition:translate .18s ease,transform .15s cubic-bezier(.2,.8,.3,1); }
 .ab-hand .ab-minion-wrap:hover ~ .ab-minion-wrap { translate:22px 0; }
-.ab-hand .ab-minion-wrap:has(~ .ab-minion-wrap:hover) { translate:-22px 0; }
-.ab-screen.is-ab-dragging .ab-hand .ab-minion-wrap { translate:0 0!important; }
+.ab-screen.is-ab-dragging .ab-hand .ab-minion-wrap,
+.ab-screen.is-ab-dragging .ab-hand .ab-minion-wrap:hover ~ .ab-minion-wrap,
+.ab-screen.is-ab-dragging .ab-hand .ab-minion-wrap:has(~ .ab-minion-wrap:hover) { translate:0 0; transition:translate .24s cubic-bezier(.2,.8,.3,1); }
 
 @media(prefers-reduced-motion:reduce) {
   .ab-poison-drop,.ab-reborn-sash i,.ab-token-shadow,.ab-screen .ab-minion.is-token .ab-minion-art,.paper-tooltip.is-dossier { animation:none!important; }

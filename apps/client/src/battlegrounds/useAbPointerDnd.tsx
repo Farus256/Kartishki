@@ -157,7 +157,10 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const ghostEl = ghostRef.current;
     if (!ghostEl) return;
     ghostEl.style.transformOrigin = `${run.grab.x}px ${run.grab.y}px`;
-    ghostEl.style.transform = `translate3d(${run.pointer.x - run.grab.x}px,${run.pointer.y - run.grab.y}px,0) scale(${AB_DND.PICKUP_SCALE}) rotate(${tilt}deg)`;
+    // Movement lives in `translate`, not inside `transform`: the pickup keyframe animates `scale`, which composes
+    // after `transform`, so a translate3d there would be scaled too and the ghost would lurch off the pointer.
+    ghostEl.style.translate = `${run.pointer.x - run.grab.x}px ${run.pointer.y - run.grab.y}px`;
+    ghostEl.style.transform = `scale(${AB_DND.PICKUP_SCALE}) rotate(${tilt}deg)`;
   }, []);
 
   const applyArrow = useCallback((run: Run) => {
@@ -273,10 +276,11 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     }
     target ??= park.run.origin;
     const ms = reduced ? 0 : park.mode === 'return' ? AB_DND.RETURN_MS : LAND_MS;
-    ghostEl.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2,.75,.2,1), width ${ms}ms ease, height ${ms}ms ease, opacity ${ms}ms ease` : '';
+    ghostEl.style.transition = ms ? `translate ${ms}ms cubic-bezier(.2,.75,.2,1), transform ${ms}ms cubic-bezier(.2,.75,.2,1), width ${ms}ms ease, height ${ms}ms ease, opacity ${ms}ms ease` : '';
     ghostEl.style.width = `${target.w}px`;
     ghostEl.style.height = `${target.h}px`;
-    ghostEl.style.transform = `translate3d(${target.x}px,${target.y}px,0) scale(1) rotate(0deg)`;
+    ghostEl.style.translate = `${target.x}px ${target.y}px`;
+    ghostEl.style.transform = 'scale(1) rotate(0deg)';
     if (fade) ghostEl.style.opacity = '0';
     if (!park.aimed) {
       park.aimed = true;
@@ -349,19 +353,22 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       run.armed = true;
       try { run.host.setPointerCapture(run.pointerId); } catch { /* synthetic pointers */ }
       suppressRef.current = run.source;
-      run.source.classList.add('is-grabbed');
-      if (run.minion) { setGhost({ minion: run.minion, full: run.payload.kind === 'hand' }); audioManager.play('ab_pickup'); }
-      setView({
-        kind: run.payload.kind,
-        draggingId: run.payload.id,
-        previewIndex: run.payload.kind === 'board' ? run.payload.index : null,
-        zone: 'none',
-        targetId: null,
-        valid: false,
-        armed: true,
-        settling: false,
-        hidden: null,
+      run.source.style.visibility = 'hidden';
+      flushSync(() => {
+        if (run.minion) { setGhost({ minion: run.minion, full: run.payload.kind === 'hand' }); audioManager.play('ab_pickup'); }
+        setView({
+          kind: run.payload.kind,
+          draggingId: run.payload.id,
+          previewIndex: run.payload.kind === 'board' ? run.payload.index : null,
+          zone: 'none',
+          targetId: null,
+          valid: false,
+          armed: true,
+          settling: false,
+          hidden: null,
+        });
       });
+      run.source.classList.add('is-grabbed');
     }
     const tilt = clampTilt(vx);
     if (!rafRef.current) {
@@ -397,20 +404,11 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const screen = screenRef.current;
     if (!screen) return;
     const root = stageBox(screen);
-    // A hovered hand card is zoomed and lifted; the ghost is the resting card. Measure the box as the player sees it,
-    // then drop the hover zoom with its transition switched off so the resting box is real (mid-transition it was a
-    // blend of both, and the ghost jumped in the hand). The grab point is kept at the same fraction of the card.
     const el = event.currentTarget;
     const shown = rectToLocal(el.getBoundingClientRect(), root, STAGE_W, STAGE_H);
-    const prevTransition = el.style.transition;
-    el.style.transition = 'none';
-    el.classList.add('is-grabbed');
-    void el.offsetWidth;
-    const grabbed = rectToLocal(el.getBoundingClientRect(), root, STAGE_W, STAGE_H);
-    // The resting box is measured; the card keeps its hovered look until the drag actually arms (a press must not snap it).
-    el.classList.remove('is-grabbed');
-    void el.offsetWidth;
-    el.style.transition = prevTransition;
+    const wrap = payload.kind === 'hand' ? (el.closest('.ab-minion-wrap') as HTMLElement | null) : null;
+    const wrapRect = wrap ? rectToLocal(wrap.getBoundingClientRect(), root, STAGE_W, STAGE_H) : null;
+    const grabbed = wrapRect && wrapRect.h > 80 ? wrapRect : shown;
     // A pickup while the previous ghost is still landing ends that landing now, so
     // every tile under this gesture is where it looks.
     if (viewRef.current.settling) flushSync(reveal);
@@ -423,7 +421,14 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const run: Run = {
       pointerId: event.pointerId,
       payload,
-      grab: (() => { const g = grabOffset(pointer, { x: shown.x, y: shown.y }); const fx = shown.w ? g.x / shown.w : .5, fy = shown.h ? g.y / shown.h : .5; return { x: Math.max(8, Math.min(grabbed.w - 8, fx * grabbed.w)), y: Math.max(8, Math.min(grabbed.h - 8, fy * grabbed.h)) }; })(),
+      grab: (() => {
+        const g = grabOffset(pointer, { x: shown.x, y: shown.y });
+        const fx = shown.w ? g.x / shown.w : .5, fy = shown.h ? g.y / shown.h : .5;
+        return {
+          x: Math.max(0, Math.min(grabbed.w, fx * grabbed.w)),
+          y: Math.max(0, Math.min(grabbed.h, fy * grabbed.h)),
+        };
+      })(),
       origin: grabbed,
       startClient: { x: event.clientX, y: event.clientY },
       lastClient: { x: event.clientX, y: event.clientY },
@@ -449,6 +454,7 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
     const fail = () => { cleanup(); cancel(); };
     const key = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { cleanup(); cancel(); } };
     const cleanup = () => {
+      run.source.style.visibility = '';
       run.source.classList.remove('is-grabbed');
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -480,6 +486,8 @@ export function useAbPointerDnd({ enabled, me, catalog, screenRef, onIntent }: O
       ghostEl.style.height = `${run.origin.h}px`;
       // Start at the size the player saw, settle into the carry scale: no pop at pickup. The tilt follows the first move.
       ghostEl.style.setProperty('--ab-pick-from', (run.pickScale / AB_DND.PICKUP_SCALE).toFixed(3));
+      ghostEl.classList.remove('is-picking');
+      void ghostEl.offsetWidth;
       ghostEl.classList.add('is-picking');
       applyGhost(run, 0);
     }

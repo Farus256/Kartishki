@@ -83,7 +83,7 @@ function MinionDossier({ minion, catalog, inline = false }: { minion: AbMinion; 
   return (
     <article className={`ab-dossier ${minion.golden ? 'is-golden' : ''} ${spell ? 'is-spell' : ''}`} data-testid={inline ? undefined : 'ab-dossier'}>
       <span className="ab-dossier-stars">{'★'.repeat(minion.tavernTier)}</span>
-      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark" data-spell={def?.spell?.kind ?? 'discover'}><SpellGlyph kind={minion.cardId === 'ab-discover' ? 'discover' : def?.spell?.kind ?? 'discover'} /><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" />}</div>
+      <div className="ab-dossier-art">{spell ? <span className="ab-reward-mark" data-spell={def?.spell?.kind ?? 'discover'}><SpellGlyph kind={minion.cardId === 'ab-discover' ? 'discover' : def?.spell?.kind ?? 'discover'} /></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" />}</div>
       <h3 className="ab-dossier-name">{name}</h3>
       <div className="ab-dossier-text">
         {lines.map(line => <p key={line}><CardText line={line} titles={titles} /></p>)}
@@ -160,14 +160,14 @@ export function MinionTile({ minion, catalog, actionLabel, disabled, selected, d
           {actionLabel && <span className="ab-minion-act">{actionLabel}</span>}
         </> : <>
         {!fullCard && !ghost && <i className="ab-token-shadow" aria-hidden />}
-        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark" data-spell={def?.spell?.kind ?? 'discover'}><SpellGlyph kind={minion.cardId === 'ab-discover' ? 'discover' : def?.spell?.kind ?? 'discover'} /><small>{name}</small></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" draggable={false} />}</span>
+        <span className="ab-minion-art">{spell ? <span className="ab-reward-mark" data-spell={def?.spell?.kind ?? 'discover'}><SpellGlyph kind={minion.cardId === 'ab-discover' ? 'discover' : def?.spell?.kind ?? 'discover'} /></span> : <img src={def?.art?.url && art ? art : illustrationUrl(minion.cardId, def?.tribes)} alt="" draggable={false} />}</span>
         <span className="ab-minion-tier">{spell ? '★' : minion.tavernTier}</span>
         {price !== undefined && <span className="ab-minion-price" data-testid="ab-offer-price">${price}</span>}
         {minion.keywords.includes('taunt') && <TauntFrame />}
         {minion.keywords.includes('divineShield') && <span className="ab-shield-bubble" aria-hidden="true" />}
         {minion.keywords.includes('reborn') && <RebornSash />}
         {minion.keywords.includes('windfury') && <span className="ab-wind" aria-hidden="true"><i /><i /><i /></span>}
-        <span className="ab-minion-name">{name}</span>
+        {!spell && <span className="ab-minion-name">{name}</span>}
         {fullCard && !spell && <span className="ab-minion-tribe">{minionTribeLabel(def, catalog, i18n.language, t)}</span>}
         {fullCard && !dossier && <span className="ab-minion-text"><CardText line={minionDossierLines(minion, catalog, i18n.language, t)[0] ?? ''} titles={keywordTitles(catalog, i18n.language, t)} /></span>}
         {!spell && (

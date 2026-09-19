@@ -64,19 +64,28 @@ test('windfury pip, oval spell face with a bigger price, and no ghost left behin
   expect(pip).toContain('×2');
   const spell = page.getByTestId('ab-minion-offer-spell');
   await expect(spell.locator('.ab-reward-mark')).toHaveCSS('border-radius', '50%');
-  await expect(spell.getByTestId('ab-offer-price')).toHaveText('$1');
-  const priceSize = await spell.getByTestId('ab-offer-price').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+  await expect(spell.locator('.ab-minion-name')).toHaveCount(0);
+  await expect(spell.locator('.ab-reward-mark small')).toHaveCount(0);
+  const priceBadge = spell.getByTestId('ab-offer-price');
+  await expect(priceBadge).toHaveText('$1');
+  await expect(priceBadge).toHaveCSS('background-color', 'rgb(46, 139, 68)');
+  const priceSize = await priceBadge.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
   expect(priceSize).toBeGreaterThanOrEqual(16);
   await page.waitForTimeout(1300);
   await page.screenshot({ path: 'artifacts/ab-spell-oval.png', clip: { x: 300, y: 340, width: 900, height: 200 } });
-  // Drag a hand card: the source tile is invisible (no semi-transparent stand-in) while the ghost is in flight.
+  // Drag a hand card: the pickup is smooth (starts at the hovered position, no 78px snap down) and the source tile is hidden.
   const hand = page.getByTestId(`ab-minion-${me.hand[2]!.id}`);
   const from = (await hand.boundingBox())!;
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 10, from.y + from.height / 2 - 15, { steps: 3 });
+  const ghost = page.getByTestId('ab-drag-ghost');
+  await expect(ghost).toBeVisible();
+  const ghostStartBox = (await ghost.boundingBox())!;
+  expect(ghostStartBox.y).toBeLessThan(from.y);
+  expect(Math.abs(ghostStartBox.y - (from.y - 15))).toBeLessThan(30);
   await page.mouse.move(from.x + from.width / 2 + 30, from.y - 40, { steps: 6 });
   await page.mouse.move(from.x + from.width / 2 + 60, from.y - 120, { steps: 6 });
-  await expect(page.getByTestId('ab-drag-ghost')).toBeVisible();
   const draggingId = await page.getByTestId('ab-screen').getAttribute('data-dragging-id');
   expect(draggingId).toBeTruthy();
   await expect(page.locator(`.ab-hand [data-ab-id="${draggingId}"]`)).toHaveCSS('visibility', 'hidden');

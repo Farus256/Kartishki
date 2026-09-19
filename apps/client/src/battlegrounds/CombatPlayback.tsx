@@ -232,6 +232,7 @@ export function CombatPlayback({combat,boards,meId,catalog,players,pairing:_pair
    tiles.current.get(id)?.animate([{filter:'brightness(1)'},{filter:'brightness(1.8) drop-shadow(0 0 14px #ffd76a)'},{filter:'brightness(1)'}],{duration:ms/rate.current});
    await animate(node,[{transform:'translate(-50%,-50%) scale(.5)',opacity:0},{transform:'translate(-50%,-50%) scale(1.3)',opacity:1,offset:.25},{transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(.8)`,opacity:1}],ms,{easing:'cubic-bezier(.5,0,.7,1)'}).finished.catch(()=>{});
    node.remove();
+   if(!cancelled)audioManager.play('ab_tally');
    tallyEl.animate([{scale:'1'},{scale:'1.25'},{scale:'1'}],{duration:220/rate.current});
   };
   const tileCenter=(id:string)=>{const el=tiles.current.get(id);if(!el)return undefined;return {x:parseFloat(el.style.left)*W/100+CW/2,y:parseFloat(el.style.top)*H/100+CH*.45};};
