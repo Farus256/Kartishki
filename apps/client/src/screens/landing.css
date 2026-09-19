@@ -1,0 +1,307 @@
+/* Noir Crime Archive / Dossier Styling for the Landing Screen */
+
+.landing-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Atmospheric vignette and warm detective desk pool */
+.landing-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 680px 480px at 28% 44%, rgba(245, 230, 200, 0.07) 0%, transparent 80%),
+    radial-gradient(ellipse 600px 440px at 80% 40%, rgba(245, 230, 200, 0.05) 0%, transparent 75%),
+    radial-gradient(circle at 50% 50%, transparent 40%, rgba(10, 14, 12, 0.72) 100%);
+  mix-blend-mode: screen;
+}
+
+/* Subtle archival film grain */
+.landing-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.12;
+  background-image: repeating-radial-gradient(circle at 17% 32%, #000 0 1px, transparent 1px 3px),
+                    repeating-radial-gradient(circle at 83% 68%, #fff 0 1px, transparent 1px 4px);
+}
+
+/* Manila Archival Folder Backing */
+.landing-folder {
+  position: relative;
+  background: #1c1815;
+  background-image:
+    linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%),
+    repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 2px, transparent 2px 8px);
+  border: 4px solid #0d0d0d;
+  box-shadow:
+    14px 18px 0 rgba(0, 0, 0, 0.75),
+    0 12px 36px rgba(0, 0, 0, 0.65);
+  clip-path: polygon(0 0.8%, 99.4% 0%, 100% 99.2%, 0.6% 100%);
+}
+
+/* Top metal paperclip fixture */
+.landing-paperclip {
+  position: absolute;
+  top: -14px;
+  right: 48px;
+  width: 24px;
+  height: 52px;
+  border: 4px solid #8c8983;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 2px 3px 0 rgba(0,0,0,0.55);
+  pointer-events: none;
+  z-index: 20;
+}
+.landing-paperclip::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 3px;
+  right: 3px;
+  height: 38px;
+  border: 3px solid #8c8983;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+
+/* Inner Aged Parchment Dossier Record */
+.landing-sheet {
+  position: relative;
+  color: #1a1a1a;
+  background:
+    linear-gradient(178deg, #fbf7ee 0%, #f1e9d5 100%) padding-box,
+    repeating-linear-gradient(180deg, transparent 0 29px, rgba(26, 26, 26, 0.055) 29px 30px) padding-box;
+  border: 3px solid #1a1a1a;
+  box-shadow: 6px 8px 0 rgba(0, 0, 0, 0.35);
+  clip-path: polygon(0 0.4%, 99.7% 0%, 100% 99.6%, 0.3% 100%);
+}
+
+/* Red vertical ledger rule line */
+.landing-sheet-rule::before {
+  content: '';
+  position: absolute;
+  left: 28px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(217, 37, 37, 0.38);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Dossier Folder Tabs (role="tab") */
+.landing-tabs {
+  display: flex;
+  gap: 8px;
+  position: relative;
+  z-index: 10;
+}
+
+.landing-tab {
+  font-family: var(--font-hand);
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  padding: 8px 18px 7px;
+  border: 2px solid #1a1a1a;
+  border-bottom: none;
+  background: #e2d8c2;
+  color: #4a453e;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  box-shadow: 2px -2px 0 rgba(0,0,0,0.15);
+  clip-path: polygon(4% 0%, 96% 0%, 100% 100%, 0% 100%);
+}
+
+.landing-tab:hover:not(.is-active) {
+  background: #eee5d2;
+  color: #1a1a1a;
+  transform: translateY(-2px);
+}
+
+.landing-tab.is-active {
+  background: #1a1a1a;
+  color: #efece4;
+  border-color: #1a1a1a;
+  transform: translateY(-3px);
+  box-shadow: 3px -3px 0 rgba(0,0,0,0.3);
+}
+
+.landing-tab:focus-visible {
+  outline: 2px solid var(--blood);
+  outline-offset: 2px;
+}
+
+/* Rubber Stamp Styling */
+.landing-stamp-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 2px solid rgba(217, 37, 37, 0.85);
+  color: #d92525;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: bold;
+  transform: rotate(-3deg);
+  opacity: 0.9;
+  background: rgba(217, 37, 37, 0.04);
+  box-shadow: inset 0 0 8px rgba(217, 37, 37, 0.1);
+}
+
+.landing-stamp-gray {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px dashed rgba(26, 26, 26, 0.4);
+  color: rgba(26, 26, 26, 0.7);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* Input Fields on the Dossier Sheet */
+.landing-input {
+  width: 100%;
+  border: 2px solid #2d2925;
+  background: #fffdf9;
+  color: #1a1a1a;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  outline: none;
+  box-shadow: inset 1px 2px 3px rgba(0, 0, 0, 0.08), 3px 3px 0 rgba(0, 0, 0, 0.08);
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+.landing-input:focus {
+  border-color: #d92525;
+  background: #ffffff;
+  box-shadow: inset 1px 2px 3px rgba(217, 37, 37, 0.1), 3px 3px 0 rgba(217, 37, 37, 0.35);
+}
+
+.landing-input::placeholder {
+  color: rgba(26, 26, 26, 0.35);
+  font-style: italic;
+}
+
+/* Password reveal eye icon button */
+.landing-pw-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #555047;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.12s ease;
+}
+
+.landing-pw-toggle:hover {
+  color: #1a1a1a;
+  background: rgba(26, 26, 26, 0.08);
+  border-color: rgba(26, 26, 26, 0.18);
+}
+
+/* Error banner */
+.landing-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #fee2e2;
+  border: 2px solid #d92525;
+  box-shadow: 3px 3px 0 rgba(217, 37, 37, 0.4);
+  color: #991b1b;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  clip-path: polygon(0 2%, 99.5% 0, 100% 98%, 0.5% 100%);
+}
+
+/* Guest pass section */
+.landing-guest-section {
+  position: relative;
+  background: rgba(26, 26, 26, 0.04);
+  border: 2px dashed rgba(26, 26, 26, 0.25);
+  padding: 14px 18px;
+  clip-path: polygon(0 1%, 99.5% 0, 100% 99%, 0.5% 100%);
+}
+
+/* Evidence Showcase Pedestal */
+.showcase-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  font-family: var(--font-stencil);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border: 2px solid #1a1a1a;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+}
+
+.showcase-tag-common {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.showcase-tag-legendary {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #b45309;
+}
+
+.showcase-tag-ultimate {
+  background: #cffafe;
+  color: #155e75;
+  border-color: #0e7490;
+}
+
+/* Battlegrounds Minion Showcase on Landing Screen */
+.landing-ab-card-wrap {
+  transform: scale(0.88);
+  transform-origin: top center;
+}
+
+.landing-ab-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.landing-lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(239, 236, 228, 0.3);
+  color: #efece4;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  transition: all 0.15s ease;
+}
+
+.landing-lang-btn:hover {
+  border-color: #d92525;
+  background: rgba(0, 0, 0, 0.75);
+}
+
